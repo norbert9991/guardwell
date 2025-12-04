@@ -1,92 +1,76 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Activity, Thermometer, Wind, Droplets, Battery, Signal, User, Shield, Radio } from 'lucide-react';
 import { CardDark, CardBody } from '../components/ui/Card';
 import { MetricCard } from '../components/ui/MetricCard';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { useSocket } from '../context/SocketContext';
+import { devicesApi, sensorsApi } from '../utils/api';
 
 export const LiveMonitoring = () => {
     const { sensorData, connected } = useSocket();
     const [filter, setFilter] = useState('all');
+    const [devices, setDevices] = useState([]);
+    const [isLoading, setIsLoading] = useState(true);
 
-    // Mock worker data for demonstration
-    const workers = [
-        {
-            id: 1,
-            name: 'Juan dela Cruz',
-            photo: null,
-            department: 'Manufacturing',
-            device: 'DEV-001',
-            timeWorking: '02:34:12',
-            sensors: {
-                temperature: 34.5,
-                gas: 150,
-                humidity: 65,
-                battery: 85,
-                signal: -45,
-                movement: 'Active'
-            },
-            status: 'normal'
-        },
-        {
-            id: 2,
-            name: 'Maria Santos',
-            photo: null,
-            department: 'Assembly',
-            device: 'DEV-002',
-            timeWorking: '03:15:47',
-            sensors: {
-                temperature: 42.3,
-                gas: 320,
-                humidity: 72,
-                battery: 62,
-                signal: -52,
-                movement: 'Active'
-            },
-            status: 'warning'
-        },
-        {
-            id: 3,
-            name: 'Pedro Reyes',
-            photo: null,
-            department: 'Maintenance',
-            device: 'DEV-003',
-            timeWorking: '01:22:05',
-            sensors: {
-                temperature: 36.2,
-                gas: 85,
-                humidity: 58,
-                battery: 92,
-                signal: -38,
-                movement: 'Active'
-            },
-            status: 'normal'
-        },
-        {
-            id: 4,
-            name: 'Ana Lopez',
-            photo: null,
-            department: 'Quality Control',
-            device: 'DEV-004',
-            timeWorking: '04:01:33',
-            sensors: {
-                temperature: 52.1,
-                gas: 550,
-                humidity: 81,
-                battery: 42,
-                signal: -60,
-                movement: 'Inactive'
-            },
-            status: 'critical'
+    // Fetch devices from API on mount
+    useEffect(() => {
+        const fetchDevices = async () => {
+            try {
+                const response = await devicesApi.getAll();
+                setDevices(response.data);
+            } catch (error) {
+                console.error('Failed to fetch devices:', error);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+        fetchDevices();
+    }, []);
+
+    // Combine devices with real-time sensor data
+    const workersWithSensorData = devices.map(device => {
+        // Get real-time data for this device from Socket
+        const realTimeData = sensorData[device.deviceId] || {};
+
+        // Determine status based on sensor readings
+        let status = 'normal';
+        if (realTimeData.temperature >= 50 || realTimeData.gas_level >= 400) {
+            status = 'critical';
+        } else if (realTimeData.temperature >= 40 || realTimeData.gas_level >= 200) {
+            status = 'warning';
         }
-    ];
+
+        return {
+            id: device.id,
+            name: device.worker?.fullName || 'Unassigned',
+            department: device.worker?.department || 'N/A',
+            device: device.deviceId,
+            sensors: {
+                temperature: realTimeData.temperature || 0,
+                gas: realTimeData.gas_level || 0,
+                humidity: realTimeData.humidity || 0,
+                battery: realTimeData.battery || device.battery || 0,
+                signal: realTimeData.rssi || 0,
+                movement: realTimeData.accel_x !== undefined ? 'Active' : 'Unknown'
+            },
+            status: Object.keys(realTimeData).length > 0 ? status : 'offline',
+            lastUpdate: realTimeData.createdAt || 'No data'
+        };
+    });
+
+    // Filter if needed
+    const filteredWorkers = workersWithSensorData.filter(worker => {
+        if (filter === 'all') return true;
+        return worker.department.toLowerCase() === filter;
+    });
 
     const getStatusColor = (status) => {
         switch (status) {
             case 'normal': return 'border-success/50';
             case 'warning': return 'border-warning/50';
             case 'critical': return 'border-danger/50 emergency-alert';
+            case 'offline': return 'border-gray-700 opacity-60';
             default: return 'border-gray-700';
         }
     };
@@ -96,6 +80,20 @@ export const LiveMonitoring = () => {
         if (value >= thresholds.warning) return 'text-warning';
         return 'text-success';
     };
+
+    // Calculate metrics
+    const activeDevices = workersWithSensorData.filter(w => w.status !== 'offline').length;
+    const avgTemp = workersWithSensorData.length > 0
+        ? Math.round(workersWithSensorData.reduce((sum, w) => sum + (w.sensors.temperature || 0), 0) / workersWithSensorData.length)
+        : 0;
+
+    if (isLoading) {
+        return (
+            <div className="flex items-center justify-center h-64">
+                <div className="text-gray-400">Loading devices...</div>
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-6">
@@ -126,38 +124,38 @@ export const LiveMonitoring = () => {
             {/* Key Metrics */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <MetricCard
-                    title="Active Workers"
-                    value={workers.length}
-                    icon={User}
-                    color="bg-[#00BFA5]"
-                    subtitle="Currently monitored"
+                    title="Total Devices"
+                    value={devices.length}
+                    icon={Radio}
+                    color="bg-[#3B82F6]"
+                    subtitle="Registered devices"
                 />
                 <MetricCard
-                    title="Workers Reading"
-                    value={workers.filter(w => w.status !== 'offline').length}
+                    title="Active Now"
+                    value={activeDevices}
                     icon={Activity}
-                    color="bg-[#3B82F6]"
+                    color="bg-[#00BFA5]"
                     subtitle="Transmitting data"
                 />
                 <MetricCard
-                    title="PPE Detected"
-                    value={workers.length}
-                    icon={Shield}
+                    title="With Workers"
+                    value={devices.filter(d => d.worker).length}
+                    icon={User}
                     color="bg-[#10B981]"
-                    subtitle="100% Compliance"
+                    subtitle="Assigned"
                 />
                 <MetricCard
-                    title="Avg Temp Exposure"
-                    value="29°C"
+                    title="Avg Temperature"
+                    value={`${avgTemp}°C`}
                     icon={Thermometer}
-                    color="bg-[#F59E0B]"
-                    subtitle="Safe range"
+                    color={avgTemp >= 40 ? "bg-[#EF4444]" : "bg-[#F59E0B]"}
+                    subtitle={avgTemp >= 40 ? "Above normal" : "Safe range"}
                 />
             </div>
 
-            {/* Workers Grid */}
+            {/* Devices Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                {workers.map((worker) => (
+                {filteredWorkers.map((worker) => (
                     <CardDark
                         key={worker.id}
                         className={`${getStatusColor(worker.status)} transition-all duration-300`}
@@ -174,10 +172,10 @@ export const LiveMonitoring = () => {
                                     <div className="flex items-center gap-2 mt-1">
                                         <Badge variant="info" className="text-xs">{worker.device}</Badge>
                                         <Badge
-                                            variant={worker.sensors.movement === 'Active' ? 'success' : 'secondary'}
+                                            variant={worker.status === 'offline' ? 'secondary' : worker.status === 'critical' ? 'danger' : 'success'}
                                             className="text-xs"
                                         >
-                                            {worker.sensors.movement}
+                                            {worker.status === 'offline' ? 'Offline' : worker.sensors.movement}
                                         </Badge>
                                     </div>
                                 </div>
@@ -192,7 +190,7 @@ export const LiveMonitoring = () => {
                                         <span className="text-sm">Temperature</span>
                                     </div>
                                     <span className={`font-semibold ${getSensorStatus(worker.sensors.temperature, { warning: 40, critical: 50 })}`}>
-                                        {worker.sensors.temperature}°C
+                                        {worker.sensors.temperature.toFixed(1)}°C
                                     </span>
                                 </div>
 
@@ -213,7 +211,7 @@ export const LiveMonitoring = () => {
                                         <Droplets size={16} />
                                         <span className="text-sm">Humidity</span>
                                     </div>
-                                    <span className="font-semibold text-gray-300">{worker.sensors.humidity}%</span>
+                                    <span className="font-semibold text-gray-300">{worker.sensors.humidity.toFixed(1)}%</span>
                                 </div>
 
                                 {/* Battery */}
@@ -235,15 +233,6 @@ export const LiveMonitoring = () => {
                                     </div>
                                     <span className="font-semibold text-gray-300">{worker.sensors.signal} dBm</span>
                                 </div>
-
-                                {/* Time Working */}
-                                <div className="flex items-center justify-between pt-3 border-t border-gray-700">
-                                    <div className="flex items-center gap-2 text-gray-400">
-                                        <Activity size={16} />
-                                        <span className="text-sm">Working</span>
-                                    </div>
-                                    <span className="font-semibold text-primary-500">{worker.timeWorking}</span>
-                                </div>
                             </div>
 
                             {/* Actions */}
@@ -260,12 +249,12 @@ export const LiveMonitoring = () => {
                 ))}
             </div>
 
-            {workers.length === 0 && (
+            {filteredWorkers.length === 0 && (
                 <CardDark>
                     <CardBody className="p-12 text-center">
                         <Activity className="h-16 w-16 text-gray-600 mx-auto mb-4" />
-                        <h3 className="text-xl font-semibold text-gray-400 mb-2">No Active Workers</h3>
-                        <p className="text-gray-500">There are currently no workers being monitored</p>
+                        <h3 className="text-xl font-semibold text-gray-400 mb-2">No Devices Found</h3>
+                        <p className="text-gray-500">Add devices in Device Management to see them here</p>
                     </CardBody>
                 </CardDark>
             )}

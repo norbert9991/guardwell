@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Plus, FileText, AlertTriangle, Clock, Search } from 'lucide-react';
 import { CardDark, CardBody } from '../components/ui/Card';
 import { MetricCard } from '../components/ui/MetricCard';
@@ -8,6 +8,7 @@ import { Badge, SeverityBadge, StatusBadge } from '../components/ui/Badge';
 import { Modal } from '../components/ui/Modal';
 import { ConfirmationModal } from '../components/ui/ConfirmationModal';
 import { useNavigate } from 'react-router-dom';
+import { incidentsApi, workersApi } from '../utils/api';
 
 export const IncidentManagement = () => {
     const navigate = useNavigate();
@@ -15,17 +16,35 @@ export const IncidentManagement = () => {
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [showConfirmModal, setShowConfirmModal] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
+    const [incidents, setIncidents] = useState([]);
+    const [workers, setWorkers] = useState([]);
 
-    const [incidents, setIncidents] = useState([
-        { id: '1', title: 'Gas Leak Exposure', type: 'Equipment Failure', severity: 'Critical', worker: 'Maria Santos', date: '2024-11-29 14:25', status: 'Open' },
-        { id: '2', title: 'Minor Slip Incident', type: 'Minor Injury', severity: 'Low', worker: 'Juan dela Cruz', date: '2024-11-28 10:15', status: 'Under Investigation' },
-    ]);
+    // Fetch incidents and workers from API
+    useEffect(() => {
+        const fetchData = async () => {
+            try {
+                const [incidentsRes, workersRes] = await Promise.all([
+                    incidentsApi.getAll(),
+                    workersApi.getAll()
+                ]);
+                setIncidents(incidentsRes.data);
+                setWorkers(workersRes.data);
+            } catch (error) {
+                console.error('Failed to fetch data:', error);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+        fetchData();
+    }, []);
 
     const [formData, setFormData] = useState({
         title: '',
         type: 'Equipment Failure',
         severity: 'Low',
-        worker: '',
+        workerName: '',
+        workerId: '',
         description: '',
         location: '',
         witnesses: ''
@@ -44,24 +63,25 @@ export const IncidentManagement = () => {
     const handleConfirmCreate = async () => {
         setIsSubmitting(true);
         try {
-            await new Promise(resolve => setTimeout(resolve, 1000));
-
-            const newIncident = {
-                id: String(incidents.length + 1),
+            const response = await incidentsApi.create({
                 title: formData.title,
                 type: formData.type,
                 severity: formData.severity,
-                worker: formData.worker,
-                date: new Date().toISOString().replace('T', ' ').substring(0, 16),
-                status: 'Open'
-            };
-            setIncidents(prev => [newIncident, ...prev]);
+                workerName: formData.workerName,
+                workerId: formData.workerId || null,
+                description: formData.description,
+                location: formData.location,
+                witnesses: formData.witnesses
+            });
+
+            setIncidents(prev => [response.data, ...prev]);
 
             setFormData({
                 title: '',
                 type: 'Equipment Failure',
                 severity: 'Low',
-                worker: '',
+                workerName: '',
+                workerId: '',
                 description: '',
                 location: '',
                 witnesses: ''
@@ -70,6 +90,7 @@ export const IncidentManagement = () => {
             setShowCreateModal(false);
         } catch (error) {
             console.error('Failed to create incident:', error);
+            alert('Failed to create incident. Please try again.');
         } finally {
             setIsSubmitting(false);
         }

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Plus, Search, Settings, Radio, Activity, Wrench, BatteryLow } from 'lucide-react';
 import { CardDark, CardBody } from '../components/ui/Card';
 import { MetricCard } from '../components/ui/MetricCard';
@@ -7,24 +7,42 @@ import { Button } from '../components/ui/Button';
 import { Badge, StatusBadge } from '../components/ui/Badge';
 import { Modal } from '../components/ui/Modal';
 import { ConfirmationModal } from '../components/ui/ConfirmationModal';
+import { devicesApi, workersApi } from '../utils/api';
 
 export const DeviceManagement = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [showAddModal, setShowAddModal] = useState(false);
     const [showConfirmModal, setShowConfirmModal] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [devices, setDevices] = useState([
-        { id: '1', serialNumber: 'DEV-001', type: 'Vest', assignedWorker: 'Juan dela Cruz', battery: 85, lastComm: '2 min ago', status: 'Active' },
-        { id: '2', serialNumber: 'DEV-002', type: 'Helmet', assignedWorker: 'Maria Santos', battery: 62, lastComm: '1 min ago', status: 'Active' },
-        { id: '3', serialNumber: 'DEV-003', type: 'Vest', assignedWorker: null, battery: 92, lastComm: '5 min ago', status: 'Available' },
-    ]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [devices, setDevices] = useState([]);
+    const [workers, setWorkers] = useState([]);
+
+    // Fetch devices and workers from API
+    useEffect(() => {
+        const fetchData = async () => {
+            try {
+                const [devicesRes, workersRes] = await Promise.all([
+                    devicesApi.getAll(),
+                    workersApi.getAll()
+                ]);
+                setDevices(devicesRes.data);
+                setWorkers(workersRes.data);
+            } catch (error) {
+                console.error('Failed to fetch data:', error);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+        fetchData();
+    }, []);
 
     // Form state
     const [formData, setFormData] = useState({
         deviceId: '',
         serialNumber: '',
-        type: 'Smart Vest',
-        assignedWorker: ''
+        type: 'Vest',
+        workerId: ''
     });
 
     const handleInputChange = (e) => {
@@ -40,30 +58,26 @@ export const DeviceManagement = () => {
     const handleConfirmAdd = async () => {
         setIsSubmitting(true);
         try {
-            // TODO: Replace with actual API call
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            const response = await devicesApi.create({
+                deviceId: formData.deviceId,
+                serialNumber: formData.serialNumber,
+                type: formData.type,
+                workerId: formData.workerId || null
+            });
 
-            const newDevice = {
-                id: String(devices.length + 1),
-                serialNumber: formData.serialNumber || formData.deviceId,
-                type: formData.type.replace('Smart ', ''),
-                assignedWorker: formData.assignedWorker || null,
-                battery: 100,
-                lastComm: 'Just now',
-                status: formData.assignedWorker ? 'Active' : 'Available'
-            };
-            setDevices(prev => [...prev, newDevice]);
+            setDevices(prev => [...prev, response.data]);
 
             setFormData({
                 deviceId: '',
                 serialNumber: '',
-                type: 'Smart Vest',
-                assignedWorker: ''
+                type: 'Vest',
+                workerId: ''
             });
             setShowConfirmModal(false);
             setShowAddModal(false);
         } catch (error) {
             console.error('Failed to add device:', error);
+            alert('Failed to add device. Please try again.');
         } finally {
             setIsSubmitting(false);
         }
