@@ -19,11 +19,38 @@ const contactsRouter = require('./routes/contacts');
 const app = express();
 const server = http.createServer(app);
 
-// Socket.io setup
+// Helper function to get allowed origins
+const getAllowedOrigins = () => {
+    const origins = [
+        'http://localhost:5173',
+        'http://localhost:3000',
+        'http://127.0.0.1:5173'
+    ];
+
+    // Add CLIENT_URL if set
+    if (process.env.CLIENT_URL) {
+        let clientUrl = process.env.CLIENT_URL.trim();
+        // Add https:// if missing
+        if (!clientUrl.startsWith('http://') && !clientUrl.startsWith('https://')) {
+            clientUrl = 'https://' + clientUrl;
+        }
+        origins.push(clientUrl);
+        // Also add without trailing slash
+        origins.push(clientUrl.replace(/\/$/, ''));
+    }
+
+    console.log('✅ Allowed CORS origins:', origins);
+    return origins;
+};
+
+const allowedOrigins = getAllowedOrigins();
+
+// Socket.io setup with proper CORS
 const io = new Server(server, {
     cors: {
-        origin: process.env.CLIENT_URL || 'http://localhost:5173',
-        methods: ['GET', 'POST']
+        origin: allowedOrigins,
+        methods: ['GET', 'POST'],
+        credentials: true
     }
 });
 
@@ -98,7 +125,7 @@ const connectMQTT = () => {
 
 // Middleware
 app.use(cors({
-    origin: process.env.CLIENT_URL || 'http://localhost:5173',
+    origin: allowedOrigins,
     credentials: true
 }));
 app.use(express.json());
