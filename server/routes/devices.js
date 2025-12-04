@@ -1,0 +1,106 @@
+const express = require('express');
+const router = express.Router();
+const { Device, Worker } = require('../models');
+
+// Get all devices
+router.get('/', async (req, res) => {
+    try {
+        const devices = await Device.findAll({
+            include: [{ model: Worker, as: 'worker' }],
+            order: [['createdAt', 'DESC']]
+        });
+        res.json(devices);
+    } catch (error) {
+        console.error('Error fetching devices:', error);
+        res.status(500).json({ error: 'Failed to fetch devices' });
+    }
+});
+
+// Get single device
+router.get('/:id', async (req, res) => {
+    try {
+        const device = await Device.findByPk(req.params.id, {
+            include: [{ model: Worker, as: 'worker' }]
+        });
+        if (!device) {
+            return res.status(404).json({ error: 'Device not found' });
+        }
+        res.json(device);
+    } catch (error) {
+        console.error('Error fetching device:', error);
+        res.status(500).json({ error: 'Failed to fetch device' });
+    }
+});
+
+// Create device
+router.post('/', async (req, res) => {
+    try {
+        const device = await Device.create(req.body);
+        res.status(201).json(device);
+    } catch (error) {
+        console.error('Error creating device:', error);
+        if (error.name === 'SequelizeUniqueConstraintError') {
+            return res.status(400).json({ error: 'Device ID or Serial Number already exists' });
+        }
+        res.status(500).json({ error: 'Failed to create device' });
+    }
+});
+
+// Update device
+router.put('/:id', async (req, res) => {
+    try {
+        const [updated] = await Device.update(req.body, {
+            where: { id: req.params.id }
+        });
+        if (!updated) {
+            return res.status(404).json({ error: 'Device not found' });
+        }
+        const device = await Device.findByPk(req.params.id);
+        res.json(device);
+    } catch (error) {
+        console.error('Error updating device:', error);
+        res.status(500).json({ error: 'Failed to update device' });
+    }
+});
+
+// Assign device to worker
+router.post('/:id/assign', async (req, res) => {
+    try {
+        const { workerId } = req.body;
+        const device = await Device.findByPk(req.params.id);
+        if (!device) {
+            return res.status(404).json({ error: 'Device not found' });
+        }
+
+        await device.update({
+            workerId,
+            status: workerId ? 'Active' : 'Available'
+        });
+
+        const updatedDevice = await Device.findByPk(req.params.id, {
+            include: [{ model: Worker, as: 'worker' }]
+        });
+        res.json(updatedDevice);
+    } catch (error) {
+        console.error('Error assigning device:', error);
+        res.status(500).json({ error: 'Failed to assign device' });
+    }
+});
+
+// Delete device
+router.delete('/:id', async (req, res) => {
+    try {
+        const deleted = await Device.destroy({
+            where: { id: req.params.id }
+        });
+        if (!deleted) {
+            return res.status(404).json({ error: 'Device not found' });
+        }
+        res.json({ message: 'Device deleted successfully' });
+    } catch (error) {
+        console.error('Error deleting device:', error);
+        res.status(500).json({ error: 'Failed to delete device' });
+    }
+});
+
+module.exports = router;

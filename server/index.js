@@ -1,0 +1,180 @@
+require('dotenv').config();
+const express = require('express');
+const cors = require('cors');
+const http = require('http');
+const { Server } = require('socket.io');
+const mqtt = require('mqtt');
+
+const { testConnection } = require('./config/database');
+const { syncDatabase } = require('./models');
+
+// Import routes
+const workersRouter = require('./routes/workers');
+const devicesRouter = require('./routes/devices');
+const sensorsRouter = require('./routes/sensors');
+const alertsRouter = require('./routes/alerts');
+const incidentsRouter = require('./routes/incidents');
+const contactsRouter = require('./routes/contacts');
+
+const app = express();
+const server = http.createServer(app);
+
+// Socket.io setup
+const io = new Server(server, {
+    cors: {
+        origin: process.env.CLIENT_URL || 'http://localhost:5173',
+        methods: ['GET', 'POST']
+    }
+});
+
+// MQTT setup for ESP32
+const MQTT_BROKER = process.env.MQTT_BROKER || 'mqtt://localhost:1883';
+let mqttClient = null;
+
+const connectMQTT = () => {
+    mqttClient = mqtt.connect(MQTT_BROKER, {
+        clientId: `guardwell_server_${Date.now()}`,
+        clean: true,
+        reconnectPeriod: 5000
+    });
+
+    mqttClient.on('connect', () => {
+        console.log('✅ Connected to MQTT broker');
+        // Subscribe to sensor data topics
+        mqttClient.subscribe('guardwell/sensors/#', (err) => {
+            if (!err) {
+                console.log('📡 Subscribed to guardwell/sensors/#');
+            }
+        });
+        mqttClient.subscribe('guardwell/emergency/#', (err) => {
+            if (!err) {
+                console.log('🚨 Subscribed to guardwell/emergency/#');
+            }
+        });
+    });
+
+    mqttClient.on('message', async (topic, message) => {
+        try {
+            const payload = JSON.parse(message.toString());
+            console.log(`📥 MQTT [${topic}]:`, payload);
+
+            if (topic.startsWith('guardwell/sensors/')) {
+                // Process sensor data
+                const deviceId = topic.split('/')[2];
+                const sensorData = { ...payload, device_id: deviceId };
+
+                // Broadcast to all connected clients
+                io.emit('sensor_update', sensorData);
+
+                // Store in database via sensors route logic
+                const { processSensorData } = require('./routes/sensors');
+                await processSensorData(sensorData, io);
+            }
+
+            if (topic.startsWith('guardwell/emergency/')) {
+                // Handle emergency button press
+                const deviceId = topic.split('/')[2];
+                io.emit('emergency_alert', {
+                    device_id: deviceId,
+                    type: 'Emergency Button',
+                    severity: 'Critical',
+                    timestamp: new Date().toISOString(),
+                    ...payload
+                });
+            }
+        } catch (error) {
+            console.error('Error processing MQTT message:', error);
+        }
+    });
+
+    mqttClient.on('error', (error) => {
+        console.error('❌ MQTT error:', error);
+    });
+
+    mqttClient.on('close', () => {
+        console.log('⚠️ MQTT connection closed');
+    });
+};
+
+// Middleware
+app.use(cors({
+    origin: process.env.CLIENT_URL || 'http://localhost:5173',
+    credentials: true
+}));
+app.use(express.json());
+
+// Make io and mqttClient available to routes
+app.use((req, res, next) => {
+    req.io = io;
+    req.mqttClient = mqttClient;
+    next();
+});
+
+// Health check
+app.get('/health', (req, res) => {
+    res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// API Routes
+app.use('/api/workers', workersRouter);
+app.use('/api/devices', devicesRouter);
+app.use('/api/sensors', sensorsRouter);
+app.use('/api/alerts', alertsRouter);
+app.use('/api/incidents', incidentsRouter);
+app.use('/api/contacts', contactsRouter);
+
+// Socket.io connection handling
+io.on('connection', (socket) => {
+    console.log('🔌 Client connected:', socket.id);
+
+    socket.on('acknowledge_alert', async ({ alertId }) => {
+        try {
+            const { Alert } = require('./models');
+            await Alert.update(
+                {
+                    status: 'Acknowledged',
+                    acknowledgedAt: new Date()
+                },
+                { where: { id: alertId } }
+            );
+            io.emit('alert_updated', { alertId, status: 'Acknowledged' });
+        } catch (error) {
+            console.error('Error acknowledging alert:', error);
+        }
+    });
+
+    socket.on('disconnect', () => {
+        console.log('🔌 Client disconnected:', socket.id);
+    });
+});
+
+// Error handling
+app.use((err, req, res, next) => {
+    console.error(err.stack);
+    res.status(500).json({ error: 'Something went wrong!' });
+});
+
+// Start server
+const PORT = process.env.PORT || 3001;
+
+const startServer = async () => {
+    await testConnection();
+    await syncDatabase();
+
+    // Connect to MQTT if broker is configured
+    if (process.env.MQTT_BROKER) {
+        connectMQTT();
+    } else {
+        console.log('⚠️ MQTT_BROKER not configured, skipping MQTT connection');
+    }
+
+    server.listen(PORT, () => {
+        console.log(`🚀 Server running on port ${PORT}`);
+        console.log(`📡 Socket.io ready`);
+        console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
+    });
+};
+
+startServer();
+
+module.exports = { app, io, mqttClient };
