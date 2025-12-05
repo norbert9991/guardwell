@@ -228,9 +228,9 @@ export const DeviceManagement = () => {
                             onChange={handleInputChange}
                             className="input"
                         >
-                            <option>Smart Vest</option>
-                            <option>Smart Helmet</option>
-                            <option>Wearable Band</option>
+                            <option value="Vest">Smart Vest</option>
+                            <option value="Helmet">Smart Helmet</option>
+                            <option value="Band">Wearable Band</option>
                         </select>
                     </div>
                     <div>
