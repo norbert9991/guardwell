@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Activity, Thermometer, Wind, Droplets, Battery, Signal, User, Shield, Radio } from 'lucide-react';
+import { Activity, Thermometer, Wind, Droplets, Battery, Signal, User, Shield, Radio, AlertTriangle } from 'lucide-react';
 import { CardDark, CardBody } from '../components/ui/Card';
 import { MetricCard } from '../components/ui/MetricCard';
 import { Badge } from '../components/ui/Badge';
@@ -35,7 +35,7 @@ export const LiveMonitoring = () => {
 
         // Determine status based on sensor readings
         let status = 'normal';
-        if (realTimeData.temperature >= 50 || realTimeData.gas_level >= 400) {
+        if (realTimeData.emergency_button || realTimeData.temperature >= 50 || realTimeData.gas_level >= 400) {
             status = 'critical';
         } else if (realTimeData.temperature >= 40 || realTimeData.gas_level >= 200) {
             status = 'warning';
@@ -62,7 +62,8 @@ export const LiveMonitoring = () => {
                     y: realTimeData.gyro_y || 0,
                     z: realTimeData.gyro_z || 0
                 },
-                movement: realTimeData.accel_x !== undefined ? 'Active' : 'Unknown'
+                movement: realTimeData.accel_x !== undefined ? 'Active' : 'Unknown',
+                emergency: realTimeData.emergency_button || false
             },
             status: Object.keys(realTimeData).length > 0 ? status : 'offline',
             lastUpdate: realTimeData.createdAt || 'No data'
@@ -190,6 +191,14 @@ export const LiveMonitoring = () => {
                                     </div>
                                 </div>
                             </div>
+
+                            {/* SOS Indicator */}
+                            {worker.sensors.emergency && (
+                                <div className="mb-4 p-2 bg-red-500/20 border border-red-500 rounded-lg flex items-center justify-center gap-2 animate-pulse">
+                                    <AlertTriangle className="h-5 w-5 text-red-500" />
+                                    <span className="text-red-500 font-bold tracking-wider">SOS ACTIVATED</span>
+                                </div>
+                            )}
 
                             {/* Sensor Readings */}
                             <div className="space-y-3">

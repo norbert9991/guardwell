@@ -173,6 +173,7 @@ const processSensorData = async (data, io) => {
             accel_x: data.accel_x,
             accel_y: data.accel_y,
             accel_z: data.accel_z,
+            emergency_button: data.emergency_button,
             worker_id: workerId,
             worker_name: workerName,
             createdAt: sensorRecord.createdAt
