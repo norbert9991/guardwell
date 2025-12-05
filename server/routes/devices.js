@@ -35,14 +35,27 @@ router.get('/:id', async (req, res) => {
 // Create device
 router.post('/', async (req, res) => {
     try {
+        console.log('📝 Creating device with data:', req.body);
         const device = await Device.create(req.body);
+        console.log('✅ Device created:', device.id);
         res.status(201).json(device);
     } catch (error) {
-        console.error('Error creating device:', error);
+        console.error('❌ Error creating device:', error.message);
+        console.error('Full error:', error);
+
         if (error.name === 'SequelizeUniqueConstraintError') {
             return res.status(400).json({ error: 'Device ID or Serial Number already exists' });
         }
-        res.status(500).json({ error: 'Failed to create device' });
+        if (error.name === 'SequelizeValidationError') {
+            return res.status(400).json({
+                error: 'Validation failed',
+                details: error.errors.map(e => e.message)
+            });
+        }
+        if (error.name === 'SequelizeConnectionError' || error.name === 'SequelizeConnectionRefusedError') {
+            return res.status(500).json({ error: 'Database connection failed. Check your database configuration.' });
+        }
+        res.status(500).json({ error: 'Failed to create device', details: error.message });
     }
 });
 

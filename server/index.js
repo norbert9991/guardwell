@@ -142,6 +142,25 @@ app.get('/health', (req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+// Database health check
+app.get('/health/db', async (req, res) => {
+    try {
+        const { sequelize } = require('./config/database');
+        await sequelize.authenticate();
+        res.json({
+            status: 'connected',
+            database: process.env.MYSQL_DATABASE || 'guardwell',
+            host: process.env.MYSQL_HOST || 'localhost'
+        });
+    } catch (error) {
+        res.status(500).json({
+            status: 'disconnected',
+            error: error.message,
+            hint: 'Check your MYSQL_HOST, MYSQL_USER, MYSQL_PASSWORD, MYSQL_DATABASE environment variables'
+        });
+    }
+});
+
 // API Routes
 app.use('/api/workers', workersRouter);
 app.use('/api/devices', devicesRouter);
