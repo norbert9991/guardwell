@@ -162,6 +162,22 @@ const processSensorData = async (data, io) => {
             }
         }
 
+        // Emit sensor update to all connected clients
+        io.emit('sensor_update', {
+            device_id: data.device_id,
+            temperature: data.temperature,
+            humidity: data.humidity,
+            gas_level: data.gas_level,
+            battery: data.battery,
+            rssi: data.rssi,
+            accel_x: data.accel_x,
+            accel_y: data.accel_y,
+            accel_z: data.accel_z,
+            worker_id: workerId,
+            worker_name: workerName,
+            createdAt: sensorRecord.createdAt
+        });
+
         return { sensorRecord, alerts };
     } catch (error) {
         console.error('Error processing sensor data:', error);
