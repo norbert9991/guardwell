@@ -52,6 +52,16 @@ export const LiveMonitoring = () => {
                 humidity: realTimeData.humidity || 0,
                 battery: realTimeData.battery || device.battery || 0,
                 signal: realTimeData.rssi || 0,
+                accel: {
+                    x: realTimeData.accel_x || 0,
+                    y: realTimeData.accel_y || 0,
+                    z: realTimeData.accel_z || 0
+                },
+                gyro: {
+                    x: realTimeData.gyro_x || 0,
+                    y: realTimeData.gyro_y || 0,
+                    z: realTimeData.gyro_z || 0
+                },
                 movement: realTimeData.accel_x !== undefined ? 'Active' : 'Unknown'
             },
             status: Object.keys(realTimeData).length > 0 ? status : 'offline',
@@ -232,6 +242,28 @@ export const LiveMonitoring = () => {
                                         <span className="text-sm">Signal</span>
                                     </div>
                                     <span className="font-semibold text-gray-300">{worker.sensors.signal} dBm</span>
+                                </div>
+
+                                {/* Motion Data */}
+                                <div className="mt-3 pt-3 border-t border-gray-700/50">
+                                    <div className="flex items-center gap-2 text-gray-400 mb-2">
+                                        <Activity size={16} />
+                                        <span className="text-sm font-medium">Motion (X, Y, Z)</span>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-2 text-xs">
+                                        <div className="bg-black/20 p-2 rounded">
+                                            <span className="text-gray-500 block">Accel (m/s²)</span>
+                                            <span className="text-gray-300 font-mono">
+                                                {worker.sensors.accel.x.toFixed(1)}, {worker.sensors.accel.y.toFixed(1)}, {worker.sensors.accel.z.toFixed(1)}
+                                            </span>
+                                        </div>
+                                        <div className="bg-black/20 p-2 rounded">
+                                            <span className="text-gray-500 block">Gyro (°/s)</span>
+                                            <span className="text-gray-300 font-mono">
+                                                {worker.sensors.gyro.x.toFixed(1)}, {worker.sensors.gyro.y.toFixed(1)}, {worker.sensors.gyro.z.toFixed(1)}
+                                            </span>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
 
