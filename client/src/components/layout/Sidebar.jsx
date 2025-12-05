@@ -30,7 +30,8 @@ export const Sidebar = () => {
         { name: 'Incidents', icon: FileText, path: '/incidents', roles: ['Admin', 'Safety Officer'] },
         { name: 'Reports', icon: BarChart3, path: '/reports', roles: ['Admin', 'Safety Officer'] },
         { name: 'Emergency Contacts', icon: Phone, path: '/emergency-contacts', roles: ['Admin'] },
-        { name: 'Administration', icon: Settings, path: '/admin', roles: ['Admin'] },
+        { name: 'User Management', icon: Users, path: '/admin/users', roles: ['Admin'] },
+        { name: 'System Settings', icon: Settings, path: '/admin', roles: ['Admin'] },
     ];
 
     const filteredMenuItems = menuItems.filter(item =>

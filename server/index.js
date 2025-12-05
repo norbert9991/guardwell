@@ -15,6 +15,8 @@ const sensorsRouter = require('./routes/sensors');
 const alertsRouter = require('./routes/alerts');
 const incidentsRouter = require('./routes/incidents');
 const contactsRouter = require('./routes/contacts');
+const authRouter = require('./routes/auth');
+const usersRouter = require('./routes/users');
 
 const app = express();
 const server = http.createServer(app);
@@ -162,6 +164,8 @@ app.get('/health/db', async (req, res) => {
 });
 
 // API Routes
+app.use('/api/auth', authRouter);
+app.use('/api/users', usersRouter);
 app.use('/api/workers', workersRouter);
 app.use('/api/devices', devicesRouter);
 app.use('/api/sensors', sensorsRouter);

@@ -43,7 +43,6 @@ export const IncidentManagement = () => {
         title: '',
         type: 'Equipment Failure',
         severity: 'Low',
-        workerName: '',
         workerId: '',
         description: '',
         location: '',
@@ -63,11 +62,12 @@ export const IncidentManagement = () => {
     const handleConfirmCreate = async () => {
         setIsSubmitting(true);
         try {
+            const selectedWorker = workers.find(w => w.id == formData.workerId);
             const response = await incidentsApi.create({
                 title: formData.title,
                 type: formData.type,
                 severity: formData.severity,
-                workerName: formData.workerName,
+                workerName: selectedWorker?.fullName || '',
                 workerId: formData.workerId || null,
                 description: formData.description,
                 location: formData.location,
@@ -80,7 +80,6 @@ export const IncidentManagement = () => {
                 title: '',
                 type: 'Equipment Failure',
                 severity: 'Low',
-                workerName: '',
                 workerId: '',
                 description: '',
                 location: '',
@@ -96,12 +95,26 @@ export const IncidentManagement = () => {
         }
     };
 
+    // Format date
+    const formatDate = (date) => {
+        if (!date) return 'Unknown';
+        return new Date(date).toLocaleString();
+    };
+
     const columns = [
         { key: 'title', label: 'Incident Title', sortable: true },
         { key: 'type', label: 'Type', render: (row) => <Badge variant="secondary">{row.type}</Badge> },
         { key: 'severity', label: 'Severity', render: (row) => <SeverityBadge severity={row.severity} /> },
-        { key: 'worker', label: 'Worker' },
-        { key: 'date', label: 'Date & Time' },
+        {
+            key: 'worker',
+            label: 'Worker',
+            render: (row) => row.workerName || row.worker?.fullName || 'Unknown'
+        },
+        {
+            key: 'createdAt',
+            label: 'Date & Time',
+            render: (row) => formatDate(row.createdAt)
+        },
         { key: 'status', label: 'Status', render: (row) => <StatusBadge status={row.status} /> },
         {
             key: 'actions',
@@ -116,8 +129,16 @@ export const IncidentManagement = () => {
 
     const filteredIncidents = incidents.filter(inc => {
         if (filter === 'all') return true;
-        return inc.status.toLowerCase().replace(' ', '-') === filter;
+        return inc.status?.toLowerCase().replace(' ', '-') === filter;
     });
+
+    if (isLoading) {
+        return (
+            <div className="flex items-center justify-center h-64">
+                <div className="text-gray-400">Loading incidents...</div>
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-6">
@@ -152,11 +173,11 @@ export const IncidentManagement = () => {
                     subtitle="High priority"
                 />
                 <MetricCard
-                    title="Avg Resolution"
-                    value="2.5 hrs"
+                    title="Resolved"
+                    value={incidents.filter(i => i.status === 'Resolved').length}
                     icon={Clock}
                     color="bg-[#10B981]"
-                    subtitle="Response time"
+                    subtitle="Completed"
                 />
             </div>
 
@@ -180,7 +201,15 @@ export const IncidentManagement = () => {
 
             <CardDark>
                 <CardBody className="p-0">
-                    <Table columns={columns} data={filteredIncidents} />
+                    {filteredIncidents.length === 0 ? (
+                        <div className="p-12 text-center">
+                            <FileText className="h-16 w-16 text-gray-600 mx-auto mb-4" />
+                            <h3 className="text-xl font-semibold text-gray-400 mb-2">No Incidents</h3>
+                            <p className="text-gray-500">No incidents have been recorded yet.</p>
+                        </div>
+                    ) : (
+                        <Table columns={columns} data={filteredIncidents} />
+                    )}
                 </CardBody>
             </CardDark>
 
@@ -218,13 +247,13 @@ export const IncidentManagement = () => {
                                 onChange={handleInputChange}
                                 className="input"
                             >
-                                <option>Equipment Failure</option>
-                                <option>Minor Injury</option>
-                                <option>Major Injury</option>
-                                <option>Near Miss</option>
-                                <option>Environmental Hazard</option>
-                                <option>Fire/Explosion</option>
-                                <option>Chemical Exposure</option>
+                                <option value="Equipment Failure">Equipment Failure</option>
+                                <option value="Minor Injury">Minor Injury</option>
+                                <option value="Major Injury">Major Injury</option>
+                                <option value="Near Miss">Near Miss</option>
+                                <option value="Environmental Hazard">Environmental Hazard</option>
+                                <option value="Fire/Explosion">Fire/Explosion</option>
+                                <option value="Chemical Exposure">Chemical Exposure</option>
                             </select>
                         </div>
                         <div>
@@ -237,10 +266,10 @@ export const IncidentManagement = () => {
                                 onChange={handleInputChange}
                                 className="input"
                             >
-                                <option>Low</option>
-                                <option>Medium</option>
-                                <option>High</option>
-                                <option>Critical</option>
+                                <option value="Low">Low</option>
+                                <option value="Medium">Medium</option>
+                                <option value="High">High</option>
+                                <option value="Critical">Critical</option>
                             </select>
                         </div>
                     </div>
@@ -250,15 +279,20 @@ export const IncidentManagement = () => {
                             <label className="block text-sm font-medium text-gray-700 mb-2">
                                 Affected Worker
                             </label>
-                            <input
-                                type="text"
-                                name="worker"
-                                value={formData.worker}
+                            <select
+                                name="workerId"
+                                value={formData.workerId}
                                 onChange={handleInputChange}
                                 className="input"
-                                placeholder="Worker name"
                                 required
-                            />
+                            >
+                                <option value="">-- Select Worker --</option>
+                                {workers.map(worker => (
+                                    <option key={worker.id} value={worker.id}>
+                                        {worker.fullName} ({worker.department})
+                                    </option>
+                                ))}
+                            </select>
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -283,8 +317,9 @@ export const IncidentManagement = () => {
                             name="description"
                             value={formData.description}
                             onChange={handleInputChange}
-                            className="input min-h-[100px]"
-                            placeholder="Detailed description of the incident..."
+                            className="input"
+                            rows={4}
+                            placeholder="Detailed description of what happened..."
                             required
                         />
                     </div>
@@ -299,7 +334,7 @@ export const IncidentManagement = () => {
                             value={formData.witnesses}
                             onChange={handleInputChange}
                             className="input"
-                            placeholder="Names of any witnesses"
+                            placeholder="Names of witnesses, if any"
                         />
                     </div>
 
@@ -308,7 +343,7 @@ export const IncidentManagement = () => {
                             Cancel
                         </Button>
                         <Button type="submit">
-                            Create Report
+                            Create Incident
                         </Button>
                     </div>
                 </form>
@@ -319,19 +354,18 @@ export const IncidentManagement = () => {
                 isOpen={showConfirmModal}
                 onClose={() => setShowConfirmModal(false)}
                 onConfirm={handleConfirmCreate}
-                title="Create Incident Report?"
-                message="Please review the incident details. This will create an official incident report that will be logged in the system."
-                variant="warning"
+                isSubmitting={isSubmitting}
+                title="Create Incident Report"
+                message="Are you sure you want to create this incident report?"
                 confirmText="Yes, Create Report"
-                cancelText="Go Back"
-                loading={isSubmitting}
-                data={{
-                    'Title': formData.title,
-                    'Type': formData.type,
-                    'Severity': formData.severity,
-                    'Worker': formData.worker,
-                    'Location': formData.location || 'Not specified'
-                }}
+                variant="warning"
+                data={[
+                    { label: 'Title', value: formData.title },
+                    { label: 'Type', value: formData.type },
+                    { label: 'Severity', value: formData.severity },
+                    { label: 'Worker', value: workers.find(w => w.id == formData.workerId)?.fullName || 'Not selected' },
+                    { label: 'Location', value: formData.location || 'Not specified' }
+                ]}
             />
         </div>
     );

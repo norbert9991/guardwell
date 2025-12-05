@@ -101,4 +101,27 @@ export const contactsApi = {
     delete: (id) => api.delete(`/contacts/${id}`)
 };
 
+// ======================
+// Auth API
+// ======================
+export const authApi = {
+    login: (email, password) => api.post('/auth/login', { email, password }),
+    validate: () => api.get('/auth/validate'),
+    me: () => api.get('/auth/me'),
+    changePassword: (currentPassword, newPassword) => api.post('/auth/change-password', { currentPassword, newPassword })
+};
+
+// ======================
+// Users API (Admin only)
+// ======================
+export const usersApi = {
+    getAll: () => api.get('/users'),
+    getById: (id) => api.get(`/users/${id}`),
+    create: (data) => api.post('/users', data),
+    update: (id, data) => api.put(`/users/${id}`, data),
+    resetPassword: (id, newPassword) => api.post(`/users/${id}/reset-password`, { newPassword }),
+    delete: (id) => api.delete(`/users/${id}`)
+};
+
 export default api;
+

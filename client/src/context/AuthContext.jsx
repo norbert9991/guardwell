@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { authApi } from '../utils/api';
 
 const AuthContext = createContext(null);
 
@@ -16,42 +17,49 @@ export const AuthProvider = ({ children }) => {
     const [token, setToken] = useState(localStorage.getItem('token'));
 
     useEffect(() => {
-        // Check if user is logged in on mount
-        const storedUser = localStorage.getItem('user');
-        const storedToken = localStorage.getItem('token');
+        // Validate existing token on mount
+        const validateToken = async () => {
+            const storedToken = localStorage.getItem('token');
 
-        if (storedUser && storedToken) {
-            setUser(JSON.parse(storedUser));
-            setToken(storedToken);
-        }
-        setLoading(false);
+            if (storedToken) {
+                try {
+                    const response = await authApi.validate();
+                    if (response.data.valid) {
+                        setUser(response.data.user);
+                        setToken(storedToken);
+                    } else {
+                        // Token invalid, clear storage
+                        localStorage.removeItem('user');
+                        localStorage.removeItem('token');
+                    }
+                } catch (error) {
+                    console.error('Token validation failed:', error);
+                    localStorage.removeItem('user');
+                    localStorage.removeItem('token');
+                }
+            }
+            setLoading(false);
+        };
+
+        validateToken();
     }, []);
 
     const login = async (email, password) => {
         try {
-            // TODO: Replace with actual API call
-            // const response = await axios.post('/api/auth/login', { email, password });
+            const response = await authApi.login(email, password);
 
-            // Mock login for development
-            const mockUser = {
-                id: '1',
-                email: email,
-                name: email.includes('admin') ? 'Head Admin' : 'Safety Officer',
-                role: email.includes('admin') ? 'Admin' : 'Safety Officer',
-                department: 'Operations'
-            };
+            const { token: newToken, user: userData } = response.data;
 
-            const mockToken = 'mock-jwt-token-' + Date.now();
+            setUser(userData);
+            setToken(newToken);
+            localStorage.setItem('user', JSON.stringify(userData));
+            localStorage.setItem('token', newToken);
 
-            setUser(mockUser);
-            setToken(mockToken);
-            localStorage.setItem('user', JSON.stringify(mockUser));
-            localStorage.setItem('token', mockToken);
-
-            return { success: true, user: mockUser };
+            return { success: true, user: userData };
         } catch (error) {
             console.error('Login error:', error);
-            return { success: false, error: error.message };
+            const errorMessage = error.response?.data?.error || 'Login failed. Please try again.';
+            return { success: false, error: errorMessage };
         }
     };
 
@@ -62,14 +70,17 @@ export const AuthProvider = ({ children }) => {
         localStorage.removeItem('token');
     };
 
+    const isAdmin = user?.role === 'Admin' || user?.role === 'Head Admin';
+
     const value = {
         user,
         token,
         loading,
         login,
         logout,
-        isAuthenticated: !!user,
-        isAdmin: user?.role === 'Admin',
+        isAuthenticated: !!user && !!token,
+        isAdmin,
+        isHeadAdmin: user?.role === 'Head Admin',
     };
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -18,9 +18,9 @@ import { IncidentManagement } from './pages/IncidentManagement';
 import { IncidentDetail } from './pages/IncidentDetail';
 import { Reports } from './pages/Reports';
 import { EmergencyContacts } from './pages/EmergencyContacts';
-import { UserManagement } from './pages/UserManagement';
+import { AdminManagement } from './pages/AdminManagement';
 import { AuditLog } from './pages/AuditLog';
-import { SystemSettings } from './pages/SystemSettings';
+import { SystemAdmin } from './pages/SystemAdmin';
 
 // Layout wrapper for authenticated pages
 const LayoutWrapper = ({ children }) => {
@@ -162,7 +162,7 @@ function App() {
                             element={
                                 <ProtectedRoute requireAdmin>
                                     <LayoutWrapper>
-                                        <UserManagement />
+                                        <AdminManagement />
                                     </LayoutWrapper>
                                 </ProtectedRoute>
                             }
@@ -184,7 +184,7 @@ function App() {
                             element={
                                 <ProtectedRoute requireAdmin>
                                     <LayoutWrapper>
-                                        <SystemSettings />
+                                        <SystemAdmin />
                                     </LayoutWrapper>
                                 </ProtectedRoute>
                             }

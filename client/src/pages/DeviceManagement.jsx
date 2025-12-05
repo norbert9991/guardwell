@@ -13,6 +13,9 @@ export const DeviceManagement = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [showAddModal, setShowAddModal] = useState(false);
     const [showConfirmModal, setShowConfirmModal] = useState(false);
+    const [showAssignModal, setShowAssignModal] = useState(false);
+    const [showConfigureModal, setShowConfigureModal] = useState(false);
+    const [selectedDevice, setSelectedDevice] = useState(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [devices, setDevices] = useState([]);
@@ -44,6 +47,9 @@ export const DeviceManagement = () => {
         type: 'Vest',
         workerId: ''
     });
+
+    // Assign form state
+    const [assignWorkerId, setAssignWorkerId] = useState('');
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
@@ -83,14 +89,84 @@ export const DeviceManagement = () => {
         }
     };
 
+    const handleAssign = (device) => {
+        setSelectedDevice(device);
+        setAssignWorkerId(device.workerId || '');
+        setShowAssignModal(true);
+    };
+
+    const handleConfigure = (device) => {
+        setSelectedDevice(device);
+        setShowConfigureModal(true);
+    };
+
+    const handleConfirmAssign = async () => {
+        setIsSubmitting(true);
+        try {
+            const response = await devicesApi.assign(selectedDevice.id, assignWorkerId || null);
+
+            // Update local state
+            setDevices(prev => prev.map(d =>
+                d.id === selectedDevice.id ? response.data : d
+            ));
+
+            setShowAssignModal(false);
+            setSelectedDevice(null);
+        } catch (error) {
+            console.error('Failed to assign device:', error);
+            alert('Failed to assign device. Please try again.');
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const handleUpdateStatus = async (status) => {
+        setIsSubmitting(true);
+        try {
+            const response = await devicesApi.update(selectedDevice.id, { status });
+
+            setDevices(prev => prev.map(d =>
+                d.id === selectedDevice.id ? response.data : d
+            ));
+
+            setShowConfigureModal(false);
+            setSelectedDevice(null);
+        } catch (error) {
+            console.error('Failed to update device:', error);
+            alert('Failed to update device. Please try again.');
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    // Format last communication time
+    const formatLastComm = (date) => {
+        if (!date) return 'Never';
+        const now = new Date();
+        const lastComm = new Date(date);
+        const diffMs = now - lastComm;
+        const diffMins = Math.floor(diffMs / 60000);
+        if (diffMins < 1) return 'Just now';
+        if (diffMins < 60) return `${diffMins} min ago`;
+        const diffHours = Math.floor(diffMins / 60);
+        if (diffHours < 24) return `${diffHours} hr ago`;
+        return lastComm.toLocaleDateString();
+    };
+
     const columns = [
+        { key: 'deviceId', label: 'Device ID', sortable: true },
         { key: 'serialNumber', label: 'Serial Number', sortable: true },
         {
             key: 'type',
             label: 'Type',
             render: (row) => <Badge variant="info">{row.type}</Badge>
         },
-        { key: 'assignedWorker', label: 'Assigned To', sortable: true, render: (row) => row.assignedWorker || <span className="text-gray-500">Unassigned</span> },
+        {
+            key: 'worker',
+            label: 'Assigned To',
+            sortable: true,
+            render: (row) => row.worker?.fullName || <span className="text-gray-500">Unassigned</span>
+        },
         {
             key: 'battery',
             label: 'Battery',
@@ -100,24 +176,42 @@ export const DeviceManagement = () => {
                 </span>
             )
         },
-        { key: 'lastComm', label: 'Last Communication' },
+        {
+            key: 'lastCommunication',
+            label: 'Last Communication',
+            render: (row) => formatLastComm(row.lastCommunication)
+        },
         { key: 'status', label: 'Status', render: (row) => <StatusBadge status={row.status} /> },
         {
             key: 'actions',
             label: 'Actions',
-            render: () => (
+            render: (row) => (
                 <div className="flex gap-2">
-                    <Button size="sm" variant="outline">Configure</Button>
-                    <Button size="sm" variant="primary">Assign</Button>
+                    <Button size="sm" variant="outline" onClick={() => handleConfigure(row)}>Configure</Button>
+                    <Button size="sm" variant="primary" onClick={() => handleAssign(row)}>Assign</Button>
                 </div>
             )
         }
     ];
 
     const filteredDevices = devices.filter(device =>
-        device.serialNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (device.assignedWorker && device.assignedWorker.toLowerCase().includes(searchTerm.toLowerCase()))
+        device.deviceId?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        device.serialNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (device.worker?.fullName && device.worker.fullName.toLowerCase().includes(searchTerm.toLowerCase()))
     );
+
+    // Get unassigned workers for dropdown
+    const availableWorkers = workers.filter(w =>
+        w.status === 'Active' && !devices.some(d => d.workerId === w.id && d.id !== selectedDevice?.id)
+    );
+
+    if (isLoading) {
+        return (
+            <div className="flex items-center justify-center h-64">
+                <div className="text-gray-400">Loading devices...</div>
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-6">
@@ -130,13 +224,13 @@ export const DeviceManagement = () => {
             </div>
 
             {/* Key Metrics */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                 <MetricCard
                     title="Total Devices"
                     value={devices.length}
                     icon={Radio}
                     color="bg-[#3B82F6]"
-                    subtitle="Registered units"
+                    subtitle="Registered devices"
                 />
                 <MetricCard
                     title="Active"
@@ -235,16 +329,21 @@ export const DeviceManagement = () => {
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Assigned Worker (Optional)
+                            Assign to Worker (Optional)
                         </label>
-                        <input
-                            type="text"
-                            name="assignedWorker"
-                            value={formData.assignedWorker}
+                        <select
+                            name="workerId"
+                            value={formData.workerId}
                             onChange={handleInputChange}
                             className="input"
-                            placeholder="Search worker..."
-                        />
+                        >
+                            <option value="">-- Select Worker --</option>
+                            {workers.filter(w => w.status === 'Active').map(worker => (
+                                <option key={worker.id} value={worker.id}>
+                                    {worker.fullName} ({worker.department})
+                                </option>
+                            ))}
+                        </select>
                     </div>
                     <div className="flex gap-3 justify-end pt-4">
                         <Button variant="secondary" type="button" onClick={() => setShowAddModal(false)}>
@@ -262,19 +361,141 @@ export const DeviceManagement = () => {
                 isOpen={showConfirmModal}
                 onClose={() => setShowConfirmModal(false)}
                 onConfirm={handleConfirmAdd}
-                title="Add New Device?"
-                message="Please review the device details before confirming. This will register a new device in the system."
-                variant="info"
+                isSubmitting={isSubmitting}
+                title="Add New Device"
+                message="Do you want to add this device?"
                 confirmText="Yes, Add Device"
-                cancelText="Go Back"
-                loading={isSubmitting}
-                data={{
-                    'Device ID': formData.deviceId,
-                    'Serial Number': formData.serialNumber,
-                    'Type': formData.type,
-                    'Assigned To': formData.assignedWorker || 'Unassigned'
-                }}
+                variant="info"
+                data={[
+                    { label: 'Device ID', value: formData.deviceId },
+                    { label: 'Serial Number', value: formData.serialNumber },
+                    { label: 'Type', value: formData.type },
+                    { label: 'Assigned Worker', value: workers.find(w => w.id == formData.workerId)?.fullName || 'None' }
+                ]}
             />
+
+            {/* Assign Device Modal */}
+            <Modal
+                isOpen={showAssignModal}
+                onClose={() => setShowAssignModal(false)}
+                title="Assign Device"
+                size="md"
+            >
+                <div className="space-y-4">
+                    <div>
+                        <p className="text-gray-600 mb-2">Device: <strong>{selectedDevice?.deviceId}</strong></p>
+                        <p className="text-gray-600 mb-4">Current: <strong>{selectedDevice?.worker?.fullName || 'Unassigned'}</strong></p>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Assign to Worker
+                        </label>
+                        <select
+                            value={assignWorkerId}
+                            onChange={(e) => setAssignWorkerId(e.target.value)}
+                            className="input"
+                        >
+                            <option value="">-- Unassign --</option>
+                            {availableWorkers.map(worker => (
+                                <option key={worker.id} value={worker.id}>
+                                    {worker.fullName} ({worker.department})
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                    <div className="flex gap-3 justify-end pt-4">
+                        <Button variant="secondary" onClick={() => setShowAssignModal(false)}>
+                            Cancel
+                        </Button>
+                        <Button onClick={handleConfirmAssign} disabled={isSubmitting}>
+                            {isSubmitting ? 'Assigning...' : 'Confirm Assignment'}
+                        </Button>
+                    </div>
+                </div>
+            </Modal>
+
+            {/* Configure Device Modal */}
+            <Modal
+                isOpen={showConfigureModal}
+                onClose={() => setShowConfigureModal(false)}
+                title="Configure Device"
+                size="md"
+            >
+                {selectedDevice && (
+                    <div className="space-y-4">
+                        <div className="grid grid-cols-2 gap-4 text-sm">
+                            <div>
+                                <p className="text-gray-600">Device ID:</p>
+                                <p className="font-medium">{selectedDevice.deviceId}</p>
+                            </div>
+                            <div>
+                                <p className="text-gray-600">Serial Number:</p>
+                                <p className="font-medium">{selectedDevice.serialNumber}</p>
+                            </div>
+                            <div>
+                                <p className="text-gray-600">Type:</p>
+                                <p className="font-medium">{selectedDevice.type}</p>
+                            </div>
+                            <div>
+                                <p className="text-gray-600">Battery:</p>
+                                <p className="font-medium">{selectedDevice.battery}%</p>
+                            </div>
+                            <div>
+                                <p className="text-gray-600">Firmware:</p>
+                                <p className="font-medium">{selectedDevice.firmwareVersion || 'Unknown'}</p>
+                            </div>
+                            <div>
+                                <p className="text-gray-600">Current Status:</p>
+                                <StatusBadge status={selectedDevice.status} />
+                            </div>
+                        </div>
+
+                        <div className="border-t pt-4">
+                            <h4 className="font-semibold mb-3">Change Status</h4>
+                            <div className="flex gap-2 flex-wrap">
+                                <Button
+                                    size="sm"
+                                    variant={selectedDevice.status === 'Active' ? 'primary' : 'outline'}
+                                    onClick={() => handleUpdateStatus('Active')}
+                                    disabled={isSubmitting}
+                                >
+                                    Active
+                                </Button>
+                                <Button
+                                    size="sm"
+                                    variant={selectedDevice.status === 'Available' ? 'primary' : 'outline'}
+                                    onClick={() => handleUpdateStatus('Available')}
+                                    disabled={isSubmitting}
+                                >
+                                    Available
+                                </Button>
+                                <Button
+                                    size="sm"
+                                    variant={selectedDevice.status === 'Maintenance' ? 'primary' : 'outline'}
+                                    onClick={() => handleUpdateStatus('Maintenance')}
+                                    disabled={isSubmitting}
+                                >
+                                    Maintenance
+                                </Button>
+                                <Button
+                                    size="sm"
+                                    variant={selectedDevice.status === 'Offline' ? 'primary' : 'outline'}
+                                    onClick={() => handleUpdateStatus('Offline')}
+                                    disabled={isSubmitting}
+                                >
+                                    Offline
+                                </Button>
+                            </div>
+                        </div>
+
+                        <div className="flex gap-3 justify-end pt-4">
+                            <Button variant="secondary" onClick={() => setShowConfigureModal(false)}>
+                                Close
+                            </Button>
+                        </div>
+                    </div>
+                )}
+            </Modal>
         </div>
     );
 };

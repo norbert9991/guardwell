@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Shield, User, Lock, Info } from 'lucide-react';
+import { Shield, Mail, Lock, AlertCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { Button } from '../components/ui/Button';
 
@@ -22,22 +22,10 @@ export const Login = () => {
         if (result.success) {
             navigate('/');
         } else {
-            setError('Invalid email or password');
+            setError(result.error || 'Invalid email or password');
         }
 
         setLoading(false);
-    };
-
-    const demoCredentials = [
-        { label: 'Demo Credentials:', title: true },
-        { label: 'Head Admin', email: 'headAdmin', password: 'headAdmin123' },
-        { label: 'Admin', email: 'admin', password: 'admin123' },
-        { label: 'Safety Officer', email: 'safety', password: 'safety123' },
-    ];
-
-    const fillDemo = (email, password) => {
-        setEmail(email);
-        setPassword(password);
     };
 
     return (
@@ -68,18 +56,18 @@ export const Login = () => {
                         {/* Email */}
                         <div className="space-y-2">
                             <label className="block text-sm font-medium text-gray-300 ml-1">
-                                Username
+                                Email Address
                             </label>
                             <div className="relative group">
                                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                    <User className="h-5 w-5 text-gray-500 group-focus-within:text-primary-500 transition-colors" />
+                                    <Mail className="h-5 w-5 text-gray-500 group-focus-within:text-primary-500 transition-colors" />
                                 </div>
                                 <input
-                                    type="text"
+                                    type="email"
                                     value={email}
                                     onChange={(e) => setEmail(e.target.value)}
                                     className="input-dark pl-10 bg-black/20 border-white/10 focus:border-primary-500/50 focus:bg-black/40"
-                                    placeholder="Enter your username"
+                                    placeholder="Enter your email"
                                     required
                                 />
                             </div>
@@ -108,8 +96,8 @@ export const Login = () => {
                         {/* Error Message */}
                         {error && (
                             <div className="bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-3 rounded-lg text-sm flex items-center gap-2 animate-slide-in">
-                                <Info className="h-4 w-4" />
-                                {error}
+                                <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                                <span>{error}</span>
                             </div>
                         )}
 
@@ -124,28 +112,11 @@ export const Login = () => {
                         </Button>
                     </form>
 
-                    {/* Demo Credentials */}
-                    <div className="mt-8 bg-white/5 border border-white/5 rounded-xl p-4 backdrop-blur-sm">
-                        <div className="flex items-center gap-2 mb-3">
-                            <Info className="h-4 w-4 text-primary-400" />
-                            <span className="text-sm font-medium text-gray-300">Demo Credentials</span>
-                        </div>
-                        <div className="space-y-2">
-                            {demoCredentials.map((cred, index) => (
-                                cred.title ? (
-                                    <p key={index} className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{cred.label}</p>
-                                ) : (
-                                    <div
-                                        key={index}
-                                        onClick={() => fillDemo(cred.email, cred.password)}
-                                        className="text-xs text-gray-400 hover:text-white cursor-pointer hover:bg-white/5 px-3 py-2 rounded-lg transition-all duration-200 flex items-center justify-between group"
-                                    >
-                                        <span className="font-medium text-gray-300 group-hover:text-primary-400 transition-colors">{cred.label}</span>
-                                        <span className="font-mono opacity-70">{cred.email}</span>
-                                    </div>
-                                )
-                            ))}
-                        </div>
+                    {/* Help Text */}
+                    <div className="mt-6 text-center">
+                        <p className="text-sm text-gray-500">
+                            Authorized personnel only. Contact your administrator for access.
+                        </p>
                     </div>
                 </div>
             </div>
