@@ -40,18 +40,18 @@ export const Navbar = () => {
 
                         {/* Emergency Button */}
                         <Link to="/emergency">
-                            <button className="btn-danger flex items-center gap-2">
-                                <AlertCircle size={18} />
-                                Emergency
+                            <button className="px-4 py-2 bg-gradient-to-r from-red-600 to-red-500 hover:from-red-500 hover:to-red-400 text-white font-semibold rounded-lg flex items-center gap-2 shadow-lg hover:shadow-red-500/25 transition-all duration-200 text-sm">
+                                <AlertCircle size={16} />
+                                <span className="hidden sm:inline">Emergency</span>
                             </button>
                         </Link>
 
                         {/* Notifications */}
                         <Link to="/alerts" className="relative">
-                            <button className="p-2 rounded-lg hover:bg-dark-lighter transition-colors">
-                                <Bell className="h-6 w-6 text-gray-400" />
+                            <button className="p-2.5 rounded-lg hover:bg-white/10 transition-colors border border-transparent hover:border-white/10">
+                                <Bell className="h-5 w-5 text-gray-400 hover:text-white transition-colors" />
                                 {pendingAlerts > 0 && (
-                                    <span className="absolute -top-1 -right-1 bg-danger text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
+                                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full min-w-[20px] h-5 flex items-center justify-center px-1 shadow-lg shadow-red-500/30">
                                         {pendingAlerts > 9 ? '9+' : pendingAlerts}
                                     </span>
                                 )}

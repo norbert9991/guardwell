@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { AlertTriangle, Clock, User, CheckCircle, Bell, XCircle } from 'lucide-react';
+import { AlertTriangle, Clock, User, CheckCircle, Bell, XCircle, Filter, Calendar, Search, X } from 'lucide-react';
 import { CardDark, CardBody, CardHeader } from '../components/ui/Card';
 import { MetricCard } from '../components/ui/MetricCard';
 import { Button } from '../components/ui/Button';
@@ -15,6 +15,15 @@ export const AlertManagement = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const { alerts: realtimeAlerts, acknowledgeAlert } = useSocket();
+
+    // Advanced filters
+    const [showFilters, setShowFilters] = useState(false);
+    const [severityFilter, setSeverityFilter] = useState('all');
+    const [typeFilter, setTypeFilter] = useState('all');
+    const [dateFilter, setDateFilter] = useState('all'); // all, today, week, month, custom
+    const [startDate, setStartDate] = useState('');
+    const [endDate, setEndDate] = useState('');
+    const [searchTerm, setSearchTerm] = useState('');
 
     // Fetch alerts from API
     useEffect(() => {
@@ -83,10 +92,80 @@ export const AlertManagement = () => {
         return date.toLocaleString();
     };
 
-    // Filter alerts
+    // Get unique alert types from data
+    const alertTypes = [...new Set(alerts.map(a => a.type).filter(Boolean))];
+
+    // Check if date is within range
+    const isInDateRange = (alertDate) => {
+        if (!alertDate) return true;
+        const date = new Date(alertDate);
+        const now = new Date();
+
+        switch (dateFilter) {
+            case 'today':
+                return date.toDateString() === now.toDateString();
+            case 'week':
+                const weekAgo = new Date(now);
+                weekAgo.setDate(weekAgo.getDate() - 7);
+                return date >= weekAgo;
+            case 'month':
+                const monthAgo = new Date(now);
+                monthAgo.setMonth(monthAgo.getMonth() - 1);
+                return date >= monthAgo;
+            case 'year':
+                const yearAgo = new Date(now);
+                yearAgo.setFullYear(yearAgo.getFullYear() - 1);
+                return date >= yearAgo;
+            case 'custom':
+                if (startDate && endDate) {
+                    return date >= new Date(startDate) && date <= new Date(endDate + 'T23:59:59');
+                }
+                return true;
+            default:
+                return true;
+        }
+    };
+
+    // Clear all filters
+    const clearFilters = () => {
+        setFilter('all');
+        setSeverityFilter('all');
+        setTypeFilter('all');
+        setDateFilter('all');
+        setStartDate('');
+        setEndDate('');
+        setSearchTerm('');
+    };
+
+    // Check if any filters are active
+    const hasActiveFilters = filter !== 'all' || severityFilter !== 'all' || typeFilter !== 'all' || dateFilter !== 'all' || searchTerm;
+
+    // Filter alerts with all criteria
     const filteredAlerts = alerts.filter(alert => {
-        if (filter === 'all') return true;
-        return alert.status?.toLowerCase() === filter;
+        // Status filter
+        if (filter !== 'all' && alert.status?.toLowerCase() !== filter) return false;
+
+        // Severity filter
+        if (severityFilter !== 'all' && alert.severity !== severityFilter) return false;
+
+        // Type filter
+        if (typeFilter !== 'all' && alert.type !== typeFilter) return false;
+
+        // Date filter
+        if (!isInDateRange(alert.createdAt)) return false;
+
+        // Search filter
+        if (searchTerm) {
+            const search = searchTerm.toLowerCase();
+            const matchesSearch =
+                alert.message?.toLowerCase().includes(search) ||
+                alert.type?.toLowerCase().includes(search) ||
+                alert.device?.deviceId?.toLowerCase().includes(search) ||
+                alert.worker?.fullName?.toLowerCase().includes(search);
+            if (!matchesSearch) return false;
+        }
+
+        return true;
     });
 
     if (isLoading) {
@@ -99,20 +178,151 @@ export const AlertManagement = () => {
 
     return (
         <div className="space-y-6">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-3xl font-bold text-white mb-2">Alert Management</h1>
                     <p className="text-gray-400">Monitor and manage safety alerts</p>
                 </div>
-                <div className="flex gap-2">
-                    <select value={filter} onChange={(e) => setFilter(e.target.value)} className="input-dark">
-                        <option value="all">All Alerts</option>
-                        <option value="pending">Pending</option>
-                        <option value="acknowledged">Acknowledged</option>
-                        <option value="resolved">Resolved</option>
-                    </select>
+                <div className="flex gap-2 flex-wrap">
+                    <Button
+                        variant={showFilters ? 'primary' : 'outline'}
+                        onClick={() => setShowFilters(!showFilters)}
+                        className="flex items-center gap-2"
+                    >
+                        <Filter size={16} />
+                        Filters
+                        {hasActiveFilters && (
+                            <span className="bg-[#00E5FF] text-black text-xs rounded-full w-5 h-5 flex items-center justify-center ml-1">
+                                !
+                            </span>
+                        )}
+                    </Button>
+                    {hasActiveFilters && (
+                        <Button variant="secondary" onClick={clearFilters} className="flex items-center gap-2">
+                            <X size={16} />
+                            Clear
+                        </Button>
+                    )}
                 </div>
             </div>
+
+            {/* Advanced Filters Panel */}
+            {showFilters && (
+                <CardDark className="border-[#00E5FF]/30">
+                    <CardBody className="p-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                            {/* Search */}
+                            <div className="lg:col-span-2">
+                                <label className="block text-sm font-medium text-gray-300 mb-2">Search</label>
+                                <div className="relative">
+                                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500" size={18} />
+                                    <input
+                                        type="text"
+                                        placeholder="Search alerts..."
+                                        value={searchTerm}
+                                        onChange={(e) => setSearchTerm(e.target.value)}
+                                        className="input-dark pl-10"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Status Filter */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-300 mb-2">Status</label>
+                                <select
+                                    value={filter}
+                                    onChange={(e) => setFilter(e.target.value)}
+                                    className="input-dark"
+                                >
+                                    <option value="all">All Status</option>
+                                    <option value="pending">Pending</option>
+                                    <option value="acknowledged">Acknowledged</option>
+                                    <option value="resolved">Resolved</option>
+                                </select>
+                            </div>
+
+                            {/* Severity Filter */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-300 mb-2">Severity</label>
+                                <select
+                                    value={severityFilter}
+                                    onChange={(e) => setSeverityFilter(e.target.value)}
+                                    className="input-dark"
+                                >
+                                    <option value="all">All Severity</option>
+                                    <option value="Critical">Critical</option>
+                                    <option value="High">High</option>
+                                    <option value="Medium">Medium</option>
+                                    <option value="Low">Low</option>
+                                </select>
+                            </div>
+
+                            {/* Alert Type Filter */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-300 mb-2">Alert Type</label>
+                                <select
+                                    value={typeFilter}
+                                    onChange={(e) => setTypeFilter(e.target.value)}
+                                    className="input-dark"
+                                >
+                                    <option value="all">All Types</option>
+                                    {alertTypes.map(type => (
+                                        <option key={type} value={type}>{type}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            {/* Date Range Filter */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-300 mb-2">Date Range</label>
+                                <select
+                                    value={dateFilter}
+                                    onChange={(e) => setDateFilter(e.target.value)}
+                                    className="input-dark"
+                                >
+                                    <option value="all">All Time</option>
+                                    <option value="today">Today</option>
+                                    <option value="week">Last 7 Days</option>
+                                    <option value="month">Last 30 Days</option>
+                                    <option value="year">Last Year</option>
+                                    <option value="custom">Custom Range</option>
+                                </select>
+                            </div>
+
+                            {/* Custom Date Range */}
+                            {dateFilter === 'custom' && (
+                                <>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-300 mb-2">From Date</label>
+                                        <input
+                                            type="date"
+                                            value={startDate}
+                                            onChange={(e) => setStartDate(e.target.value)}
+                                            className="input-dark"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-300 mb-2">To Date</label>
+                                        <input
+                                            type="date"
+                                            value={endDate}
+                                            onChange={(e) => setEndDate(e.target.value)}
+                                            className="input-dark"
+                                        />
+                                    </div>
+                                </>
+                            )}
+                        </div>
+
+                        {/* Filter Summary */}
+                        <div className="mt-4 pt-4 border-t border-gray-700 flex items-center justify-between">
+                            <p className="text-sm text-gray-400">
+                                Showing <span className="text-white font-semibold">{filteredAlerts.length}</span> of <span className="text-white font-semibold">{alerts.length}</span> alerts
+                            </p>
+                        </div>
+                    </CardBody>
+                </CardDark>
+            )}
 
             {/* Key Metrics */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

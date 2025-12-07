@@ -1,17 +1,21 @@
 import React, { useState, useEffect } from 'react';
-import { Activity, Thermometer, Wind, Droplets, Battery, Signal, User, Shield, Radio, AlertTriangle } from 'lucide-react';
+import { Activity, Thermometer, Wind, Droplets, Battery, Signal, User, Shield, Radio, AlertTriangle, CheckCircle, X, Eye, Clock } from 'lucide-react';
 import { CardDark, CardBody } from '../components/ui/Card';
 import { MetricCard } from '../components/ui/MetricCard';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
+import { Modal } from '../components/ui/Modal';
 import { useSocket } from '../context/SocketContext';
 import { devicesApi, sensorsApi } from '../utils/api';
 
 export const LiveMonitoring = () => {
-    const { sensorData, connected } = useSocket();
+    const { sensorData, connected, emitEvent } = useSocket();
     const [filter, setFilter] = useState('all');
     const [devices, setDevices] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [selectedWorker, setSelectedWorker] = useState(null);
+    const [showDetailsModal, setShowDetailsModal] = useState(false);
+    const [markedSafe, setMarkedSafe] = useState({});
 
     // Fetch devices from API on mount
     useEffect(() => {
@@ -97,6 +101,42 @@ export const LiveMonitoring = () => {
     const avgTemp = workersWithSensorData.length > 0
         ? Math.round(workersWithSensorData.reduce((sum, w) => sum + (w.sensors.temperature || 0), 0) / workersWithSensorData.length)
         : 0;
+
+    // Handle view details
+    const handleViewDetails = (worker) => {
+        setSelectedWorker(worker);
+        setShowDetailsModal(true);
+    };
+
+    // Handle mark safe
+    const handleMarkSafe = (workerId, workerName) => {
+        setMarkedSafe(prev => ({ ...prev, [workerId]: true }));
+
+        // Emit event to backend
+        if (emitEvent) {
+            emitEvent('worker_marked_safe', {
+                workerId,
+                workerName,
+                timestamp: new Date().toISOString(),
+                markedBy: 'Operator'
+            });
+        }
+
+        // Reset after 30 seconds
+        setTimeout(() => {
+            setMarkedSafe(prev => {
+                const updated = { ...prev };
+                delete updated[workerId];
+                return updated;
+            });
+        }, 30000);
+    };
+
+    // Format time
+    const formatTime = (timestamp) => {
+        if (!timestamp || timestamp === 'No data') return 'No data';
+        return new Date(timestamp).toLocaleTimeString();
+    };
 
     if (isLoading) {
         return (
@@ -278,11 +318,33 @@ export const LiveMonitoring = () => {
 
                             {/* Actions */}
                             <div className="mt-4 pt-4 border-t border-gray-700 grid grid-cols-2 gap-2">
-                                <Button size="sm" variant="outline" className="text-xs">
+                                <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="text-xs"
+                                    onClick={() => handleViewDetails(worker)}
+                                >
+                                    <Eye size={14} className="mr-1" />
                                     View Details
                                 </Button>
-                                <Button size="sm" variant="primary" className="text-xs">
-                                    Mark Safe
+                                <Button
+                                    size="sm"
+                                    variant={markedSafe[worker.id] ? 'secondary' : 'primary'}
+                                    className="text-xs"
+                                    onClick={() => handleMarkSafe(worker.id, worker.name)}
+                                    disabled={markedSafe[worker.id]}
+                                >
+                                    {markedSafe[worker.id] ? (
+                                        <>
+                                            <CheckCircle size={14} className="mr-1" />
+                                            Marked Safe
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Shield size={14} className="mr-1" />
+                                            Mark Safe
+                                        </>
+                                    )}
                                 </Button>
                             </div>
                         </CardBody>
@@ -299,6 +361,149 @@ export const LiveMonitoring = () => {
                     </CardBody>
                 </CardDark>
             )}
+
+            {/* Worker Details Modal */}
+            <Modal
+                isOpen={showDetailsModal}
+                onClose={() => setShowDetailsModal(false)}
+                title={`Worker Details - ${selectedWorker?.name || ''}`}
+                size="lg"
+            >
+                {selectedWorker && (
+                    <div className="space-y-6">
+                        {/* Worker Info */}
+                        <div className="bg-[#0d1220] rounded-lg p-4 border border-[#2d3a52]">
+                            <div className="flex items-center gap-4">
+                                <div className="w-16 h-16 bg-[#00E5FF]/20 rounded-full flex items-center justify-center">
+                                    <User className="h-8 w-8 text-[#00E5FF]" />
+                                </div>
+                                <div>
+                                    <h3 className="text-xl font-bold text-white">{selectedWorker.name}</h3>
+                                    <p className="text-gray-400">{selectedWorker.department}</p>
+                                    <div className="flex items-center gap-2 mt-2">
+                                        <Badge variant="info">{selectedWorker.device}</Badge>
+                                        <Badge variant={selectedWorker.status === 'normal' ? 'success' : selectedWorker.status === 'warning' ? 'warning' : 'danger'}>
+                                            {selectedWorker.status.toUpperCase()}
+                                        </Badge>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Sensor Readings */}
+                        <div>
+                            <h4 className="label-modal mb-3">Current Sensor Readings</h4>
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                                <div className="bg-[#0d1220] p-4 rounded-lg border border-[#2d3a52]">
+                                    <div className="flex items-center gap-2 text-gray-400 mb-2">
+                                        <Thermometer size={16} />
+                                        <span className="text-sm">Temperature</span>
+                                    </div>
+                                    <p className="text-2xl font-bold text-white">{selectedWorker.sensors.temperature}°C</p>
+                                </div>
+                                <div className="bg-[#0d1220] p-4 rounded-lg border border-[#2d3a52]">
+                                    <div className="flex items-center gap-2 text-gray-400 mb-2">
+                                        <Wind size={16} />
+                                        <span className="text-sm">Gas Level</span>
+                                    </div>
+                                    <p className="text-2xl font-bold text-white">{selectedWorker.sensors.gas} PPM</p>
+                                </div>
+                                <div className="bg-[#0d1220] p-4 rounded-lg border border-[#2d3a52]">
+                                    <div className="flex items-center gap-2 text-gray-400 mb-2">
+                                        <Droplets size={16} />
+                                        <span className="text-sm">Humidity</span>
+                                    </div>
+                                    <p className="text-2xl font-bold text-white">{selectedWorker.sensors.humidity}%</p>
+                                </div>
+                                <div className="bg-[#0d1220] p-4 rounded-lg border border-[#2d3a52]">
+                                    <div className="flex items-center gap-2 text-gray-400 mb-2">
+                                        <Battery size={16} />
+                                        <span className="text-sm">Battery</span>
+                                    </div>
+                                    <p className="text-2xl font-bold text-white">{selectedWorker.sensors.battery}%</p>
+                                </div>
+                                <div className="bg-[#0d1220] p-4 rounded-lg border border-[#2d3a52]">
+                                    <div className="flex items-center gap-2 text-gray-400 mb-2">
+                                        <Signal size={16} />
+                                        <span className="text-sm">Signal</span>
+                                    </div>
+                                    <p className="text-2xl font-bold text-white">{selectedWorker.sensors.signal} dBm</p>
+                                </div>
+                                <div className="bg-[#0d1220] p-4 rounded-lg border border-[#2d3a52]">
+                                    <div className="flex items-center gap-2 text-gray-400 mb-2">
+                                        <Clock size={16} />
+                                        <span className="text-sm">Last Update</span>
+                                    </div>
+                                    <p className="text-lg font-bold text-white">{formatTime(selectedWorker.lastUpdate)}</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Motion Data */}
+                        <div>
+                            <h4 className="label-modal mb-3">Motion Data</h4>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="bg-[#0d1220] p-4 rounded-lg border border-[#2d3a52]">
+                                    <h5 className="text-sm text-gray-400 mb-2">Accelerometer (m/s²)</h5>
+                                    <div className="grid grid-cols-3 gap-2 text-center">
+                                        <div>
+                                            <span className="text-xs text-gray-500">X</span>
+                                            <p className="text-lg font-mono text-[#00E5FF]">{selectedWorker.sensors.accel.x.toFixed(2)}</p>
+                                        </div>
+                                        <div>
+                                            <span className="text-xs text-gray-500">Y</span>
+                                            <p className="text-lg font-mono text-[#00E5FF]">{selectedWorker.sensors.accel.y.toFixed(2)}</p>
+                                        </div>
+                                        <div>
+                                            <span className="text-xs text-gray-500">Z</span>
+                                            <p className="text-lg font-mono text-[#00E5FF]">{selectedWorker.sensors.accel.z.toFixed(2)}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="bg-[#0d1220] p-4 rounded-lg border border-[#2d3a52]">
+                                    <h5 className="text-sm text-gray-400 mb-2">Gyroscope (°/s)</h5>
+                                    <div className="grid grid-cols-3 gap-2 text-center">
+                                        <div>
+                                            <span className="text-xs text-gray-500">X</span>
+                                            <p className="text-lg font-mono text-[#00E5FF]">{selectedWorker.sensors.gyro.x.toFixed(2)}</p>
+                                        </div>
+                                        <div>
+                                            <span className="text-xs text-gray-500">Y</span>
+                                            <p className="text-lg font-mono text-[#00E5FF]">{selectedWorker.sensors.gyro.y.toFixed(2)}</p>
+                                        </div>
+                                        <div>
+                                            <span className="text-xs text-gray-500">Z</span>
+                                            <p className="text-lg font-mono text-[#00E5FF]">{selectedWorker.sensors.gyro.z.toFixed(2)}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Actions */}
+                        <div className="flex gap-3 pt-4 border-t border-[#2d3a52]/50">
+                            <Button
+                                variant="secondary"
+                                className="flex-1"
+                                onClick={() => setShowDetailsModal(false)}
+                            >
+                                Close
+                            </Button>
+                            <Button
+                                variant={markedSafe[selectedWorker.id] ? 'secondary' : 'primary'}
+                                className="flex-1"
+                                onClick={() => {
+                                    handleMarkSafe(selectedWorker.id, selectedWorker.name);
+                                    setShowDetailsModal(false);
+                                }}
+                                disabled={markedSafe[selectedWorker.id]}
+                            >
+                                {markedSafe[selectedWorker.id] ? 'Already Marked Safe' : 'Mark as Safe'}
+                            </Button>
+                        </div>
+                    </div>
+                )}
+            </Modal>
         </div>
     );
 };

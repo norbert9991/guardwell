@@ -72,6 +72,54 @@ export const EmergencyContacts = () => {
         }
     };
 
+    const [showEditModal, setShowEditModal] = useState(false);
+    const [showCallModal, setShowCallModal] = useState(false);
+    const [selectedContact, setSelectedContact] = useState(null);
+    const [callStatus, setCallStatus] = useState('idle'); // idle, calling, connected, ended
+
+    const handleEditContact = (contact) => {
+        setSelectedContact(contact);
+        setFormData({
+            name: contact.name,
+            number: contact.number,
+            type: contact.type,
+            priority: String(contact.priority),
+            email: contact.email || '',
+            notes: contact.notes || ''
+        });
+        setShowEditModal(true);
+    };
+
+    const handleTestCall = (contact) => {
+        setSelectedContact(contact);
+        setCallStatus('calling');
+        setShowCallModal(true);
+
+        // Simulate call connection after 2 seconds
+        setTimeout(() => {
+            setCallStatus('connected');
+        }, 2000);
+    };
+
+    const handleEndCall = () => {
+        setCallStatus('ended');
+        setTimeout(() => {
+            setShowCallModal(false);
+            setCallStatus('idle');
+            setSelectedContact(null);
+        }, 1000);
+    };
+
+    const handleSaveEdit = () => {
+        setContacts(prev => prev.map(c =>
+            c.id === selectedContact.id
+                ? { ...c, name: formData.name, number: formData.number, type: formData.type, priority: parseInt(formData.priority) }
+                : c
+        ));
+        setShowEditModal(false);
+        setSelectedContact(null);
+    };
+
     const columns = [
         { key: 'name', label: 'Contact Name', sortable: true },
         { key: 'number', label: 'Phone Number' },
@@ -81,10 +129,15 @@ export const EmergencyContacts = () => {
         {
             key: 'actions',
             label: 'Actions',
-            render: () => (
+            render: (row) => (
                 <div className="flex gap-2">
-                    <Button size="sm" variant="outline">Edit</Button>
-                    <Button size="sm" variant="secondary">Test Call</Button>
+                    <Button size="sm" variant="outline" onClick={() => handleEditContact(row)}>
+                        Edit
+                    </Button>
+                    <Button size="sm" variant="secondary" onClick={() => handleTestCall(row)}>
+                        <Phone size={14} className="mr-1" />
+                        Call
+                    </Button>
                 </div>
             )
         }
@@ -357,6 +410,146 @@ export const EmergencyContacts = () => {
                     'Priority': `Priority ${formData.priority}`
                 }}
             />
+
+            {/* Edit Contact Modal */}
+            <Modal
+                isOpen={showEditModal}
+                onClose={() => setShowEditModal(false)}
+                title="Edit Contact"
+                size="md"
+            >
+                <div className="space-y-5">
+                    <div>
+                        <label className="label-modal">Contact Name</label>
+                        <input
+                            type="text"
+                            name="name"
+                            value={formData.name}
+                            onChange={handleInputChange}
+                            className="input-modal"
+                        />
+                    </div>
+                    <div>
+                        <label className="label-modal">Phone Number</label>
+                        <input
+                            type="tel"
+                            name="number"
+                            value={formData.number}
+                            onChange={handleInputChange}
+                            className="input-modal"
+                        />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="label-modal">Type</label>
+                            <select
+                                name="type"
+                                value={formData.type}
+                                onChange={handleInputChange}
+                                className="input-modal"
+                            >
+                                <option value="Fire">Fire</option>
+                                <option value="Medical">Medical</option>
+                                <option value="Police">Police</option>
+                                <option value="Management">Management</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label className="label-modal">Priority</label>
+                            <select
+                                name="priority"
+                                value={formData.priority}
+                                onChange={handleInputChange}
+                                className="input-modal"
+                            >
+                                <option value="1">Priority 1 (Highest)</option>
+                                <option value="2">Priority 2</option>
+                                <option value="3">Priority 3</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div className="flex gap-3 justify-end pt-4 border-t border-[#2d3a52]/50">
+                        <Button variant="secondary" onClick={() => setShowEditModal(false)}>
+                            Cancel
+                        </Button>
+                        <Button onClick={handleSaveEdit}>
+                            Save Changes
+                        </Button>
+                    </div>
+                </div>
+            </Modal>
+
+            {/* Test Call Modal */}
+            <Modal
+                isOpen={showCallModal}
+                onClose={() => {
+                    if (callStatus !== 'calling') {
+                        setShowCallModal(false);
+                        setCallStatus('idle');
+                    }
+                }}
+                title="Test Call"
+                size="sm"
+            >
+                <div className="text-center py-6">
+                    {/* Call Status Display */}
+                    <div className={`w-24 h-24 mx-auto rounded-full flex items-center justify-center mb-6 ${callStatus === 'calling' ? 'bg-yellow-500/20 animate-pulse' :
+                            callStatus === 'connected' ? 'bg-green-500/20' :
+                                callStatus === 'ended' ? 'bg-gray-500/20' : 'bg-[#00E5FF]/20'
+                        }`}>
+                        <Phone className={`h-12 w-12 ${callStatus === 'calling' ? 'text-yellow-500 animate-bounce' :
+                                callStatus === 'connected' ? 'text-green-500' :
+                                    callStatus === 'ended' ? 'text-gray-500' : 'text-[#00E5FF]'
+                            }`} />
+                    </div>
+
+                    <h3 className="text-xl font-bold text-white mb-2">
+                        {selectedContact?.name}
+                    </h3>
+                    <p className="text-2xl font-mono text-[#00E5FF] mb-4">
+                        {selectedContact?.number}
+                    </p>
+
+                    <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full ${callStatus === 'calling' ? 'bg-yellow-500/20 text-yellow-400' :
+                            callStatus === 'connected' ? 'bg-green-500/20 text-green-400' :
+                                callStatus === 'ended' ? 'bg-gray-500/20 text-gray-400' : ''
+                        }`}>
+                        {callStatus === 'calling' && (
+                            <>
+                                <div className="w-2 h-2 bg-yellow-500 rounded-full animate-ping"></div>
+                                Calling...
+                            </>
+                        )}
+                        {callStatus === 'connected' && (
+                            <>
+                                <CheckCircle size={16} />
+                                Connected
+                            </>
+                        )}
+                        {callStatus === 'ended' && 'Call Ended'}
+                    </div>
+
+                    {callStatus === 'connected' && (
+                        <div className="mt-6">
+                            <Button
+                                variant="danger"
+                                size="lg"
+                                className="px-8"
+                                onClick={handleEndCall}
+                            >
+                                End Call
+                            </Button>
+                        </div>
+                    )}
+
+                    {callStatus === 'calling' && (
+                        <p className="text-sm text-gray-500 mt-4">
+                            This is a test call simulation
+                        </p>
+                    )}
+                </div>
+            </Modal>
         </div>
     );
 };
