@@ -220,9 +220,9 @@ export const IncidentManagement = () => {
                 title="Create Incident Report"
                 size="lg"
             >
-                <form onSubmit={handleFormSubmit} className="space-y-4">
+                <form onSubmit={handleFormSubmit} className="space-y-5">
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                        <label className="label-modal">
                             Incident Title
                         </label>
                         <input
@@ -230,7 +230,7 @@ export const IncidentManagement = () => {
                             name="title"
                             value={formData.title}
                             onChange={handleInputChange}
-                            className="input"
+                            className="input-modal"
                             placeholder="Brief description of the incident"
                             required
                         />
@@ -238,14 +238,14 @@ export const IncidentManagement = () => {
 
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                            <label className="label-modal">
                                 Incident Type
                             </label>
                             <select
                                 name="type"
                                 value={formData.type}
                                 onChange={handleInputChange}
-                                className="input"
+                                className="input-modal"
                             >
                                 <option value="Equipment Failure">Equipment Failure</option>
                                 <option value="Minor Injury">Minor Injury</option>
@@ -257,14 +257,14 @@ export const IncidentManagement = () => {
                             </select>
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                            <label className="label-modal">
                                 Severity
                             </label>
                             <select
                                 name="severity"
                                 value={formData.severity}
                                 onChange={handleInputChange}
-                                className="input"
+                                className="input-modal"
                             >
                                 <option value="Low">Low</option>
                                 <option value="Medium">Medium</option>
@@ -276,14 +276,14 @@ export const IncidentManagement = () => {
 
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                            <label className="label-modal">
                                 Affected Worker
                             </label>
                             <select
                                 name="workerId"
                                 value={formData.workerId}
                                 onChange={handleInputChange}
-                                className="input"
+                                className="input-modal"
                                 required
                             >
                                 <option value="">-- Select Worker --</option>
@@ -295,7 +295,7 @@ export const IncidentManagement = () => {
                             </select>
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                            <label className="label-modal">
                                 Location
                             </label>
                             <input
@@ -303,21 +303,21 @@ export const IncidentManagement = () => {
                                 name="location"
                                 value={formData.location}
                                 onChange={handleInputChange}
-                                className="input"
+                                className="input-modal"
                                 placeholder="Where did it occur?"
                             />
                         </div>
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                        <label className="label-modal">
                             Description
                         </label>
                         <textarea
                             name="description"
                             value={formData.description}
                             onChange={handleInputChange}
-                            className="input"
+                            className="input-modal"
                             rows={4}
                             placeholder="Detailed description of what happened..."
                             required
@@ -325,7 +325,7 @@ export const IncidentManagement = () => {
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                        <label className="label-modal">
                             Witnesses (Optional)
                         </label>
                         <input
@@ -333,12 +333,12 @@ export const IncidentManagement = () => {
                             name="witnesses"
                             value={formData.witnesses}
                             onChange={handleInputChange}
-                            className="input"
+                            className="input-modal"
                             placeholder="Names of witnesses, if any"
                         />
                     </div>
 
-                    <div className="flex gap-3 justify-end pt-4">
+                    <div className="flex gap-3 justify-end pt-4 border-t border-[#2d3a52]/50">
                         <Button variant="secondary" type="button" onClick={() => setShowCreateModal(false)}>
                             Cancel
                         </Button>

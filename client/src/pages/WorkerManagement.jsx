@@ -253,10 +253,10 @@ export const WorkerManagement = () => {
                 title="Add New Worker"
                 size="lg"
             >
-                <form onSubmit={handleFormSubmit} className="space-y-4">
+                <form onSubmit={handleFormSubmit} className="space-y-5">
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                            <label className="label-modal">
                                 Employee Number
                             </label>
                             <input
@@ -264,13 +264,13 @@ export const WorkerManagement = () => {
                                 name="employeeNumber"
                                 value={formData.employeeNumber}
                                 onChange={handleInputChange}
-                                className="input"
+                                className="input-modal"
                                 placeholder="EMP-XXX"
                                 required
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                            <label className="label-modal">
                                 Full Name
                             </label>
                             <input
@@ -278,7 +278,7 @@ export const WorkerManagement = () => {
                                 name="fullName"
                                 value={formData.fullName}
                                 onChange={handleInputChange}
-                                className="input"
+                                className="input-modal"
                                 placeholder="Juan dela Cruz"
                                 required
                             />
@@ -287,14 +287,14 @@ export const WorkerManagement = () => {
 
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                            <label className="label-modal">
                                 Department
                             </label>
                             <select
                                 name="department"
                                 value={formData.department}
                                 onChange={handleInputChange}
-                                className="input"
+                                className="input-modal"
                             >
                                 <option>Manufacturing</option>
                                 <option>Assembly</option>
@@ -303,7 +303,7 @@ export const WorkerManagement = () => {
                             </select>
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                            <label className="label-modal">
                                 Position
                             </label>
                             <input
@@ -311,7 +311,7 @@ export const WorkerManagement = () => {
                                 name="position"
                                 value={formData.position}
                                 onChange={handleInputChange}
-                                className="input"
+                                className="input-modal"
                                 placeholder="Machine Operator"
                                 required
                             />
@@ -320,7 +320,7 @@ export const WorkerManagement = () => {
 
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                            <label className="label-modal">
                                 Contact Number
                             </label>
                             <input
@@ -328,13 +328,13 @@ export const WorkerManagement = () => {
                                 name="contactNumber"
                                 value={formData.contactNumber}
                                 onChange={handleInputChange}
-                                className="input"
+                                className="input-modal"
                                 placeholder="09171234567"
                                 required
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                            <label className="label-modal">
                                 Email Address
                             </label>
                             <input
@@ -342,14 +342,14 @@ export const WorkerManagement = () => {
                                 name="email"
                                 value={formData.email}
                                 onChange={handleInputChange}
-                                className="input"
+                                className="input-modal"
                                 placeholder="worker@cathaymetal.com"
                             />
                         </div>
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                        <label className="label-modal">
                             Emergency Contact Name
                         </label>
                         <input
@@ -357,13 +357,13 @@ export const WorkerManagement = () => {
                             name="emergencyContactName"
                             value={formData.emergencyContactName}
                             onChange={handleInputChange}
-                            className="input"
+                            className="input-modal"
                             placeholder="Emergency contact name"
                         />
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                        <label className="label-modal">
                             Emergency Contact Number
                         </label>
                         <input
@@ -371,14 +371,14 @@ export const WorkerManagement = () => {
                             name="emergencyContactNumber"
                             value={formData.emergencyContactNumber}
                             onChange={handleInputChange}
-                            className="input"
+                            className="input-modal"
                             placeholder="09171234567"
                         />
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                            <label className="label-modal">
                                 Date Hired
                             </label>
                             <input
@@ -386,11 +386,11 @@ export const WorkerManagement = () => {
                                 name="dateHired"
                                 value={formData.dateHired}
                                 onChange={handleInputChange}
-                                className="input"
+                                className="input-modal"
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                            <label className="label-modal">
                                 Medical Conditions (Optional)
                             </label>
                             <input
@@ -398,13 +398,13 @@ export const WorkerManagement = () => {
                                 name="medicalConditions"
                                 value={formData.medicalConditions}
                                 onChange={handleInputChange}
-                                className="input"
+                                className="input-modal"
                                 placeholder="e.g. Asthma, Allergies"
                             />
                         </div>
                     </div>
 
-                    <div className="flex gap-3 justify-end pt-4">
+                    <div className="flex gap-3 justify-end pt-4 border-t border-[#2d3a52]/50">
                         <Button variant="secondary" type="button" onClick={() => setShowAddModal(false)}>
                             Cancel
                         </Button>

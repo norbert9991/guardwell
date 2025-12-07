@@ -356,7 +356,7 @@ export const AdminManagement = () => {
                 title="Add New User"
                 size="md"
             >
-                <form onSubmit={handleAddUser} className="space-y-4">
+                <form onSubmit={handleAddUser} className="space-y-5">
                     {error && (
                         <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-3 rounded-lg text-sm flex items-center gap-2">
                             <AlertTriangle size={16} />
@@ -365,79 +365,79 @@ export const AdminManagement = () => {
                     )}
 
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Email *</label>
+                        <label className="label-modal">Email *</label>
                         <input
                             type="email"
                             name="email"
                             value={formData.email}
                             onChange={handleInputChange}
-                            className="input"
+                            className="input-modal"
                             required
                         />
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Password * (min 8 characters)</label>
+                        <label className="label-modal">Password * (min 8 characters)</label>
                         <input
                             type="password"
                             name="password"
                             value={formData.password}
                             onChange={handleInputChange}
-                            className="input"
+                            className="input-modal"
                             minLength={8}
                             required
                         />
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Full Name *</label>
+                        <label className="label-modal">Full Name *</label>
                         <input
                             type="text"
                             name="fullName"
                             value={formData.fullName}
                             onChange={handleInputChange}
-                            className="input"
+                            className="input-modal"
                             required
                         />
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">Role</label>
+                            <label className="label-modal">Role</label>
                             <select
                                 name="role"
                                 value={formData.role}
                                 onChange={handleInputChange}
-                                className="input"
+                                className="input-modal"
                             >
                                 <option value="Safety Officer">Safety Officer</option>
                                 {isHeadAdmin && <option value="Admin">Admin</option>}
                             </select>
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">Department</label>
+                            <label className="label-modal">Department</label>
                             <input
                                 type="text"
                                 name="department"
                                 value={formData.department}
                                 onChange={handleInputChange}
-                                className="input"
+                                className="input-modal"
                             />
                         </div>
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Phone</label>
+                        <label className="label-modal">Phone</label>
                         <input
                             type="tel"
                             name="phone"
                             value={formData.phone}
                             onChange={handleInputChange}
-                            className="input"
+                            className="input-modal"
                         />
                     </div>
 
-                    <div className="flex gap-3 justify-end pt-4">
+                    <div className="flex gap-3 justify-end pt-4 border-t border-[#2d3a52]/50">
                         <Button variant="secondary" type="button" onClick={() => setShowAddModal(false)}>
                             Cancel
                         </Button>
@@ -455,7 +455,7 @@ export const AdminManagement = () => {
                 title="Edit User"
                 size="md"
             >
-                <form onSubmit={handleEditUser} className="space-y-4">
+                <form onSubmit={handleEditUser} className="space-y-5">
                     {error && (
                         <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-3 rounded-lg text-sm flex items-center gap-2">
                             <AlertTriangle size={16} />
@@ -464,36 +464,36 @@ export const AdminManagement = () => {
                     )}
 
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                        <label className="label-modal">Email</label>
                         <input
                             type="email"
                             value={formData.email}
-                            className="input bg-gray-100"
+                            className="input-modal bg-[#1a2235] opacity-60 cursor-not-allowed"
                             disabled
                         />
                         <p className="text-xs text-gray-500 mt-1">Email cannot be changed</p>
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Full Name *</label>
+                        <label className="label-modal">Full Name *</label>
                         <input
                             type="text"
                             name="fullName"
                             value={formData.fullName}
                             onChange={handleInputChange}
-                            className="input"
+                            className="input-modal"
                             required
                         />
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">Role</label>
+                            <label className="label-modal">Role</label>
                             <select
                                 name="role"
                                 value={formData.role}
                                 onChange={handleInputChange}
-                                className="input"
+                                className="input-modal"
                                 disabled={selectedUser?.role === 'Head Admin'}
                             >
                                 <option value="Safety Officer">Safety Officer</option>
@@ -502,12 +502,12 @@ export const AdminManagement = () => {
                             </select>
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
+                            <label className="label-modal">Status</label>
                             <select
                                 name="status"
                                 value={formData.status}
                                 onChange={handleInputChange}
-                                className="input"
+                                className="input-modal"
                                 disabled={selectedUser?.role === 'Head Admin'}
                             >
                                 <option value="Active">Active</option>
@@ -519,28 +519,28 @@ export const AdminManagement = () => {
 
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">Department</label>
+                            <label className="label-modal">Department</label>
                             <input
                                 type="text"
                                 name="department"
                                 value={formData.department}
                                 onChange={handleInputChange}
-                                className="input"
+                                className="input-modal"
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">Phone</label>
+                            <label className="label-modal">Phone</label>
                             <input
                                 type="tel"
                                 name="phone"
                                 value={formData.phone}
                                 onChange={handleInputChange}
-                                className="input"
+                                className="input-modal"
                             />
                         </div>
                     </div>
 
-                    <div className="flex gap-3 justify-end pt-4">
+                    <div className="flex gap-3 justify-end pt-4 border-t border-[#2d3a52]/50">
                         <Button variant="secondary" type="button" onClick={() => setShowEditModal(false)}>
                             Cancel
                         </Button>
@@ -558,7 +558,7 @@ export const AdminManagement = () => {
                 title="Reset Password"
                 size="sm"
             >
-                <div className="space-y-4">
+                <div className="space-y-5">
                     {error && (
                         <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-3 rounded-lg text-sm flex items-center gap-2">
                             <AlertTriangle size={16} />
@@ -566,22 +566,22 @@ export const AdminManagement = () => {
                         </div>
                     )}
 
-                    <p className="text-gray-600">
+                    <p className="text-gray-400">
                         Reset password for <strong>{selectedUser?.fullName}</strong>
                     </p>
 
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">New Password (min 8 characters)</label>
+                        <label className="label-modal">New Password (min 8 characters)</label>
                         <input
                             type="password"
                             value={newPassword}
                             onChange={(e) => setNewPassword(e.target.value)}
-                            className="input"
+                            className="input-modal"
                             minLength={8}
                         />
                     </div>
 
-                    <div className="flex gap-3 justify-end pt-4">
+                    <div className="flex gap-3 justify-end pt-4 border-t border-[#2d3a52]/50">
                         <Button variant="secondary" onClick={() => setShowPasswordModal(false)}>
                             Cancel
                         </Button>

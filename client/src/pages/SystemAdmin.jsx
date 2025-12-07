@@ -150,7 +150,7 @@ export const SystemAdmin = () => {
                         </h3>
                     </CardHeader>
                     <CardBody className="p-6">
-                        <div className="space-y-4">
+                        <div className="space-y-5">
                             <div className="flex justify-between">
                                 <span className="text-gray-400">Total Workers</span>
                                 <span className="text-white font-semibold">{systemStats.totalWorkers}</span>
@@ -183,7 +183,7 @@ export const SystemAdmin = () => {
                         </h3>
                     </CardHeader>
                     <CardBody className="p-6">
-                        <div className="space-y-4">
+                        <div className="space-y-5">
                             <div className="flex justify-between items-center">
                                 <span className="text-gray-400">Temperature Warning</span>
                                 <Badge variant="warning">{settings.alertThresholds.temperatureWarning}°C</Badge>
@@ -337,7 +337,7 @@ export const SystemAdmin = () => {
                     </h3>
                 </CardHeader>
                 <CardBody className="p-6">
-                    <div className="space-y-4">
+                    <div className="space-y-5">
                         <div className="flex items-center justify-between p-4 bg-dark-lighter rounded-lg">
                             <div>
                                 <h4 className="font-medium text-white">Email Alerts</h4>
@@ -558,10 +558,10 @@ export const SystemAdmin = () => {
                 title="Edit Alert Thresholds"
                 size="md"
             >
-                <div className="space-y-4">
+                <div className="space-y-5">
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                            <label className="label-modal">
                                 Temperature Warning (°C)
                             </label>
                             <input
@@ -571,11 +571,11 @@ export const SystemAdmin = () => {
                                     ...prev,
                                     temperatureWarning: parseInt(e.target.value)
                                 }))}
-                                className="input"
+                                className="input-modal"
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                            <label className="label-modal">
                                 Temperature Critical (°C)
                             </label>
                             <input
@@ -585,14 +585,14 @@ export const SystemAdmin = () => {
                                     ...prev,
                                     temperatureCritical: parseInt(e.target.value)
                                 }))}
-                                className="input"
+                                className="input-modal"
                             />
                         </div>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                            <label className="label-modal">
                                 Gas Warning (PPM)
                             </label>
                             <input
@@ -602,11 +602,11 @@ export const SystemAdmin = () => {
                                     ...prev,
                                     gasWarning: parseInt(e.target.value)
                                 }))}
-                                className="input"
+                                className="input-modal"
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                            <label className="label-modal">
                                 Gas Critical (PPM)
                             </label>
                             <input
@@ -616,13 +616,13 @@ export const SystemAdmin = () => {
                                     ...prev,
                                     gasCritical: parseInt(e.target.value)
                                 }))}
-                                className="input"
+                                className="input-modal"
                             />
                         </div>
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                        <label className="label-modal">
                             Low Battery Warning (%)
                         </label>
                         <input
@@ -632,13 +632,13 @@ export const SystemAdmin = () => {
                                 ...prev,
                                 batteryLow: parseInt(e.target.value)
                             }))}
-                            className="input"
+                            className="input-modal"
                             min="5"
                             max="50"
                         />
                     </div>
 
-                    <div className="flex gap-3 justify-end pt-4">
+                    <div className="flex gap-3 justify-end pt-4 border-t border-[#2d3a52]/50">
                         <Button variant="secondary" onClick={() => setShowThresholdModal(false)}>
                             Cancel
                         </Button>

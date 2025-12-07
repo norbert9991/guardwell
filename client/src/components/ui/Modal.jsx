@@ -33,36 +33,48 @@ export const Modal = ({
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             {/* Backdrop */}
             <div
-                className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+                className="absolute inset-0 bg-black/70 backdrop-blur-md"
                 onClick={onClose}
             />
 
             {/* Modal */}
             <div className={cn(
-                'relative bg-white rounded-lg shadow-2xl w-full animate-slide-in',
+                'relative w-full animate-slide-in',
+                'bg-gradient-to-br from-[#1a2235] to-[#151B2B]',
+                'border border-[#2d3a52] rounded-xl',
+                'shadow-2xl shadow-black/50',
                 sizes[size],
                 className
             )}>
+                {/* Glow effect */}
+                <div className="absolute -inset-[1px] bg-gradient-to-r from-[#00E5FF]/20 via-transparent to-[#00E5FF]/20 rounded-xl blur-sm pointer-events-none" />
+
                 {/* Header */}
                 {(title || showClose) && (
-                    <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
-                        {title && <h3 className="text-xl font-semibold text-gray-900">{title}</h3>}
+                    <div className="relative flex items-center justify-between px-6 py-4 border-b border-[#2d3a52]/80">
+                        <div className="absolute inset-0 bg-gradient-to-r from-[#00E5FF]/5 to-transparent pointer-events-none" />
+                        {title && (
+                            <h3 className="relative text-xl font-bold text-white tracking-tight flex items-center gap-3">
+                                <div className="w-1 h-6 bg-gradient-to-b from-[#00E5FF] to-[#00b8cc] rounded-full" />
+                                {title}
+                            </h3>
+                        )}
                         {showClose && (
                             <button
                                 onClick={onClose}
-                                className="text-gray-400 hover:text-gray-600 transition-colors"
+                                className="relative p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-all duration-200"
                             >
-                                <X size={24} />
+                                <X size={20} />
                             </button>
                         )}
                     </div>
                 )}
 
                 {/* Content */}
-                <div className="px-6 py-4 max-h-[calc(100vh-200px)] overflow-y-auto">
+                <div className="relative px-6 py-5 max-h-[calc(100vh-200px)] overflow-y-auto scrollbar-hide">
                     {children}
                 </div>
             </div>

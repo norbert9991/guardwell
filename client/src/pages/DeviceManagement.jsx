@@ -283,9 +283,9 @@ export const DeviceManagement = () => {
                 title="Add New Device"
                 size="md"
             >
-                <form onSubmit={handleFormSubmit} className="space-y-4">
+                <form onSubmit={handleFormSubmit} className="space-y-5">
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                        <label className="label-modal">
                             Device ID
                         </label>
                         <input
@@ -293,13 +293,13 @@ export const DeviceManagement = () => {
                             name="deviceId"
                             value={formData.deviceId}
                             onChange={handleInputChange}
-                            className="input"
+                            className="input-modal"
                             placeholder="DEV-XXX"
                             required
                         />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                        <label className="label-modal">
                             Serial Number
                         </label>
                         <input
@@ -307,20 +307,20 @@ export const DeviceManagement = () => {
                             name="serialNumber"
                             value={formData.serialNumber}
                             onChange={handleInputChange}
-                            className="input"
+                            className="input-modal"
                             placeholder="GW-XXXXX"
                             required
                         />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                        <label className="label-modal">
                             Type
                         </label>
                         <select
                             name="type"
                             value={formData.type}
                             onChange={handleInputChange}
-                            className="input"
+                            className="select-modal"
                         >
                             <option value="Vest">Smart Vest</option>
                             <option value="Helmet">Smart Helmet</option>
@@ -328,14 +328,14 @@ export const DeviceManagement = () => {
                         </select>
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                        <label className="label-modal">
                             Assign to Worker (Optional)
                         </label>
                         <select
                             name="workerId"
                             value={formData.workerId}
                             onChange={handleInputChange}
-                            className="input"
+                            className="select-modal"
                         >
                             <option value="">-- Select Worker --</option>
                             {workers.filter(w => w.status === 'Active').map(worker => (
@@ -345,7 +345,7 @@ export const DeviceManagement = () => {
                             ))}
                         </select>
                     </div>
-                    <div className="flex gap-3 justify-end pt-4">
+                    <div className="flex gap-3 justify-end pt-4 border-t border-[#2d3a52]/50">
                         <Button variant="secondary" type="button" onClick={() => setShowAddModal(false)}>
                             Cancel
                         </Button>
@@ -381,19 +381,19 @@ export const DeviceManagement = () => {
                 title="Assign Device"
                 size="md"
             >
-                <div className="space-y-4">
-                    <div>
-                        <p className="text-gray-600 mb-2">Device: <strong>{selectedDevice?.deviceId}</strong></p>
-                        <p className="text-gray-600 mb-4">Current: <strong>{selectedDevice?.worker?.fullName || 'Unassigned'}</strong></p>
+                <div className="space-y-5">
+                    <div className="bg-[#0d1220] p-4 rounded-lg border border-[#2d3a52]">
+                        <p className="text-gray-400 text-sm">Device: <span className="font-semibold text-white">{selectedDevice?.deviceId}</span></p>
+                        <p className="text-gray-400 text-sm mt-1">Current: <span className="font-semibold text-white">{selectedDevice?.worker?.fullName || 'Unassigned'}</span></p>
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                        <label className="label-modal">
                             Assign to Worker
                         </label>
                         <select
                             value={assignWorkerId}
                             onChange={(e) => setAssignWorkerId(e.target.value)}
-                            className="input"
+                            className="select-modal"
                         >
                             <option value="">-- Unassign --</option>
                             {availableWorkers.map(worker => (
@@ -403,7 +403,7 @@ export const DeviceManagement = () => {
                             ))}
                         </select>
                     </div>
-                    <div className="flex gap-3 justify-end pt-4">
+                    <div className="flex gap-3 justify-end pt-4 border-t border-[#2d3a52]/50">
                         <Button variant="secondary" onClick={() => setShowAssignModal(false)}>
                             Cancel
                         </Button>
@@ -422,36 +422,36 @@ export const DeviceManagement = () => {
                 size="md"
             >
                 {selectedDevice && (
-                    <div className="space-y-4">
-                        <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div className="space-y-5">
+                        <div className="grid grid-cols-2 gap-4 text-sm bg-[#0d1220] p-4 rounded-lg border border-[#2d3a52]">
                             <div>
-                                <p className="text-gray-600">Device ID:</p>
-                                <p className="font-medium">{selectedDevice.deviceId}</p>
+                                <p className="text-gray-400">Device ID:</p>
+                                <p className="font-semibold text-white">{selectedDevice.deviceId}</p>
                             </div>
                             <div>
-                                <p className="text-gray-600">Serial Number:</p>
-                                <p className="font-medium">{selectedDevice.serialNumber}</p>
+                                <p className="text-gray-400">Serial Number:</p>
+                                <p className="font-semibold text-white">{selectedDevice.serialNumber}</p>
                             </div>
                             <div>
-                                <p className="text-gray-600">Type:</p>
-                                <p className="font-medium">{selectedDevice.type}</p>
+                                <p className="text-gray-400">Type:</p>
+                                <p className="font-semibold text-white">{selectedDevice.type}</p>
                             </div>
                             <div>
-                                <p className="text-gray-600">Battery:</p>
-                                <p className="font-medium">{selectedDevice.battery}%</p>
+                                <p className="text-gray-400">Battery:</p>
+                                <p className="font-semibold text-white">{selectedDevice.battery}%</p>
                             </div>
                             <div>
-                                <p className="text-gray-600">Firmware:</p>
-                                <p className="font-medium">{selectedDevice.firmwareVersion || 'Unknown'}</p>
+                                <p className="text-gray-400">Firmware:</p>
+                                <p className="font-semibold text-white">{selectedDevice.firmwareVersion || 'Unknown'}</p>
                             </div>
                             <div>
-                                <p className="text-gray-600">Current Status:</p>
+                                <p className="text-gray-400">Current Status:</p>
                                 <StatusBadge status={selectedDevice.status} />
                             </div>
                         </div>
 
-                        <div className="border-t pt-4">
-                            <h4 className="font-semibold mb-3">Change Status</h4>
+                        <div className="border-t border-[#2d3a52] pt-4">
+                            <h4 className="label-modal mb-3">Change Status</h4>
                             <div className="flex gap-2 flex-wrap">
                                 <Button
                                     size="sm"
@@ -488,7 +488,7 @@ export const DeviceManagement = () => {
                             </div>
                         </div>
 
-                        <div className="flex gap-3 justify-end pt-4">
+                        <div className="flex gap-3 justify-end pt-4 border-t border-[#2d3a52]/50">
                             <Button variant="secondary" onClick={() => setShowConfigureModal(false)}>
                                 Close
                             </Button>

@@ -234,9 +234,9 @@ export const EmergencyContacts = () => {
                 title="Add Emergency Contact"
                 size="md"
             >
-                <form onSubmit={handleFormSubmit} className="space-y-4">
+                <form onSubmit={handleFormSubmit} className="space-y-5">
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                        <label className="label-modal">
                             Contact Name
                         </label>
                         <input
@@ -244,7 +244,7 @@ export const EmergencyContacts = () => {
                             name="name"
                             value={formData.name}
                             onChange={handleInputChange}
-                            className="input"
+                            className="input-modal"
                             placeholder="e.g., Fire Department, Site Manager"
                             required
                         />
@@ -252,7 +252,7 @@ export const EmergencyContacts = () => {
 
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                            <label className="label-modal">
                                 Phone Number
                             </label>
                             <input
@@ -260,20 +260,20 @@ export const EmergencyContacts = () => {
                                 name="number"
                                 value={formData.number}
                                 onChange={handleInputChange}
-                                className="input"
+                                className="input-modal"
                                 placeholder="09171234567"
                                 required
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                            <label className="label-modal">
                                 Type
                             </label>
                             <select
                                 name="type"
                                 value={formData.type}
                                 onChange={handleInputChange}
-                                className="input"
+                                className="input-modal"
                             >
                                 <option>Fire</option>
                                 <option>Medical</option>
@@ -286,14 +286,14 @@ export const EmergencyContacts = () => {
 
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                            <label className="label-modal">
                                 Priority
                             </label>
                             <select
                                 name="priority"
                                 value={formData.priority}
                                 onChange={handleInputChange}
-                                className="input"
+                                className="input-modal"
                             >
                                 <option value="1">Priority 1 (Immediate)</option>
                                 <option value="2">Priority 2 (Secondary)</option>
@@ -301,7 +301,7 @@ export const EmergencyContacts = () => {
                             </select>
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                            <label className="label-modal">
                                 Email (Optional)
                             </label>
                             <input
@@ -309,14 +309,14 @@ export const EmergencyContacts = () => {
                                 name="email"
                                 value={formData.email}
                                 onChange={handleInputChange}
-                                className="input"
+                                className="input-modal"
                                 placeholder="contact@email.com"
                             />
                         </div>
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                        <label className="label-modal">
                             Notes (Optional)
                         </label>
                         <textarea
@@ -328,7 +328,7 @@ export const EmergencyContacts = () => {
                         />
                     </div>
 
-                    <div className="flex gap-3 justify-end pt-4">
+                    <div className="flex gap-3 justify-end pt-4 border-t border-[#2d3a52]/50">
                         <Button variant="secondary" type="button" onClick={() => setShowAddContactModal(false)}>
                             Cancel
                         </Button>
