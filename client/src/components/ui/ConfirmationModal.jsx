@@ -97,14 +97,27 @@ export const ConfirmationModal = ({
                         <div className="bg-dark-lighter rounded-xl p-4 mb-6 text-left">
                             <h4 className="text-sm font-semibold text-gray-300 mb-3 uppercase tracking-wider">Review Details</h4>
                             <div className="space-y-2">
-                                {Object.entries(data).map(([key, value]) => (
-                                    value && (
-                                        <div key={key} className="flex justify-between text-sm">
-                                            <span className="text-gray-500 capitalize">{key.replace(/([A-Z])/g, ' $1').trim()}:</span>
-                                            <span className="text-white font-medium">{value}</span>
-                                        </div>
-                                    )
-                                ))}
+                                {Array.isArray(data) ? (
+                                    // Handle array of {label, value} objects
+                                    data.map((item, index) => (
+                                        item.value && (
+                                            <div key={index} className="flex justify-between text-sm">
+                                                <span className="text-gray-500">{item.label}:</span>
+                                                <span className="text-white font-medium">{item.value}</span>
+                                            </div>
+                                        )
+                                    ))
+                                ) : (
+                                    // Handle regular object format
+                                    Object.entries(data).map(([key, value]) => (
+                                        value && (
+                                            <div key={key} className="flex justify-between text-sm">
+                                                <span className="text-gray-500 capitalize">{key.replace(/([A-Z])/g, ' $1').trim()}:</span>
+                                                <span className="text-white font-medium">{value}</span>
+                                            </div>
+                                        )
+                                    ))
+                                )}
                             </div>
                         </div>
                     )}
