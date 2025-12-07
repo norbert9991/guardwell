@@ -101,7 +101,6 @@ export const SystemAdmin = () => {
     const tabs = [
         { id: 'overview', label: 'Overview', icon: Activity },
         { id: 'thresholds', label: 'Alert Thresholds', icon: Bell },
-        { id: 'users', label: 'User Management', icon: Users },
         { id: 'system', label: 'System Settings', icon: Settings },
         { id: 'database', label: 'Database', icon: Database },
     ];
@@ -296,36 +295,7 @@ export const SystemAdmin = () => {
         </div>
     );
 
-    const renderUsers = () => (
-        <div className="space-y-6">
-            <CardDark>
-                <CardHeader className="px-6 py-4 border-b border-white/10">
-                    <div className="flex items-center justify-between">
-                        <h3 className="font-bold text-white flex items-center gap-2">
-                            <Users className="h-5 w-5 text-[#8B5CF6]" />
-                            System Users
-                        </h3>
-                        <Button>
-                            <Plus size={16} className="mr-2" />
-                            Add User
-                        </Button>
-                    </div>
-                </CardHeader>
-                <CardBody className="p-6">
-                    <div className="text-center py-12">
-                        <Lock className="h-16 w-16 text-gray-600 mx-auto mb-4" />
-                        <h3 className="text-xl font-semibold text-gray-400 mb-2">User Management</h3>
-                        <p className="text-gray-500 mb-4">
-                            User management features will be available in the next update.
-                        </p>
-                        <p className="text-sm text-gray-600">
-                            Currently authenticated as: <strong className="text-white">Admin</strong>
-                        </p>
-                    </div>
-                </CardBody>
-            </CardDark>
-        </div>
-    );
+
 
     const renderSystemSettings = () => (
         <div className="space-y-6">
@@ -547,7 +517,7 @@ export const SystemAdmin = () => {
             {/* Tab Content */}
             {activeTab === 'overview' && renderOverview()}
             {activeTab === 'thresholds' && renderThresholds()}
-            {activeTab === 'users' && renderUsers()}
+
             {activeTab === 'system' && renderSystemSettings()}
             {activeTab === 'database' && renderDatabase()}
 
