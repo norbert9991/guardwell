@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import io from 'socket.io-client';
 import { useAuth } from './AuthContext';
+import { initializePushNotifications, isPushSupported } from '../utils/pushNotifications';
 
 const SocketContext = createContext(null);
 
@@ -17,7 +18,8 @@ export const SocketProvider = ({ children }) => {
     const [connected, setConnected] = useState(false);
     const [sensorData, setSensorData] = useState({});
     const [alerts, setAlerts] = useState([]);
-    const { isAuthenticated } = useAuth();
+    const [pushEnabled, setPushEnabled] = useState(false);
+    const { isAuthenticated, user } = useAuth();
 
     useEffect(() => {
         if (!isAuthenticated) return;
@@ -57,8 +59,8 @@ export const SocketProvider = ({ children }) => {
 
         // Listen for emergency alerts
         newSocket.on('emergency_alert', (emergency) => {
-            // Show browser notification
-            if (Notification.permission === 'granted') {
+            // Show browser notification (fallback for when push fails)
+            if (Notification.permission === 'granted' && !pushEnabled) {
                 new Notification('🚨 EMERGENCY ALERT', {
                     body: `${emergency.worker_name} triggered emergency alert!`,
                     icon: '/favicon.ico',
@@ -74,14 +76,41 @@ export const SocketProvider = ({ children }) => {
         return () => {
             newSocket.close();
         };
-    }, [isAuthenticated]);
+    }, [isAuthenticated, pushEnabled]);
 
-    // Request notification permission on mount
+    // Initialize push notifications when authenticated
     useEffect(() => {
-        if ('Notification' in window && Notification.permission === 'default') {
-            Notification.requestPermission();
-        }
-    }, []);
+        const setupPushNotifications = async () => {
+            if (!isAuthenticated) return;
+
+            if (!isPushSupported()) {
+                console.warn('Push notifications not supported in this browser');
+                // Fall back to basic notification permission request
+                if ('Notification' in window && Notification.permission === 'default') {
+                    Notification.requestPermission();
+                }
+                return;
+            }
+
+            try {
+                const result = await initializePushNotifications(user?.id);
+                if (result.success) {
+                    setPushEnabled(true);
+                    console.log('✅ Push notifications enabled');
+                } else {
+                    console.warn('Push notifications setup failed:', result.error);
+                    // Fall back to basic notifications
+                    if ('Notification' in window && Notification.permission === 'default') {
+                        Notification.requestPermission();
+                    }
+                }
+            } catch (error) {
+                console.error('Error setting up push notifications:', error);
+            }
+        };
+
+        setupPushNotifications();
+    }, [isAuthenticated, user?.id]);
 
     const emitEvent = (event, data) => {
         if (socket && connected) {
@@ -100,7 +129,9 @@ export const SocketProvider = ({ children }) => {
         alerts,
         emitEvent,
         acknowledgeAlert,
+        pushEnabled,
     };
 
     return <SocketContext.Provider value={value}>{children}</SocketContext.Provider>;
 };
+
