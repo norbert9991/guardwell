@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Plus, User, Edit, Eye, Power, Users, UserCheck, Radio, UserMinus } from 'lucide-react';
+import { Search, Plus, User, Edit, Eye, Power, Users, UserCheck, Radio, UserMinus, Phone, Mail, AlertTriangle } from 'lucide-react';
 import { CardDark, CardBody } from '../components/ui/Card';
 import { MetricCard } from '../components/ui/MetricCard';
 import { Table } from '../components/ui/Table';
@@ -15,6 +15,9 @@ export const WorkerManagement = () => {
     const [filterDept, setFilterDept] = useState('all');
     const [showAddModal, setShowAddModal] = useState(false);
     const [showConfirmModal, setShowConfirmModal] = useState(false);
+    const [showEditModal, setShowEditModal] = useState(false);
+    const [showStatusModal, setShowStatusModal] = useState(false);
+    const [selectedWorker, setSelectedWorker] = useState(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [workers, setWorkers] = useState([]);
@@ -94,6 +97,67 @@ export const WorkerManagement = () => {
         }
     };
 
+    // Handle edit worker
+    const handleEditWorker = (worker) => {
+        setSelectedWorker(worker);
+        setFormData({
+            employeeNumber: worker.employeeNumber,
+            fullName: worker.fullName,
+            department: worker.department,
+            position: worker.position || '',
+            contactNumber: worker.contactNumber || '',
+            email: worker.email || '',
+            emergencyContactName: worker.emergencyContactName || '',
+            emergencyContactNumber: worker.emergencyContactNumber || '',
+            dateHired: worker.dateHired || '',
+            medicalConditions: worker.medicalConditions || ''
+        });
+        setShowEditModal(true);
+    };
+
+    // Handle save edit
+    const handleSaveEdit = async () => {
+        setIsSubmitting(true);
+        try {
+            const response = await workersApi.update(selectedWorker.id, formData);
+            setWorkers(prev => prev.map(w =>
+                w.id === selectedWorker.id ? response.data : w
+            ));
+            setShowEditModal(false);
+            setSelectedWorker(null);
+        } catch (error) {
+            console.error('Failed to update worker:', error);
+            alert('Failed to update worker. Please try again.');
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    // Handle status toggle
+    const handleStatusToggle = (worker) => {
+        setSelectedWorker(worker);
+        setShowStatusModal(true);
+    };
+
+    // Confirm status toggle
+    const confirmStatusToggle = async () => {
+        setIsSubmitting(true);
+        try {
+            const newStatus = selectedWorker.status === 'Active' ? 'Inactive' : 'Active';
+            const response = await workersApi.update(selectedWorker.id, { status: newStatus });
+            setWorkers(prev => prev.map(w =>
+                w.id === selectedWorker.id ? response.data : w
+            ));
+            setShowStatusModal(false);
+            setSelectedWorker(null);
+        } catch (error) {
+            console.error('Failed to toggle status:', error);
+            alert('Failed to update status. Please try again.');
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
     const columns = [
         { key: 'employeeNumber', label: 'Employee #', sortable: true },
         {
@@ -135,20 +199,22 @@ export const WorkerManagement = () => {
                 <div className="flex items-center gap-2">
                     <button
                         onClick={() => navigate(`/workers/${row.id}`)}
-                        className="p-2 hover:bg-dark-lighter rounded text-primary-500"
+                        className="p-2 hover:bg-dark-lighter rounded text-primary-500 transition-colors"
                         title="View Details"
                     >
                         <Eye size={16} />
                     </button>
                     <button
-                        className="p-2 hover:bg-dark-lighter rounded text-gray-400"
-                        title="Edit"
+                        onClick={() => handleEditWorker(row)}
+                        className="p-2 hover:bg-dark-lighter rounded text-yellow-500 transition-colors"
+                        title="Edit Worker"
                     >
                         <Edit size={16} />
                     </button>
                     <button
-                        className="p-2 hover:bg-dark-lighter rounded text-danger"
-                        title="Deactivate"
+                        onClick={() => handleStatusToggle(row)}
+                        className={`p-2 hover:bg-dark-lighter rounded transition-colors ${row.status === 'Active' ? 'text-danger' : 'text-success'}`}
+                        title={row.status === 'Active' ? 'Deactivate' : 'Activate'}
                     >
                         <Power size={16} />
                     </button>
@@ -434,6 +500,161 @@ export const WorkerManagement = () => {
                     'Contact': formData.contactNumber
                 }}
             />
+
+            {/* Edit Worker Modal */}
+            <Modal
+                isOpen={showEditModal}
+                onClose={() => setShowEditModal(false)}
+                title={`Edit Worker - ${selectedWorker?.fullName || ''}`}
+                size="lg"
+            >
+                <div className="space-y-5">
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="label-modal">Employee Number</label>
+                            <input
+                                type="text"
+                                name="employeeNumber"
+                                value={formData.employeeNumber}
+                                onChange={handleInputChange}
+                                className="input-modal"
+                            />
+                        </div>
+                        <div>
+                            <label className="label-modal">Full Name</label>
+                            <input
+                                type="text"
+                                name="fullName"
+                                value={formData.fullName}
+                                onChange={handleInputChange}
+                                className="input-modal"
+                            />
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="label-modal">Department</label>
+                            <select
+                                name="department"
+                                value={formData.department}
+                                onChange={handleInputChange}
+                                className="input-modal"
+                            >
+                                <option value="Manufacturing">Manufacturing</option>
+                                <option value="Construction">Construction</option>
+                                <option value="Maintenance">Maintenance</option>
+                                <option value="Logistics">Logistics</option>
+                                <option value="Quality Control">Quality Control</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label className="label-modal">Position</label>
+                            <input
+                                type="text"
+                                name="position"
+                                value={formData.position}
+                                onChange={handleInputChange}
+                                className="input-modal"
+                            />
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="label-modal">Contact Number</label>
+                            <input
+                                type="tel"
+                                name="contactNumber"
+                                value={formData.contactNumber}
+                                onChange={handleInputChange}
+                                className="input-modal"
+                            />
+                        </div>
+                        <div>
+                            <label className="label-modal">Email</label>
+                            <input
+                                type="email"
+                                name="email"
+                                value={formData.email}
+                                onChange={handleInputChange}
+                                className="input-modal"
+                            />
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="label-modal">Emergency Contact Name</label>
+                            <input
+                                type="text"
+                                name="emergencyContactName"
+                                value={formData.emergencyContactName}
+                                onChange={handleInputChange}
+                                className="input-modal"
+                            />
+                        </div>
+                        <div>
+                            <label className="label-modal">Emergency Contact Number</label>
+                            <input
+                                type="tel"
+                                name="emergencyContactNumber"
+                                value={formData.emergencyContactNumber}
+                                onChange={handleInputChange}
+                                className="input-modal"
+                            />
+                        </div>
+                    </div>
+
+                    <div className="flex gap-3 justify-end pt-4 border-t border-[#2d3a52]/50">
+                        <Button variant="secondary" onClick={() => setShowEditModal(false)}>
+                            Cancel
+                        </Button>
+                        <Button onClick={handleSaveEdit} disabled={isSubmitting}>
+                            {isSubmitting ? 'Saving...' : 'Save Changes'}
+                        </Button>
+                    </div>
+                </div>
+            </Modal>
+
+            {/* Status Toggle Modal */}
+            <Modal
+                isOpen={showStatusModal}
+                onClose={() => setShowStatusModal(false)}
+                title={`${selectedWorker?.status === 'Active' ? 'Deactivate' : 'Activate'} Worker`}
+                size="sm"
+            >
+                <div className="text-center py-4">
+                    <div className={`w-20 h-20 mx-auto rounded-full flex items-center justify-center mb-4 ${selectedWorker?.status === 'Active' ? 'bg-red-500/20' : 'bg-green-500/20'
+                        }`}>
+                        <Power className={`h-10 w-10 ${selectedWorker?.status === 'Active' ? 'text-red-500' : 'text-green-500'
+                            }`} />
+                    </div>
+
+                    <h3 className="text-xl font-bold text-white mb-2">
+                        {selectedWorker?.fullName}
+                    </h3>
+                    <p className="text-gray-400 mb-6">
+                        {selectedWorker?.status === 'Active'
+                            ? 'This will deactivate the worker. They will not receive alerts and their device will be unmonitored.'
+                            : 'This will reactivate the worker. They will resume normal monitoring and alerts.'
+                        }
+                    </p>
+
+                    <div className="flex gap-3 justify-center">
+                        <Button variant="secondary" onClick={() => setShowStatusModal(false)}>
+                            Cancel
+                        </Button>
+                        <Button
+                            variant={selectedWorker?.status === 'Active' ? 'danger' : 'primary'}
+                            onClick={confirmStatusToggle}
+                            disabled={isSubmitting}
+                        >
+                            {isSubmitting ? 'Processing...' : (selectedWorker?.status === 'Active' ? 'Deactivate' : 'Activate')}
+                        </Button>
+                    </div>
+                </div>
+            </Modal>
         </div>
     );
 };

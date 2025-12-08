@@ -1,6 +1,8 @@
 const express = require('express');
 const router = express.Router();
-const { SensorData, Alert, Device, Worker } = require('../models');
+const { SensorData, Alert, Device, Worker, EmergencyContact } = require('../models');
+const emailService = require('../services/emailService');
+const pushService = require('../services/pushService');
 
 // Thresholds for alerts
 const THRESHOLDS = {
@@ -159,6 +161,35 @@ const processSensorData = async (data, io) => {
                     device: data.device_id,
                     timestamp: new Date().toISOString()
                 });
+
+                // Send email notification to emergency contacts
+                try {
+                    const contacts = await EmergencyContact.findAll();
+                    const emailList = contacts.map(c => c.email).filter(Boolean);
+
+                    if (emailList.length > 0) {
+                        if (alert.type === 'Emergency Button') {
+                            await emailService.sendEmergencyAlert({
+                                workerName,
+                                location: device?.worker?.department || 'Unknown',
+                                deviceId: data.device_id,
+                                timestamp: new Date().toISOString(),
+                                contacts: emailList
+                            });
+                        } else {
+                            await emailService.sendThresholdAlert({
+                                workerName,
+                                sensorType: alert.type,
+                                value: alert.triggerValue,
+                                threshold: alert.threshold,
+                                severity: alert.severity,
+                                contacts: emailList
+                            });
+                        }
+                    }
+                } catch (emailError) {
+                    console.error('Failed to send email notification:', emailError);
+                }
             }
         }
 
