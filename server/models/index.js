@@ -5,7 +5,6 @@ const Alert = require('./Alert');
 const Incident = require('./Incident');
 const EmergencyContact = require('./EmergencyContact');
 const User = require('./User');
-const PushSubscription = require('./PushSubscription');
 const { sequelize } = require('../config/database');
 const bcrypt = require('bcrypt');
 
@@ -18,10 +17,6 @@ Alert.belongsTo(Worker, { foreignKey: 'workerId', as: 'worker' });
 
 Worker.hasMany(Incident, { foreignKey: 'workerId', as: 'incidents' });
 Incident.belongsTo(Worker, { foreignKey: 'workerId', as: 'worker' });
-
-// Push subscription associations
-User.hasMany(PushSubscription, { foreignKey: 'userId', as: 'pushSubscriptions' });
-PushSubscription.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 
 // Sync all models with the database
 const syncDatabase = async (force = false) => {
@@ -59,6 +54,5 @@ module.exports = {
     Incident,
     EmergencyContact,
     User,
-    PushSubscription,
     syncDatabase
 };

@@ -8,7 +8,6 @@ const mqtt = require('mqtt');
 const { testConnection } = require('./config/database');
 const { syncDatabase } = require('./models');
 const emailService = require('./services/emailService');
-const pushService = require('./services/pushService');
 
 // Import routes
 const workersRouter = require('./routes/workers');
@@ -19,7 +18,6 @@ const incidentsRouter = require('./routes/incidents');
 const contactsRouter = require('./routes/contacts');
 const authRouter = require('./routes/auth');
 const usersRouter = require('./routes/users');
-const pushRouter = require('./routes/push');
 
 const app = express();
 const server = http.createServer(app);
@@ -175,7 +173,6 @@ app.use('/api/sensors', sensorsRouter);
 app.use('/api/alerts', alertsRouter);
 app.use('/api/incidents', incidentsRouter);
 app.use('/api/contacts', contactsRouter);
-app.use('/api/push', pushRouter);
 
 // Socket.io connection handling
 io.on('connection', (socket) => {
@@ -217,9 +214,6 @@ const startServer = async () => {
 
     // Initialize SendGrid email service
     emailService.initSendGrid();
-
-    // Initialize Web Push service
-    pushService.initWebPush();
 
     // Connect to MQTT if broker is configured
     if (process.env.MQTT_BROKER) {

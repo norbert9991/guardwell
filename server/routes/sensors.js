@@ -2,7 +2,6 @@ const express = require('express');
 const router = express.Router();
 const { SensorData, Alert, Device, Worker, EmergencyContact } = require('../models');
 const emailService = require('../services/emailService');
-const pushService = require('../services/pushService');
 
 // Thresholds for alerts
 const THRESHOLDS = {
@@ -189,27 +188,6 @@ const processSensorData = async (data, io) => {
                     }
                 } catch (emailError) {
                     console.error('Failed to send email notification:', emailError);
-                }
-
-                // Send browser push notification
-                try {
-                    if (alert.type === 'Emergency Button') {
-                        await pushService.sendEmergencyNotification({
-                            workerName,
-                            alertType: alert.type,
-                            deviceId: data.device_id,
-                            timestamp: new Date().toISOString()
-                        });
-                    } else {
-                        await pushService.sendAlertNotification({
-                            workerName,
-                            alertType: alert.type,
-                            severity: alert.severity,
-                            value: alert.triggerValue
-                        });
-                    }
-                } catch (pushError) {
-                    console.error('Failed to send push notification:', pushError);
                 }
             }
         }
