@@ -1,42 +1,86 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, User, Radio, AlertTriangle, FileText, Clock } from 'lucide-react';
+import { ArrowLeft, User, Radio, AlertTriangle, FileText, Clock, Loader2 } from 'lucide-react';
 import { CardDark, CardBody, CardHeader } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Badge, StatusBadge } from '../components/ui/Badge';
+import { workersApi, alertsApi } from '../utils/api';
 
 export const WorkerProfile = () => {
     const { id } = useParams();
     const navigate = useNavigate();
 
-    // Mock worker data
-    const worker = {
-        id,
-        employeeNumber: 'EMP-001',
-        fullName: 'Juan dela Cruz',
-        department: 'Manufacturing',
-        position: 'Machine Operator',
-        contactNumber: '09171234567',
-        email: 'juan.delacruz@cathaymetal.com',
-        emergencyContact: {
-            name: 'Maria dela Cruz',
-            number: '09187654321'
-        },
-        assignedDevice: 'DEV-001',
-        status: 'Active',
-        dateHired: '2023-01-15',
-        ppeCompliance: 96
-    };
+    const [worker, setWorker] = useState(null);
+    const [recentAlerts, setRecentAlerts] = useState([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState(null);
 
-    const recentAlerts = [
-        { id: 1, type: 'High Temperature', severity: 'High', date: '2024-11-28 14:30', status: 'Resolved' },
-        { id: 2, type: 'Gas Detection', severity: 'Medium', date: '2024-11-27 10:15', status: 'Resolved' }
-    ];
+    // Fetch worker data from API
+    useEffect(() => {
+        const fetchWorkerData = async () => {
+            try {
+                setIsLoading(true);
+                const workerResponse = await workersApi.getById(id);
+                setWorker(workerResponse.data);
 
+                // Fetch alerts for this worker
+                try {
+                    const alertsResponse = await alertsApi.getAll();
+                    // Filter alerts for this worker
+                    const workerAlerts = alertsResponse.data
+                        .filter(alert => alert.workerId === parseInt(id))
+                        .slice(0, 5); // Get last 5 alerts
+                    setRecentAlerts(workerAlerts);
+                } catch (alertError) {
+                    console.error('Failed to fetch alerts:', alertError);
+                    setRecentAlerts([]);
+                }
+            } catch (error) {
+                console.error('Failed to fetch worker:', error);
+                setError('Worker not found or failed to load.');
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        if (id) {
+            fetchWorkerData();
+        }
+    }, [id]);
+
+    // Mock attendance data (would need a separate API if tracked)
     const attendance = [
-        { date: '2024-11-29', timeIn: '08:00', timeOut: '17:00', hours: '9.0' },
-        { date: '2024-11-28', timeIn: '08:05', timeOut: '17:10', hours: '9.1' }
+        { date: new Date().toISOString().split('T')[0], timeIn: '08:00', timeOut: '17:00', hours: '9.0' },
+        { date: new Date(Date.now() - 86400000).toISOString().split('T')[0], timeIn: '08:05', timeOut: '17:10', hours: '9.1' }
     ];
+
+    // Loading state
+    if (isLoading) {
+        return (
+            <div className="flex items-center justify-center h-96">
+                <div className="text-center">
+                    <Loader2 className="h-12 w-12 text-primary-500 animate-spin mx-auto mb-4" />
+                    <p className="text-gray-400">Loading worker profile...</p>
+                </div>
+            </div>
+        );
+    }
+
+    // Error state
+    if (error || !worker) {
+        return (
+            <div className="flex items-center justify-center h-96">
+                <div className="text-center">
+                    <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+                    <h2 className="text-xl font-bold text-white mb-2">Worker Not Found</h2>
+                    <p className="text-gray-400 mb-4">{error || 'The requested worker could not be found.'}</p>
+                    <Button onClick={() => navigate('/workers')}>
+                        Back to Workers
+                    </Button>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-6">
@@ -88,8 +132,8 @@ export const WorkerProfile = () => {
                             </div>
                             <div>
                                 <p className="text-gray-400 mb-1">Emergency Contact</p>
-                                <p className="text-white font-medium">{worker.emergencyContact.name}</p>
-                                <p className="text-gray-400 text-xs">{worker.emergencyContact.number}</p>
+                                <p className="text-white font-medium">{worker.emergencyContactName || 'Not set'}</p>
+                                <p className="text-gray-400 text-xs">{worker.emergencyContactNumber || ''}</p>
                             </div>
                         </CardBody>
                     </CardDark>

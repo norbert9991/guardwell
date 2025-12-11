@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Plus, Phone, AlertTriangle, Shield, Activity, Siren, CheckCircle } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Plus, Phone, AlertTriangle, Shield, Activity, Siren, CheckCircle, Mail, MessageSquare, Loader2 } from 'lucide-react';
 import { CardDark, CardBody, CardHeader } from '../components/ui/Card';
 import { MetricCard } from '../components/ui/MetricCard';
 import { Table } from '../components/ui/Table';
@@ -7,6 +7,7 @@ import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
 import { Modal } from '../components/ui/Modal';
 import { ConfirmationModal } from '../components/ui/ConfirmationModal';
+import { contactsApi } from '../utils/api';
 
 export const EmergencyContacts = () => {
     const [showEmergencyModal, setShowEmergencyModal] = useState(false);
@@ -14,12 +15,9 @@ export const EmergencyContacts = () => {
     const [showConfirmModal, setShowConfirmModal] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [emergencyActive, setEmergencyActive] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
 
-    const [contacts, setContacts] = useState([
-        { id: '1', name: 'Fire Department', number: '911', type: 'Fire', priority: 1, status: 'Active' },
-        { id: '2', name: 'Medical Emergency', number: '911', type: 'Medical', priority: 1, status: 'Active' },
-        { id: '3', name: 'Site Manager', number: '09171234567', type: 'Management', priority: 2, status: 'Active' },
-    ]);
+    const [contacts, setContacts] = useState([]);
 
     const [formData, setFormData] = useState({
         name: '',
@@ -29,6 +27,23 @@ export const EmergencyContacts = () => {
         email: '',
         notes: ''
     });
+
+    // Fetch contacts from API
+    useEffect(() => {
+        const fetchContacts = async () => {
+            try {
+                setIsLoading(true);
+                const response = await contactsApi.getAll();
+                setContacts(response.data);
+            } catch (error) {
+                console.error('Failed to fetch contacts:', error);
+                // Keep empty array if API fails
+            } finally {
+                setIsLoading(false);
+            }
+        };
+        fetchContacts();
+    }, []);
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
@@ -43,17 +58,12 @@ export const EmergencyContacts = () => {
     const handleConfirmAdd = async () => {
         setIsSubmitting(true);
         try {
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            const response = await contactsApi.create({
+                ...formData,
+                priority: parseInt(formData.priority)
+            });
 
-            const newContact = {
-                id: String(contacts.length + 1),
-                name: formData.name,
-                number: formData.number,
-                type: formData.type,
-                priority: parseInt(formData.priority),
-                status: 'Active'
-            };
-            setContacts(prev => [...prev, newContact]);
+            setContacts(prev => [...prev, response.data]);
 
             setFormData({
                 name: '',
@@ -67,6 +77,7 @@ export const EmergencyContacts = () => {
             setShowAddContactModal(false);
         } catch (error) {
             console.error('Failed to add contact:', error);
+            alert('Failed to add contact. Please try again.');
         } finally {
             setIsSubmitting(false);
         }
@@ -74,8 +85,13 @@ export const EmergencyContacts = () => {
 
     const [showEditModal, setShowEditModal] = useState(false);
     const [showCallModal, setShowCallModal] = useState(false);
+    const [showEmailModal, setShowEmailModal] = useState(false);
+    const [showSmsModal, setShowSmsModal] = useState(false);
     const [selectedContact, setSelectedContact] = useState(null);
     const [callStatus, setCallStatus] = useState('idle'); // idle, calling, connected, ended
+    const [emailMessage, setEmailMessage] = useState('');
+    const [smsMessage, setSmsMessage] = useState('');
+    const [actionStatus, setActionStatus] = useState('idle'); // idle, sending, sent
 
     const handleEditContact = (contact) => {
         setSelectedContact(contact);
@@ -101,6 +117,44 @@ export const EmergencyContacts = () => {
         }, 2000);
     };
 
+    const handleSendEmail = (contact) => {
+        setSelectedContact(contact);
+        setEmailMessage('');
+        setActionStatus('idle');
+        setShowEmailModal(true);
+    };
+
+    const handleSendSms = (contact) => {
+        setSelectedContact(contact);
+        setSmsMessage('');
+        setActionStatus('idle');
+        setShowSmsModal(true);
+    };
+
+    const handleConfirmEmail = async () => {
+        setActionStatus('sending');
+        // Simulate email sending (in production, this would call a backend API)
+        setTimeout(() => {
+            setActionStatus('sent');
+            setTimeout(() => {
+                setShowEmailModal(false);
+                setActionStatus('idle');
+            }, 1500);
+        }, 1500);
+    };
+
+    const handleConfirmSms = async () => {
+        setActionStatus('sending');
+        // Simulate SMS sending (in production, this would call a backend API like Twilio)
+        setTimeout(() => {
+            setActionStatus('sent');
+            setTimeout(() => {
+                setShowSmsModal(false);
+                setActionStatus('idle');
+            }, 1500);
+        }, 1500);
+    };
+
     const handleEndCall = () => {
         setCallStatus('ended');
         setTimeout(() => {
@@ -110,19 +164,30 @@ export const EmergencyContacts = () => {
         }, 1000);
     };
 
-    const handleSaveEdit = () => {
-        setContacts(prev => prev.map(c =>
-            c.id === selectedContact.id
-                ? { ...c, name: formData.name, number: formData.number, type: formData.type, priority: parseInt(formData.priority) }
-                : c
-        ));
-        setShowEditModal(false);
-        setSelectedContact(null);
+    const handleSaveEdit = async () => {
+        setIsSubmitting(true);
+        try {
+            const response = await contactsApi.update(selectedContact.id, {
+                ...formData,
+                priority: parseInt(formData.priority)
+            });
+            setContacts(prev => prev.map(c =>
+                c.id === selectedContact.id ? response.data : c
+            ));
+            setShowEditModal(false);
+            setSelectedContact(null);
+        } catch (error) {
+            console.error('Failed to update contact:', error);
+            alert('Failed to update contact. Please try again.');
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     const columns = [
         { key: 'name', label: 'Contact Name', sortable: true },
         { key: 'number', label: 'Phone Number' },
+        { key: 'email', label: 'Email', render: (row) => row.email || <span className="text-gray-500">-</span> },
         { key: 'type', label: 'Type', render: (row) => <Badge variant="info">{row.type}</Badge> },
         { key: 'priority', label: 'Priority', render: (row) => <Badge variant={row.priority === 1 ? 'danger' : 'secondary'}>P{row.priority}</Badge> },
         { key: 'status', label: 'Status', render: (row) => <Badge variant="success">{row.status}</Badge> },
@@ -134,9 +199,21 @@ export const EmergencyContacts = () => {
                     <Button size="sm" variant="outline" onClick={() => handleEditContact(row)}>
                         Edit
                     </Button>
-                    <Button size="sm" variant="secondary" onClick={() => handleTestCall(row)}>
-                        <Phone size={14} className="mr-1" />
-                        Call
+                    <Button size="sm" variant="secondary" onClick={() => handleTestCall(row)} title="Call">
+                        <Phone size={14} />
+                    </Button>
+                    <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => handleSendEmail(row)}
+                        title="Email"
+                        disabled={!row.email}
+                        className={!row.email ? 'opacity-50 cursor-not-allowed' : ''}
+                    >
+                        <Mail size={14} />
+                    </Button>
+                    <Button size="sm" variant="secondary" onClick={() => handleSendSms(row)} title="SMS">
+                        <MessageSquare size={14} />
                     </Button>
                 </div>
             )
@@ -495,12 +572,12 @@ export const EmergencyContacts = () => {
                 <div className="text-center py-6">
                     {/* Call Status Display */}
                     <div className={`w-24 h-24 mx-auto rounded-full flex items-center justify-center mb-6 ${callStatus === 'calling' ? 'bg-yellow-500/20 animate-pulse' :
-                            callStatus === 'connected' ? 'bg-green-500/20' :
-                                callStatus === 'ended' ? 'bg-gray-500/20' : 'bg-[#00E5FF]/20'
+                        callStatus === 'connected' ? 'bg-green-500/20' :
+                            callStatus === 'ended' ? 'bg-gray-500/20' : 'bg-[#00E5FF]/20'
                         }`}>
                         <Phone className={`h-12 w-12 ${callStatus === 'calling' ? 'text-yellow-500 animate-bounce' :
-                                callStatus === 'connected' ? 'text-green-500' :
-                                    callStatus === 'ended' ? 'text-gray-500' : 'text-[#00E5FF]'
+                            callStatus === 'connected' ? 'text-green-500' :
+                                callStatus === 'ended' ? 'text-gray-500' : 'text-[#00E5FF]'
                             }`} />
                     </div>
 
@@ -512,8 +589,8 @@ export const EmergencyContacts = () => {
                     </p>
 
                     <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full ${callStatus === 'calling' ? 'bg-yellow-500/20 text-yellow-400' :
-                            callStatus === 'connected' ? 'bg-green-500/20 text-green-400' :
-                                callStatus === 'ended' ? 'bg-gray-500/20 text-gray-400' : ''
+                        callStatus === 'connected' ? 'bg-green-500/20 text-green-400' :
+                            callStatus === 'ended' ? 'bg-gray-500/20 text-gray-400' : ''
                         }`}>
                         {callStatus === 'calling' && (
                             <>
@@ -547,6 +624,141 @@ export const EmergencyContacts = () => {
                         <p className="text-sm text-gray-500 mt-4">
                             This is a test call simulation
                         </p>
+                    )}
+                </div>
+            </Modal>
+
+            {/* Email Modal */}
+            <Modal
+                isOpen={showEmailModal}
+                onClose={() => {
+                    if (actionStatus !== 'sending') {
+                        setShowEmailModal(false);
+                        setActionStatus('idle');
+                    }
+                }}
+                title="Send Email"
+                size="md"
+            >
+                <div className="space-y-4">
+                    {actionStatus === 'sent' ? (
+                        <div className="text-center py-8">
+                            <div className="w-20 h-20 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <CheckCircle className="h-10 w-10 text-green-500" />
+                            </div>
+                            <h3 className="text-xl font-bold text-white mb-2">Email Sent!</h3>
+                            <p className="text-gray-400">Email successfully sent to {selectedContact?.email}</p>
+                        </div>
+                    ) : (
+                        <>
+                            <div>
+                                <label className="label-modal">To</label>
+                                <input
+                                    type="text"
+                                    value={selectedContact?.email || ''}
+                                    disabled
+                                    className="input-modal bg-dark-lighter"
+                                />
+                            </div>
+                            <div>
+                                <label className="label-modal">Contact Name</label>
+                                <input
+                                    type="text"
+                                    value={selectedContact?.name || ''}
+                                    disabled
+                                    className="input-modal bg-dark-lighter"
+                                />
+                            </div>
+                            <div>
+                                <label className="label-modal">Message</label>
+                                <textarea
+                                    value={emailMessage}
+                                    onChange={(e) => setEmailMessage(e.target.value)}
+                                    className="input-modal min-h-[120px]"
+                                    placeholder="Enter your message..."
+                                />
+                            </div>
+                            <div className="flex gap-3 justify-end pt-4 border-t border-[#2d3a52]/50">
+                                <Button variant="secondary" onClick={() => setShowEmailModal(false)}>
+                                    Cancel
+                                </Button>
+                                <Button
+                                    onClick={handleConfirmEmail}
+                                    disabled={!emailMessage.trim() || actionStatus === 'sending'}
+                                    icon={actionStatus === 'sending' ? <Loader2 className="animate-spin" size={16} /> : <Mail size={16} />}
+                                >
+                                    {actionStatus === 'sending' ? 'Sending...' : 'Send Email'}
+                                </Button>
+                            </div>
+                        </>
+                    )}
+                </div>
+            </Modal>
+
+            {/* SMS Modal */}
+            <Modal
+                isOpen={showSmsModal}
+                onClose={() => {
+                    if (actionStatus !== 'sending') {
+                        setShowSmsModal(false);
+                        setActionStatus('idle');
+                    }
+                }}
+                title="Send SMS"
+                size="md"
+            >
+                <div className="space-y-4">
+                    {actionStatus === 'sent' ? (
+                        <div className="text-center py-8">
+                            <div className="w-20 h-20 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <CheckCircle className="h-10 w-10 text-green-500" />
+                            </div>
+                            <h3 className="text-xl font-bold text-white mb-2">SMS Sent!</h3>
+                            <p className="text-gray-400">SMS successfully sent to {selectedContact?.number}</p>
+                        </div>
+                    ) : (
+                        <>
+                            <div>
+                                <label className="label-modal">To</label>
+                                <input
+                                    type="text"
+                                    value={selectedContact?.number || ''}
+                                    disabled
+                                    className="input-modal bg-dark-lighter"
+                                />
+                            </div>
+                            <div>
+                                <label className="label-modal">Contact Name</label>
+                                <input
+                                    type="text"
+                                    value={selectedContact?.name || ''}
+                                    disabled
+                                    className="input-modal bg-dark-lighter"
+                                />
+                            </div>
+                            <div>
+                                <label className="label-modal">Message <span className="text-gray-500 text-xs">({smsMessage.length}/160)</span></label>
+                                <textarea
+                                    value={smsMessage}
+                                    onChange={(e) => setSmsMessage(e.target.value.slice(0, 160))}
+                                    className="input-modal min-h-[100px]"
+                                    placeholder="Enter your message..."
+                                    maxLength={160}
+                                />
+                            </div>
+                            <div className="flex gap-3 justify-end pt-4 border-t border-[#2d3a52]/50">
+                                <Button variant="secondary" onClick={() => setShowSmsModal(false)}>
+                                    Cancel
+                                </Button>
+                                <Button
+                                    onClick={handleConfirmSms}
+                                    disabled={!smsMessage.trim() || actionStatus === 'sending'}
+                                    icon={actionStatus === 'sending' ? <Loader2 className="animate-spin" size={16} /> : <MessageSquare size={16} />}
+                                >
+                                    {actionStatus === 'sending' ? 'Sending...' : 'Send SMS'}
+                                </Button>
+                            </div>
+                        </>
                     )}
                 </div>
             </Modal>
