@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
     Users,
     Radio,
@@ -17,11 +17,14 @@ import { Badge, StatusBadge, SeverityBadge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
 import { useSocket } from '../context/SocketContext';
+import { useToast } from '../context/ToastContext';
 import { MetricCard } from '../components/ui/MetricCard';
 import { workersApi, devicesApi, alertsApi } from '../utils/api';
 
 export const Dashboard = () => {
-    const { alerts: realtimeAlerts, sensorData, connected, emitEvent } = useSocket();
+    const { alerts: realtimeAlerts, sensorData, connected, emitEvent, acknowledgeAlert } = useSocket();
+    const navigate = useNavigate();
+    const toast = useToast();
     const [workers, setWorkers] = useState([]);
     const [devices, setDevices] = useState([]);
     const [dbAlerts, setDbAlerts] = useState([]);
@@ -29,6 +32,7 @@ export const Dashboard = () => {
     const [currentTime, setCurrentTime] = useState(new Date());
     const [showEmergencyModal, setShowEmergencyModal] = useState(false);
     const [emergencyTriggered, setEmergencyTriggered] = useState(false);
+    const [acknowledging, setAcknowledging] = useState(null);
 
     // Update current time every second
     useEffect(() => {
@@ -94,6 +98,27 @@ export const Dashboard = () => {
         const diffHours = Math.floor(diffMins / 60);
         if (diffHours < 24) return `${diffHours} hr ago`;
         return date.toLocaleDateString();
+    };
+
+    // Handle quick acknowledge from dashboard
+    const handleQuickAcknowledge = async (alert) => {
+        if (!alert?.id) return;
+        setAcknowledging(alert.id);
+        try {
+            await alertsApi.acknowledge(alert.id);
+            // Update local state
+            setDbAlerts(prev => prev.map(a =>
+                a.id === alert.id ? { ...a, status: 'Acknowledged' } : a
+            ));
+            // Notify via socket
+            if (acknowledgeAlert) acknowledgeAlert(alert.id);
+            toast.success('Alert acknowledged successfully');
+        } catch (error) {
+            console.error('Failed to acknowledge alert:', error);
+            toast.error('Failed to acknowledge. Click to view full details.');
+        } finally {
+            setAcknowledging(null);
+        }
     };
 
     // Handle emergency activation
@@ -215,8 +240,17 @@ export const Dashboard = () => {
                                                 <div className="flex items-center gap-3">
                                                     <StatusBadge status={alert.status || 'Pending'} />
                                                     {alert.status === 'Pending' && (
-                                                        <Button size="sm" variant="primary" className="opacity-0 group-hover:opacity-100 transition-opacity">
-                                                            Acknowledge
+                                                        <Button
+                                                            size="sm"
+                                                            variant="primary"
+                                                            className="opacity-0 group-hover:opacity-100 transition-opacity"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                handleQuickAcknowledge(alert);
+                                                            }}
+                                                            disabled={acknowledging === alert.id}
+                                                        >
+                                                            {acknowledging === alert.id ? 'Processing...' : 'Acknowledge'}
                                                         </Button>
                                                     )}
                                                 </div>

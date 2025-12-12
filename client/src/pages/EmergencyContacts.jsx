@@ -9,8 +9,10 @@ import { Modal } from '../components/ui/Modal';
 import { ConfirmationModal } from '../components/ui/ConfirmationModal';
 import { contactsApi } from '../utils/api';
 import { useToast } from '../context/ToastContext';
+import { useSocket } from '../context/SocketContext';
 
 export const EmergencyContacts = () => {
+    const { emitEvent, connected } = useSocket();
     const [showEmergencyModal, setShowEmergencyModal] = useState(false);
     const [showAddContactModal, setShowAddContactModal] = useState(false);
     const [showConfirmModal, setShowConfirmModal] = useState(false);
@@ -46,6 +48,29 @@ export const EmergencyContacts = () => {
         };
         fetchContacts();
     }, []);
+
+    // Handle Emergency Trigger - uses same socket event as Dashboard
+    const handleEmergencyTrigger = () => {
+        if (emitEvent) {
+            emitEvent('emergency_broadcast', {
+                type: 'System Emergency',
+                severity: 'Critical',
+                message: 'Emergency triggered from Emergency Contacts page',
+                timestamp: new Date().toISOString(),
+                source: 'emergency_contacts'
+            });
+        }
+
+        // Notify all emergency contacts (in production, this would call backend API)
+        const priority1Contacts = contacts.filter(c => c.priority === 1);
+        toast.success(`Emergency alert sent! Notifying ${priority1Contacts.length} priority contacts.`);
+
+        setEmergencyActive(true);
+        setShowEmergencyModal(false);
+
+        // Reset after 5 seconds
+        setTimeout(() => setEmergencyActive(false), 5000);
+    };
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
@@ -230,11 +255,6 @@ export const EmergencyContacts = () => {
             )
         }
     ];
-
-    const handleEmergencyTrigger = () => {
-        setEmergencyActive(true);
-        setShowEmergencyModal(false);
-    };
 
     return (
         <div className="space-y-6">
