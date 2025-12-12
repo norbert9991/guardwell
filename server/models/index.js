@@ -19,9 +19,12 @@ Worker.hasMany(Incident, { foreignKey: 'workerId', as: 'incidents' });
 Incident.belongsTo(Worker, { foreignKey: 'workerId', as: 'worker' });
 
 // Sync all models with the database
+// Using alter: true to add new columns without dropping existing data
 const syncDatabase = async (force = false) => {
     try {
-        await sequelize.sync({ force });
+        // alter: true will add new columns to existing tables
+        // force: true would drop and recreate (only use in development)
+        await sequelize.sync({ alter: true });
         console.log('✅ All models synchronized successfully.');
 
         // Create default Head Admin if none exists
