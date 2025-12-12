@@ -2,10 +2,14 @@ const express = require('express');
 const router = express.Router();
 const { EmergencyContact } = require('../models');
 
-// Get all contacts
+// Get all contacts (excluding archived by default)
 router.get('/', async (req, res) => {
     try {
+        const includeArchived = req.query.includeArchived === 'true';
+        const whereClause = includeArchived ? {} : { archived: false };
+
         const contacts = await EmergencyContact.findAll({
+            where: whereClause,
             order: [['priority', 'ASC'], ['createdAt', 'DESC']]
         });
         res.json(contacts);
@@ -57,7 +61,22 @@ router.put('/:id', async (req, res) => {
     }
 });
 
-// Delete contact
+// Archive contact (soft delete)
+router.patch('/:id/archive', async (req, res) => {
+    try {
+        const contact = await EmergencyContact.findByPk(req.params.id);
+        if (!contact) {
+            return res.status(404).json({ error: 'Contact not found' });
+        }
+        await contact.update({ archived: true });
+        res.json({ message: 'Contact archived successfully', contact });
+    } catch (error) {
+        console.error('Error archiving contact:', error);
+        res.status(500).json({ error: 'Failed to archive contact' });
+    }
+});
+
+// Delete contact (hard delete)
 router.delete('/:id', async (req, res) => {
     try {
         const deleted = await EmergencyContact.destroy({
@@ -74,3 +93,4 @@ router.delete('/:id', async (req, res) => {
 });
 
 module.exports = router;
+

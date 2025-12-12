@@ -67,6 +67,15 @@ const Incident = sequelize.define('Incident', {
     resolvedAt: {
         type: DataTypes.DATE,
         allowNull: true
+    },
+    workerStatus: {
+        type: DataTypes.ENUM('Unknown', 'Safe', 'Assisted', 'Rescued', 'Injured', 'Deceased'),
+        defaultValue: 'Unknown',
+        comment: 'Status of the worker involved in the incident'
+    },
+    archived: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: false
     }
 }, {
     tableName: 'incidents',

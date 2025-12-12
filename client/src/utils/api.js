@@ -45,8 +45,8 @@ export const workersApi = {
     getById: (id) => api.get(`/workers/${id}`),
     create: (data) => api.post('/workers', data),
     update: (id, data) => api.put(`/workers/${id}`, data),
-    archive: (id) => api.post(`/workers/${id}/archive`),
-    restore: (id) => api.post(`/workers/${id}/restore`),
+    archive: (id) => api.patch(`/workers/${id}/archive`),
+    restore: (id) => api.patch(`/workers/${id}/restore`),
     delete: (id) => api.delete(`/workers/${id}`)
 };
 
@@ -59,8 +59,8 @@ export const devicesApi = {
     create: (data) => api.post('/devices', data),
     update: (id, data) => api.put(`/devices/${id}`, data),
     assign: (id, workerId) => api.post(`/devices/${id}/assign`, { workerId }),
-    archive: (id) => api.post(`/devices/${id}/archive`),
-    restore: (id) => api.post(`/devices/${id}/restore`),
+    archive: (id) => api.patch(`/devices/${id}/archive`),
+    restore: (id) => api.patch(`/devices/${id}/restore`),
     delete: (id) => api.delete(`/devices/${id}`)
 };
 
@@ -80,8 +80,7 @@ export const alertsApi = {
     getById: (id) => api.get(`/alerts/${id}`),
     acknowledge: (id, acknowledgedBy) => api.post(`/alerts/${id}/acknowledge`, { acknowledgedBy }),
     resolve: (id, notes) => api.post(`/alerts/${id}/resolve`, { notes }),
-    archive: (id) => api.post(`/alerts/${id}/archive`),
-    restore: (id) => api.post(`/alerts/${id}/restore`)
+    archive: (id) => api.patch(`/alerts/${id}/archive`)
 };
 
 // ======================
@@ -93,11 +92,8 @@ export const incidentsApi = {
     create: (data) => api.post('/incidents', data),
     update: (id, data) => api.put(`/incidents/${id}`, data),
     resolve: (id, resolution) => api.post(`/incidents/${id}/resolve`, { resolution }),
-    addNote: (id, note, addedBy) => api.post(`/incidents/${id}/notes`, { note, addedBy }),
-    addAction: (id, action, performedBy) => api.post(`/incidents/${id}/actions`, { action, performedBy }),
-    close: (id, resolution) => api.post(`/incidents/${id}/close`, { resolution }),
-    archive: (id) => api.post(`/incidents/${id}/archive`),
-    restore: (id) => api.post(`/incidents/${id}/restore`),
+    updateWorkerStatus: (id, workerStatus) => api.patch(`/incidents/${id}/worker-status`, { workerStatus }),
+    archive: (id) => api.patch(`/incidents/${id}/archive`),
     delete: (id) => api.delete(`/incidents/${id}`)
 };
 
@@ -105,10 +101,11 @@ export const incidentsApi = {
 // Emergency Contacts API
 // ======================
 export const contactsApi = {
-    getAll: () => api.get('/contacts'),
+    getAll: (includeArchived = false) => api.get('/contacts', { params: { includeArchived } }),
     getById: (id) => api.get(`/contacts/${id}`),
     create: (data) => api.post('/contacts', data),
     update: (id, data) => api.put(`/contacts/${id}`, data),
+    archive: (id) => api.patch(`/contacts/${id}/archive`),
     delete: (id) => api.delete(`/contacts/${id}`)
 };
 

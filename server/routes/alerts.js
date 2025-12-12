@@ -2,13 +2,14 @@ const express = require('express');
 const router = express.Router();
 const { Alert, Worker } = require('../models');
 
-// Get all alerts
+// Get all alerts (excluding archived by default)
 router.get('/', async (req, res) => {
     try {
-        const { status, severity } = req.query;
+        const { status, severity, includeArchived } = req.query;
         const where = {};
         if (status) where.status = status;
         if (severity) where.severity = severity;
+        if (includeArchived !== 'true') where.archived = false;
 
         const alerts = await Alert.findAll({
             where,
@@ -98,4 +99,20 @@ router.post('/:id/resolve', async (req, res) => {
     }
 });
 
+// Archive alert (soft delete)
+router.patch('/:id/archive', async (req, res) => {
+    try {
+        const alert = await Alert.findByPk(req.params.id);
+        if (!alert) {
+            return res.status(404).json({ error: 'Alert not found' });
+        }
+        await alert.update({ archived: true });
+        res.json({ message: 'Alert archived successfully', alert });
+    } catch (error) {
+        console.error('Error archiving alert:', error);
+        res.status(500).json({ error: 'Failed to archive alert' });
+    }
+});
+
 module.exports = router;
+

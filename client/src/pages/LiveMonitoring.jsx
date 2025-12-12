@@ -96,6 +96,35 @@ export const LiveMonitoring = () => {
         return 'text-success';
     };
 
+    // Gas level interpretation
+    const getGasLevelInfo = (ppm) => {
+        if (ppm >= 450) {
+            return {
+                label: 'Critical',
+                description: 'Gas Leak Detected',
+                color: 'text-danger',
+                bgColor: 'bg-red-500/20',
+                percentage: '40%+'
+            };
+        } else if (ppm >= 221) {
+            return {
+                label: 'Poor',
+                description: 'Poor Ventilation',
+                color: 'text-warning',
+                bgColor: 'bg-yellow-500/20',
+                percentage: `${Math.round((ppm / 1000) * 100)}%`
+            };
+        } else {
+            return {
+                label: 'Normal',
+                description: 'Safe Levels',
+                color: 'text-success',
+                bgColor: 'bg-green-500/20',
+                percentage: `${Math.round((ppm / 1000) * 100)}%`
+            };
+        }
+    };
+
     // Calculate metrics
     const activeDevices = workersWithSensorData.filter(w => w.status !== 'offline').length;
     const avgTemp = workersWithSensorData.length > 0
@@ -259,9 +288,14 @@ export const LiveMonitoring = () => {
                                         <Wind size={16} />
                                         <span className="text-sm">Gas Level</span>
                                     </div>
-                                    <span className={`font-semibold ${getSensorStatus(worker.sensors.gas, { warning: 200, critical: 400 })}`}>
-                                        {worker.sensors.gas} PPM
-                                    </span>
+                                    <div className="flex items-center gap-2">
+                                        <span className={`text-xs px-2 py-0.5 rounded ${getGasLevelInfo(worker.sensors.gas).bgColor} ${getGasLevelInfo(worker.sensors.gas).color}`}>
+                                            {getGasLevelInfo(worker.sensors.gas).label}
+                                        </span>
+                                        <span className={`font-semibold ${getGasLevelInfo(worker.sensors.gas).color}`}>
+                                            {worker.sensors.gas} PPM
+                                        </span>
+                                    </div>
                                 </div>
 
                                 {/* Humidity */}
@@ -317,34 +351,15 @@ export const LiveMonitoring = () => {
                             </div>
 
                             {/* Actions */}
-                            <div className="mt-4 pt-4 border-t border-gray-700 grid grid-cols-2 gap-2">
+                            <div className="mt-4 pt-4 border-t border-gray-700">
                                 <Button
                                     size="sm"
                                     variant="outline"
-                                    className="text-xs"
+                                    className="w-full"
                                     onClick={() => handleViewDetails(worker)}
                                 >
                                     <Eye size={14} className="mr-1" />
                                     View Details
-                                </Button>
-                                <Button
-                                    size="sm"
-                                    variant={markedSafe[worker.id] ? 'secondary' : 'primary'}
-                                    className="text-xs"
-                                    onClick={() => handleMarkSafe(worker.id, worker.name)}
-                                    disabled={markedSafe[worker.id]}
-                                >
-                                    {markedSafe[worker.id] ? (
-                                        <>
-                                            <CheckCircle size={14} className="mr-1" />
-                                            Marked Safe
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Shield size={14} className="mr-1" />
-                                            Mark Safe
-                                        </>
-                                    )}
                                 </Button>
                             </div>
                         </CardBody>
@@ -406,7 +421,12 @@ export const LiveMonitoring = () => {
                                         <Wind size={16} />
                                         <span className="text-sm">Gas Level</span>
                                     </div>
-                                    <p className="text-2xl font-bold text-white">{selectedWorker.sensors.gas} PPM</p>
+                                    <div className="flex items-center gap-2">
+                                        <span className={`text-xs px-2 py-0.5 rounded ${getGasLevelInfo(selectedWorker.sensors.gas).bgColor} ${getGasLevelInfo(selectedWorker.sensors.gas).color}`}>
+                                            {getGasLevelInfo(selectedWorker.sensors.gas).label}
+                                        </span>
+                                        <p className={`text-xl font-bold ${getGasLevelInfo(selectedWorker.sensors.gas).color}`}>{selectedWorker.sensors.gas} PPM</p>
+                                    </div>
                                 </div>
                                 <div className="bg-[#0d1220] p-4 rounded-lg border border-[#2d3a52]">
                                     <div className="flex items-center gap-2 text-gray-400 mb-2">

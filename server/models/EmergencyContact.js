@@ -39,6 +39,10 @@ const EmergencyContact = sequelize.define('EmergencyContact', {
     status: {
         type: DataTypes.ENUM('Active', 'Inactive'),
         defaultValue: 'Active'
+    },
+    archived: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: false
     }
 }, {
     tableName: 'emergency_contacts',

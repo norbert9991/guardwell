@@ -2,10 +2,14 @@ const express = require('express');
 const router = express.Router();
 const { Device, Worker } = require('../models');
 
-// Get all devices
+// Get all devices (excluding archived by default)
 router.get('/', async (req, res) => {
     try {
+        const includeArchived = req.query.includeArchived === 'true';
+        const whereClause = includeArchived ? {} : { archived: false };
+
         const devices = await Device.findAll({
+            where: whereClause,
             include: [{ model: Worker, as: 'worker' }],
             order: [['createdAt', 'DESC']]
         });
@@ -100,7 +104,37 @@ router.post('/:id/assign', async (req, res) => {
     }
 });
 
-// Delete device
+// Archive device (soft delete)
+router.patch('/:id/archive', async (req, res) => {
+    try {
+        const device = await Device.findByPk(req.params.id);
+        if (!device) {
+            return res.status(404).json({ error: 'Device not found' });
+        }
+        await device.update({ archived: true });
+        res.json({ message: 'Device archived successfully', device });
+    } catch (error) {
+        console.error('Error archiving device:', error);
+        res.status(500).json({ error: 'Failed to archive device' });
+    }
+});
+
+// Restore archived device
+router.patch('/:id/restore', async (req, res) => {
+    try {
+        const device = await Device.findByPk(req.params.id);
+        if (!device) {
+            return res.status(404).json({ error: 'Device not found' });
+        }
+        await device.update({ archived: false });
+        res.json({ message: 'Device restored successfully', device });
+    } catch (error) {
+        console.error('Error restoring device:', error);
+        res.status(500).json({ error: 'Failed to restore device' });
+    }
+});
+
+// Delete device (hard delete)
 router.delete('/:id', async (req, res) => {
     try {
         const deleted = await Device.destroy({

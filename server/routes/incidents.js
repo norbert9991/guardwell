@@ -2,13 +2,14 @@ const express = require('express');
 const router = express.Router();
 const { Incident, Worker } = require('../models');
 
-// Get all incidents
+// Get all incidents (excluding archived by default)
 router.get('/', async (req, res) => {
     try {
-        const { status, severity } = req.query;
+        const { status, severity, includeArchived } = req.query;
         const where = {};
         if (status) where.status = status;
         if (severity) where.severity = severity;
+        if (includeArchived !== 'true') where.archived = false;
 
         const incidents = await Incident.findAll({
             where,
@@ -89,7 +90,38 @@ router.post('/:id/resolve', async (req, res) => {
     }
 });
 
-// Delete incident
+// Archive incident (soft delete)
+router.patch('/:id/archive', async (req, res) => {
+    try {
+        const incident = await Incident.findByPk(req.params.id);
+        if (!incident) {
+            return res.status(404).json({ error: 'Incident not found' });
+        }
+        await incident.update({ archived: true });
+        res.json({ message: 'Incident archived successfully', incident });
+    } catch (error) {
+        console.error('Error archiving incident:', error);
+        res.status(500).json({ error: 'Failed to archive incident' });
+    }
+});
+
+// Update worker status (for emergency outcomes)
+router.patch('/:id/worker-status', async (req, res) => {
+    try {
+        const { workerStatus } = req.body;
+        const incident = await Incident.findByPk(req.params.id);
+        if (!incident) {
+            return res.status(404).json({ error: 'Incident not found' });
+        }
+        await incident.update({ workerStatus });
+        res.json({ message: 'Worker status updated successfully', incident });
+    } catch (error) {
+        console.error('Error updating worker status:', error);
+        res.status(500).json({ error: 'Failed to update worker status' });
+    }
+});
+
+// Delete incident (hard delete)
 router.delete('/:id', async (req, res) => {
     try {
         const deleted = await Incident.destroy({

@@ -2,10 +2,14 @@ const express = require('express');
 const router = express.Router();
 const { Worker, Device } = require('../models');
 
-// Get all workers
+// Get all workers (excluding archived by default)
 router.get('/', async (req, res) => {
     try {
+        const includeArchived = req.query.includeArchived === 'true';
+        const whereClause = includeArchived ? {} : { archived: false };
+
         const workers = await Worker.findAll({
+            where: whereClause,
             include: [{ model: Device, as: 'device' }],
             order: [['createdAt', 'DESC']]
         });
@@ -63,7 +67,37 @@ router.put('/:id', async (req, res) => {
     }
 });
 
-// Delete worker
+// Archive worker (soft delete)
+router.patch('/:id/archive', async (req, res) => {
+    try {
+        const worker = await Worker.findByPk(req.params.id);
+        if (!worker) {
+            return res.status(404).json({ error: 'Worker not found' });
+        }
+        await worker.update({ archived: true });
+        res.json({ message: 'Worker archived successfully', worker });
+    } catch (error) {
+        console.error('Error archiving worker:', error);
+        res.status(500).json({ error: 'Failed to archive worker' });
+    }
+});
+
+// Restore archived worker
+router.patch('/:id/restore', async (req, res) => {
+    try {
+        const worker = await Worker.findByPk(req.params.id);
+        if (!worker) {
+            return res.status(404).json({ error: 'Worker not found' });
+        }
+        await worker.update({ archived: false });
+        res.json({ message: 'Worker restored successfully', worker });
+    } catch (error) {
+        console.error('Error restoring worker:', error);
+        res.status(500).json({ error: 'Failed to restore worker' });
+    }
+});
+
+// Delete worker (hard delete - keep for admin use)
 router.delete('/:id', async (req, res) => {
     try {
         const deleted = await Worker.destroy({
