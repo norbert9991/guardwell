@@ -63,10 +63,6 @@ const Alert = sequelize.define('Alert', {
     notes: {
         type: DataTypes.TEXT,
         allowNull: true
-    },
-    archived: {
-        type: DataTypes.BOOLEAN,
-        defaultValue: false
     }
 }, {
     tableName: 'alerts',

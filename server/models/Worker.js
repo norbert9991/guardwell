@@ -51,10 +51,6 @@ const Worker = sequelize.define('Worker', {
     status: {
         type: DataTypes.ENUM('Active', 'On Leave', 'Inactive'),
         defaultValue: 'Active'
-    },
-    archived: {
-        type: DataTypes.BOOLEAN,
-        defaultValue: false
     }
 }, {
     tableName: 'workers',

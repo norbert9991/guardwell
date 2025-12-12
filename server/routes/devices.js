@@ -5,11 +5,7 @@ const { Device, Worker } = require('../models');
 // Get all devices
 router.get('/', async (req, res) => {
     try {
-        const { includeArchived } = req.query;
-        const where = includeArchived === 'true' ? {} : { archived: false };
-
         const devices = await Device.findAll({
-            where,
             include: [{ model: Worker, as: 'worker' }],
             order: [['createdAt', 'DESC']]
         });
@@ -104,40 +100,6 @@ router.post('/:id/assign', async (req, res) => {
     }
 });
 
-// Archive device
-router.post('/:id/archive', async (req, res) => {
-    try {
-        const [updated] = await Device.update(
-            { archived: true },
-            { where: { id: req.params.id } }
-        );
-        if (!updated) {
-            return res.status(404).json({ error: 'Device not found' });
-        }
-        res.json({ message: 'Device archived successfully' });
-    } catch (error) {
-        console.error('Error archiving device:', error);
-        res.status(500).json({ error: 'Failed to archive device' });
-    }
-});
-
-// Restore device
-router.post('/:id/restore', async (req, res) => {
-    try {
-        const [updated] = await Device.update(
-            { archived: false },
-            { where: { id: req.params.id } }
-        );
-        if (!updated) {
-            return res.status(404).json({ error: 'Device not found' });
-        }
-        res.json({ message: 'Device restored successfully' });
-    } catch (error) {
-        console.error('Error restoring device:', error);
-        res.status(500).json({ error: 'Failed to restore device' });
-    }
-});
-
 // Delete device
 router.delete('/:id', async (req, res) => {
     try {
@@ -155,4 +117,3 @@ router.delete('/:id', async (req, res) => {
 });
 
 module.exports = router;
-

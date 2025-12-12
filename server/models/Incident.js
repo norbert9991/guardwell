@@ -67,22 +67,6 @@ const Incident = sequelize.define('Incident', {
     resolvedAt: {
         type: DataTypes.DATE,
         allowNull: true
-    },
-    actionsTaken: {
-        type: DataTypes.JSON,
-        allowNull: true,
-        defaultValue: [],
-        comment: 'Array of actions taken with timestamps'
-    },
-    notes: {
-        type: DataTypes.JSON,
-        allowNull: true,
-        defaultValue: [],
-        comment: 'Array of notes with timestamps'
-    },
-    archived: {
-        type: DataTypes.BOOLEAN,
-        defaultValue: false
     }
 }, {
     tableName: 'incidents',

@@ -44,10 +44,6 @@ const Device = sequelize.define('Device', {
     status: {
         type: DataTypes.ENUM('Active', 'Available', 'Maintenance', 'Offline'),
         defaultValue: 'Available'
-    },
-    archived: {
-        type: DataTypes.BOOLEAN,
-        defaultValue: false
     }
 }, {
     tableName: 'devices',
