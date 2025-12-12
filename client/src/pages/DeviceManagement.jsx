@@ -8,6 +8,7 @@ import { Badge, StatusBadge } from '../components/ui/Badge';
 import { Modal } from '../components/ui/Modal';
 import { ConfirmationModal } from '../components/ui/ConfirmationModal';
 import { devicesApi, workersApi } from '../utils/api';
+import { useToast } from '../context/ToastContext';
 
 export const DeviceManagement = () => {
     const [searchTerm, setSearchTerm] = useState('');
@@ -20,6 +21,7 @@ export const DeviceManagement = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [devices, setDevices] = useState([]);
     const [workers, setWorkers] = useState([]);
+    const toast = useToast();
 
     // Fetch devices and workers from API
     useEffect(() => {
@@ -81,9 +83,10 @@ export const DeviceManagement = () => {
             });
             setShowConfirmModal(false);
             setShowAddModal(false);
+            toast.success('Device added successfully');
         } catch (error) {
             console.error('Failed to add device:', error);
-            alert('Failed to add device. Please try again.');
+            toast.error('Failed to add device. Please try again.');
         } finally {
             setIsSubmitting(false);
         }
@@ -112,9 +115,10 @@ export const DeviceManagement = () => {
 
             setShowAssignModal(false);
             setSelectedDevice(null);
+            toast.success('Device assigned successfully');
         } catch (error) {
             console.error('Failed to assign device:', error);
-            alert('Failed to assign device. Please try again.');
+            toast.error('Failed to assign device. Please try again.');
         } finally {
             setIsSubmitting(false);
         }
@@ -131,9 +135,10 @@ export const DeviceManagement = () => {
 
             setShowConfigureModal(false);
             setSelectedDevice(null);
+            toast.success(`Device status updated to ${status}`);
         } catch (error) {
             console.error('Failed to update device:', error);
-            alert('Failed to update device. Please try again.');
+            toast.error('Failed to update device. Please try again.');
         } finally {
             setIsSubmitting(false);
         }

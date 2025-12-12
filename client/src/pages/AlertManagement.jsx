@@ -5,8 +5,10 @@ import { MetricCard } from '../components/ui/MetricCard';
 import { Button } from '../components/ui/Button';
 import { SeverityBadge, StatusBadge } from '../components/ui/Badge';
 import { Modal } from '../components/ui/Modal';
+import { ConfirmationModal } from '../components/ui/ConfirmationModal';
 import { alertsApi } from '../utils/api';
 import { useSocket } from '../context/SocketContext';
+import { useToast } from '../context/ToastContext';
 
 export const AlertManagement = () => {
     const [selectedAlert, setSelectedAlert] = useState(null);
@@ -15,6 +17,12 @@ export const AlertManagement = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const { alerts: realtimeAlerts, acknowledgeAlert } = useSocket();
+    const toast = useToast();
+
+    // Confirmation modal state
+    const [showAcknowledgeConfirm, setShowAcknowledgeConfirm] = useState(false);
+    const [showResolveConfirm, setShowResolveConfirm] = useState(false);
+    const [alertToAction, setAlertToAction] = useState(null);
 
     // Advanced filters
     const [showFilters, setShowFilters] = useState(false);
@@ -52,6 +60,18 @@ export const AlertManagement = () => {
         }
     }, [realtimeAlerts]);
 
+    // Show confirmation for acknowledge
+    const promptAcknowledge = (alertData) => {
+        setAlertToAction(alertData);
+        setShowAcknowledgeConfirm(true);
+    };
+
+    // Show confirmation for resolve
+    const promptResolve = (alertData) => {
+        setAlertToAction(alertData);
+        setShowResolveConfirm(true);
+    };
+
     const handleAcknowledge = async (alertId) => {
         setIsSubmitting(true);
         try {
@@ -61,9 +81,12 @@ export const AlertManagement = () => {
             ));
             // Also notify via socket
             acknowledgeAlert(alertId);
+            toast.success('Alert acknowledged successfully');
+            setShowAcknowledgeConfirm(false);
+            setAlertToAction(null);
         } catch (error) {
             console.error('Failed to acknowledge alert:', error);
-            alert('Failed to acknowledge alert. Please try again.');
+            toast.error('Failed to acknowledge alert. Please try again.');
         } finally {
             setIsSubmitting(false);
         }
@@ -77,9 +100,12 @@ export const AlertManagement = () => {
                 a.id === alertId ? response.data : a
             ));
             setSelectedAlert(null);
+            toast.success('Alert resolved successfully');
+            setShowResolveConfirm(false);
+            setAlertToAction(null);
         } catch (error) {
             console.error('Failed to resolve alert:', error);
-            alert('Failed to resolve alert. Please try again.');
+            toast.error('Failed to resolve alert. Please try again.');
         } finally {
             setIsSubmitting(false);
         }
@@ -401,7 +427,7 @@ export const AlertManagement = () => {
                                                 size="sm"
                                                 variant="primary"
                                                 icon={<CheckCircle size={16} />}
-                                                onClick={() => handleAcknowledge(alert.id)}
+                                                onClick={() => promptAcknowledge(alert)}
                                                 disabled={isSubmitting}
                                             >
                                                 Acknowledge
@@ -412,7 +438,7 @@ export const AlertManagement = () => {
                                                 size="sm"
                                                 variant="success"
                                                 icon={<CheckCircle size={16} />}
-                                                onClick={() => handleResolve(alert.id)}
+                                                onClick={() => promptResolve(alert)}
                                                 disabled={isSubmitting}
                                             >
                                                 Resolve
@@ -489,7 +515,7 @@ export const AlertManagement = () => {
                                 {selectedAlert.status === 'Pending' && (
                                     <Button
                                         variant="primary"
-                                        onClick={() => handleAcknowledge(selectedAlert.id)}
+                                        onClick={() => promptAcknowledge(selectedAlert)}
                                         disabled={isSubmitting}
                                     >
                                         Acknowledge
@@ -498,7 +524,7 @@ export const AlertManagement = () => {
                                 {selectedAlert.status === 'Acknowledged' && (
                                     <Button
                                         variant="success"
-                                        onClick={() => handleResolve(selectedAlert.id)}
+                                        onClick={() => promptResolve(selectedAlert)}
                                         disabled={isSubmitting}
                                     >
                                         Mark Resolved
@@ -515,6 +541,42 @@ export const AlertManagement = () => {
                     </div>
                 )}
             </Modal>
+
+            {/* Acknowledge Confirmation Modal */}
+            <ConfirmationModal
+                isOpen={showAcknowledgeConfirm}
+                onClose={() => { setShowAcknowledgeConfirm(false); setAlertToAction(null); }}
+                onConfirm={() => handleAcknowledge(alertToAction?.id)}
+                isSubmitting={isSubmitting}
+                title="Acknowledge Alert"
+                message="Do you want to acknowledge this alert?"
+                confirmText="Yes, Acknowledge"
+                variant="info"
+                data={alertToAction ? [
+                    { label: 'Type', value: alertToAction.type },
+                    { label: 'Severity', value: alertToAction.severity },
+                    { label: 'Worker', value: alertToAction.worker?.fullName || 'Unknown' },
+                    { label: 'Device', value: alertToAction.deviceId || 'N/A' }
+                ] : []}
+            />
+
+            {/* Resolve Confirmation Modal */}
+            <ConfirmationModal
+                isOpen={showResolveConfirm}
+                onClose={() => { setShowResolveConfirm(false); setAlertToAction(null); }}
+                onConfirm={() => handleResolve(alertToAction?.id)}
+                isSubmitting={isSubmitting}
+                title="Resolve Alert"
+                message="Do you want to mark this alert as resolved?"
+                confirmText="Yes, Resolve"
+                variant="success"
+                data={alertToAction ? [
+                    { label: 'Type', value: alertToAction.type },
+                    { label: 'Severity', value: alertToAction.severity },
+                    { label: 'Worker', value: alertToAction.worker?.fullName || 'Unknown' },
+                    { label: 'Device', value: alertToAction.deviceId || 'N/A' }
+                ] : []}
+            />
         </div>
     );
 };

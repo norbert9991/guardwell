@@ -18,6 +18,7 @@ const incidentsRouter = require('./routes/incidents');
 const contactsRouter = require('./routes/contacts');
 const authRouter = require('./routes/auth');
 const usersRouter = require('./routes/users');
+const reportsRouter = require('./routes/reports');
 
 const app = express();
 const server = http.createServer(app);
@@ -173,6 +174,7 @@ app.use('/api/sensors', sensorsRouter);
 app.use('/api/alerts', alertsRouter);
 app.use('/api/incidents', incidentsRouter);
 app.use('/api/contacts', contactsRouter);
+app.use('/api/reports', reportsRouter);
 
 // Socket.io connection handling
 io.on('connection', (socket) => {

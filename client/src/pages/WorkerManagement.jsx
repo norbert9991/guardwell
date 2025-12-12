@@ -9,6 +9,7 @@ import { Modal } from '../components/ui/Modal';
 import { ConfirmationModal } from '../components/ui/ConfirmationModal';
 import { useNavigate } from 'react-router-dom';
 import { workersApi } from '../utils/api';
+import { useToast } from '../context/ToastContext';
 
 export const WorkerManagement = () => {
     const [searchTerm, setSearchTerm] = useState('');
@@ -37,6 +38,7 @@ export const WorkerManagement = () => {
     });
 
     const navigate = useNavigate();
+    const toast = useToast();
 
     // Fetch workers on mount
     useEffect(() => {
@@ -89,9 +91,10 @@ export const WorkerManagement = () => {
             });
             setShowConfirmModal(false);
             setShowAddModal(false);
+            toast.success('Worker added successfully');
         } catch (error) {
             console.error('Failed to add worker:', error);
-            alert('Failed to add worker. Please try again.');
+            toast.error('Failed to add worker. Please try again.');
         } finally {
             setIsSubmitting(false);
         }
@@ -125,9 +128,10 @@ export const WorkerManagement = () => {
             ));
             setShowEditModal(false);
             setSelectedWorker(null);
+            toast.success('Worker updated successfully');
         } catch (error) {
             console.error('Failed to update worker:', error);
-            alert('Failed to update worker. Please try again.');
+            toast.error('Failed to update worker. Please try again.');
         } finally {
             setIsSubmitting(false);
         }
@@ -150,9 +154,10 @@ export const WorkerManagement = () => {
             ));
             setShowStatusModal(false);
             setSelectedWorker(null);
+            toast.success(`Worker ${newStatus === 'Active' ? 'activated' : 'deactivated'} successfully`);
         } catch (error) {
             console.error('Failed to toggle status:', error);
-            alert('Failed to update status. Please try again.');
+            toast.error('Failed to update status. Please try again.');
         } finally {
             setIsSubmitting(false);
         }

@@ -9,6 +9,7 @@ import { Modal } from '../components/ui/Modal';
 import { ConfirmationModal } from '../components/ui/ConfirmationModal';
 import { useNavigate } from 'react-router-dom';
 import { incidentsApi, workersApi } from '../utils/api';
+import { useToast } from '../context/ToastContext';
 
 export const IncidentManagement = () => {
     const navigate = useNavigate();
@@ -19,6 +20,7 @@ export const IncidentManagement = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [incidents, setIncidents] = useState([]);
     const [workers, setWorkers] = useState([]);
+    const toast = useToast();
 
     // Fetch incidents and workers from API
     useEffect(() => {
@@ -87,9 +89,10 @@ export const IncidentManagement = () => {
             });
             setShowConfirmModal(false);
             setShowCreateModal(false);
+            toast.success('Incident report created successfully');
         } catch (error) {
             console.error('Failed to create incident:', error);
-            alert('Failed to create incident. Please try again.');
+            toast.error('Failed to create incident. Please try again.');
         } finally {
             setIsSubmitting(false);
         }

@@ -8,6 +8,7 @@ import { Badge } from '../components/ui/Badge';
 import { Modal } from '../components/ui/Modal';
 import { ConfirmationModal } from '../components/ui/ConfirmationModal';
 import { contactsApi } from '../utils/api';
+import { useToast } from '../context/ToastContext';
 
 export const EmergencyContacts = () => {
     const [showEmergencyModal, setShowEmergencyModal] = useState(false);
@@ -16,6 +17,7 @@ export const EmergencyContacts = () => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [emergencyActive, setEmergencyActive] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
+    const toast = useToast();
 
     const [contacts, setContacts] = useState([]);
 
@@ -75,9 +77,10 @@ export const EmergencyContacts = () => {
             });
             setShowConfirmModal(false);
             setShowAddContactModal(false);
+            toast.success('Emergency contact added successfully');
         } catch (error) {
             console.error('Failed to add contact:', error);
-            alert('Failed to add contact. Please try again.');
+            toast.error('Failed to add contact. Please try again.');
         } finally {
             setIsSubmitting(false);
         }
@@ -176,9 +179,10 @@ export const EmergencyContacts = () => {
             ));
             setShowEditModal(false);
             setSelectedContact(null);
+            toast.success('Contact updated successfully');
         } catch (error) {
             console.error('Failed to update contact:', error);
-            alert('Failed to update contact. Please try again.');
+            toast.error('Failed to update contact. Please try again.');
         } finally {
             setIsSubmitting(false);
         }

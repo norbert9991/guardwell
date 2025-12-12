@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { SocketProvider } from './context/SocketContext';
+import { ToastProvider } from './context/ToastContext';
 import { ProtectedRoute } from './routes/ProtectedRoute';
 import { Navbar } from './components/layout/Navbar';
 import { Sidebar } from './components/layout/Sidebar';
@@ -42,157 +43,159 @@ function App() {
         <BrowserRouter>
             <AuthProvider>
                 <SocketProvider>
-                    <Routes>
-                        {/* Public Routes */}
-                        <Route path="/login" element={<Login />} />
+                    <ToastProvider>
+                        <Routes>
+                            {/* Public Routes */}
+                            <Route path="/login" element={<Login />} />
 
-                        {/* Protected Routes */}
-                        <Route
-                            path="/"
-                            element={
-                                <ProtectedRoute>
-                                    <LayoutWrapper>
-                                        <Dashboard />
-                                    </LayoutWrapper>
-                                </ProtectedRoute>
-                            }
-                        />
+                            {/* Protected Routes */}
+                            <Route
+                                path="/"
+                                element={
+                                    <ProtectedRoute>
+                                        <LayoutWrapper>
+                                            <Dashboard />
+                                        </LayoutWrapper>
+                                    </ProtectedRoute>
+                                }
+                            />
 
-                        <Route
-                            path="/live-monitoring"
-                            element={
-                                <ProtectedRoute>
-                                    <LayoutWrapper>
-                                        <LiveMonitoring />
-                                    </LayoutWrapper>
-                                </ProtectedRoute>
-                            }
-                        />
+                            <Route
+                                path="/live-monitoring"
+                                element={
+                                    <ProtectedRoute>
+                                        <LayoutWrapper>
+                                            <LiveMonitoring />
+                                        </LayoutWrapper>
+                                    </ProtectedRoute>
+                                }
+                            />
 
-                        <Route
-                            path="/workers"
-                            element={
-                                <ProtectedRoute>
-                                    <LayoutWrapper>
-                                        <WorkerManagement />
-                                    </LayoutWrapper>
-                                </ProtectedRoute>
-                            }
-                        />
+                            <Route
+                                path="/workers"
+                                element={
+                                    <ProtectedRoute>
+                                        <LayoutWrapper>
+                                            <WorkerManagement />
+                                        </LayoutWrapper>
+                                    </ProtectedRoute>
+                                }
+                            />
 
-                        <Route
-                            path="/workers/:id"
-                            element={
-                                <ProtectedRoute>
-                                    <LayoutWrapper>
-                                        <WorkerProfile />
-                                    </LayoutWrapper>
-                                </ProtectedRoute>
-                            }
-                        />
+                            <Route
+                                path="/workers/:id"
+                                element={
+                                    <ProtectedRoute>
+                                        <LayoutWrapper>
+                                            <WorkerProfile />
+                                        </LayoutWrapper>
+                                    </ProtectedRoute>
+                                }
+                            />
 
-                        <Route
-                            path="/devices"
-                            element={
-                                <ProtectedRoute>
-                                    <LayoutWrapper>
-                                        <DeviceManagement />
-                                    </LayoutWrapper>
-                                </ProtectedRoute>
-                            }
-                        />
+                            <Route
+                                path="/devices"
+                                element={
+                                    <ProtectedRoute>
+                                        <LayoutWrapper>
+                                            <DeviceManagement />
+                                        </LayoutWrapper>
+                                    </ProtectedRoute>
+                                }
+                            />
 
-                        <Route
-                            path="/alerts"
-                            element={
-                                <ProtectedRoute>
-                                    <LayoutWrapper>
-                                        <AlertManagement />
-                                    </LayoutWrapper>
-                                </ProtectedRoute>
-                            }
-                        />
+                            <Route
+                                path="/alerts"
+                                element={
+                                    <ProtectedRoute>
+                                        <LayoutWrapper>
+                                            <AlertManagement />
+                                        </LayoutWrapper>
+                                    </ProtectedRoute>
+                                }
+                            />
 
-                        <Route
-                            path="/incidents"
-                            element={
-                                <ProtectedRoute>
-                                    <LayoutWrapper>
-                                        <IncidentManagement />
-                                    </LayoutWrapper>
-                                </ProtectedRoute>
-                            }
-                        />
+                            <Route
+                                path="/incidents"
+                                element={
+                                    <ProtectedRoute>
+                                        <LayoutWrapper>
+                                            <IncidentManagement />
+                                        </LayoutWrapper>
+                                    </ProtectedRoute>
+                                }
+                            />
 
-                        <Route
-                            path="/incidents/:id"
-                            element={
-                                <ProtectedRoute>
-                                    <LayoutWrapper>
-                                        <IncidentDetail />
-                                    </LayoutWrapper>
-                                </ProtectedRoute>
-                            }
-                        />
+                            <Route
+                                path="/incidents/:id"
+                                element={
+                                    <ProtectedRoute>
+                                        <LayoutWrapper>
+                                            <IncidentDetail />
+                                        </LayoutWrapper>
+                                    </ProtectedRoute>
+                                }
+                            />
 
-                        <Route
-                            path="/reports"
-                            element={
-                                <ProtectedRoute>
-                                    <LayoutWrapper>
-                                        <Reports />
-                                    </LayoutWrapper>
-                                </ProtectedRoute>
-                            }
-                        />
+                            <Route
+                                path="/reports"
+                                element={
+                                    <ProtectedRoute>
+                                        <LayoutWrapper>
+                                            <Reports />
+                                        </LayoutWrapper>
+                                    </ProtectedRoute>
+                                }
+                            />
 
-                        <Route
-                            path="/emergency-contacts"
-                            element={
-                                <ProtectedRoute requireAdmin>
-                                    <LayoutWrapper>
-                                        <EmergencyContacts />
-                                    </LayoutWrapper>
-                                </ProtectedRoute>
-                            }
-                        />
+                            <Route
+                                path="/emergency-contacts"
+                                element={
+                                    <ProtectedRoute requireAdmin>
+                                        <LayoutWrapper>
+                                            <EmergencyContacts />
+                                        </LayoutWrapper>
+                                    </ProtectedRoute>
+                                }
+                            />
 
-                        <Route
-                            path="/admin/users"
-                            element={
-                                <ProtectedRoute requireAdmin>
-                                    <LayoutWrapper>
-                                        <AdminManagement />
-                                    </LayoutWrapper>
-                                </ProtectedRoute>
-                            }
-                        />
+                            <Route
+                                path="/admin/users"
+                                element={
+                                    <ProtectedRoute requireAdmin>
+                                        <LayoutWrapper>
+                                            <AdminManagement />
+                                        </LayoutWrapper>
+                                    </ProtectedRoute>
+                                }
+                            />
 
-                        <Route
-                            path="/admin/audit"
-                            element={
-                                <ProtectedRoute requireAdmin>
-                                    <LayoutWrapper>
-                                        <AuditLog />
-                                    </LayoutWrapper>
-                                </ProtectedRoute>
-                            }
-                        />
+                            <Route
+                                path="/admin/audit"
+                                element={
+                                    <ProtectedRoute requireAdmin>
+                                        <LayoutWrapper>
+                                            <AuditLog />
+                                        </LayoutWrapper>
+                                    </ProtectedRoute>
+                                }
+                            />
 
-                        <Route
-                            path="/admin"
-                            element={
-                                <ProtectedRoute requireAdmin>
-                                    <LayoutWrapper>
-                                        <SystemAdmin />
-                                    </LayoutWrapper>
-                                </ProtectedRoute>
-                            }
-                        />
+                            <Route
+                                path="/admin"
+                                element={
+                                    <ProtectedRoute requireAdmin>
+                                        <LayoutWrapper>
+                                            <SystemAdmin />
+                                        </LayoutWrapper>
+                                    </ProtectedRoute>
+                                }
+                            />
 
-                        {/* Catch all redirect */}
-                        <Route path="*" element={<Navigate to="/" replace />} />
-                    </Routes>
+                            {/* Catch all redirect */}
+                            <Route path="*" element={<Navigate to="/" replace />} />
+                        </Routes>
+                    </ToastProvider>
                 </SocketProvider>
             </AuthProvider>
         </BrowserRouter>
