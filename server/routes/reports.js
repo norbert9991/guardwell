@@ -19,23 +19,20 @@ router.get('/worker-safety', async (req, res) => {
 
         // Get all workers
         const workers = await Worker.findAll({
-            where: { archived: false },
             include: [{ model: Incident, as: 'incidents' }]
         });
 
         // Get incidents in date range
         const incidents = await Incident.findAll({
             where: {
-                createdAt: { [Op.between]: [start, end] },
-                archived: false
+                createdAt: { [Op.between]: [start, end] }
             }
         });
 
         // Get alerts in date range
         const alerts = await Alert.findAll({
             where: {
-                createdAt: { [Op.between]: [start, end] },
-                archived: false
+                createdAt: { [Op.between]: [start, end] }
             }
         });
 
@@ -100,7 +97,6 @@ router.get('/device-performance', async (req, res) => {
 
         // Get all devices
         const devices = await Device.findAll({
-            where: { archived: false },
             include: [{ model: Worker, as: 'worker' }]
         });
 
@@ -191,8 +187,7 @@ router.get('/alert-analytics', async (req, res) => {
         // Get alerts in date range
         const alerts = await Alert.findAll({
             where: {
-                createdAt: { [Op.between]: [start, end] },
-                archived: false
+                createdAt: { [Op.between]: [start, end] }
             },
             include: [{ model: Worker, as: 'worker' }],
             order: [['createdAt', 'DESC']]
@@ -278,18 +273,16 @@ router.get('/compliance', async (req, res) => {
         const { start, end } = getDateRange(startDate, endDate);
 
         // Get data
-        const workers = await Worker.findAll({ where: { archived: false } });
-        const devices = await Device.findAll({ where: { archived: false } });
+        const workers = await Worker.findAll();
+        const devices = await Device.findAll();
         const incidents = await Incident.findAll({
             where: {
-                createdAt: { [Op.between]: [start, end] },
-                archived: false
+                createdAt: { [Op.between]: [start, end] }
             }
         });
         const alerts = await Alert.findAll({
             where: {
-                createdAt: { [Op.between]: [start, end] },
-                archived: false
+                createdAt: { [Op.between]: [start, end] }
             }
         });
 

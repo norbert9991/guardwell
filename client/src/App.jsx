@@ -6,6 +6,7 @@ import { ToastProvider } from './context/ToastContext';
 import { ProtectedRoute } from './routes/ProtectedRoute';
 import { Navbar } from './components/layout/Navbar';
 import { Sidebar } from './components/layout/Sidebar';
+import { GlobalEmergencyAlert } from './components/GlobalEmergencyAlert';
 
 // Pages
 import { Login } from './pages/Login';
@@ -195,6 +196,9 @@ function App() {
                             {/* Catch all redirect */}
                             <Route path="*" element={<Navigate to="/" replace />} />
                         </Routes>
+
+                        {/* Global Emergency Alert - shows on ALL pages */}
+                        <GlobalEmergencyAlert />
                     </ToastProvider>
                 </SocketProvider>
             </AuthProvider>

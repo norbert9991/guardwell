@@ -9,14 +9,13 @@ import { useSocket } from '../context/SocketContext';
 import { devicesApi, alertsApi } from '../utils/api';
 
 export const LiveMonitoring = () => {
-    const { sensorData, connected, emitEvent, emergencyAlerts, hasActiveEmergency, acknowledgeEmergency, dismissEmergency } = useSocket();
+    const { sensorData, connected, emitEvent } = useSocket();
     const [filter, setFilter] = useState('all');
     const [devices, setDevices] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [selectedWorker, setSelectedWorker] = useState(null);
     const [showDetailsModal, setShowDetailsModal] = useState(false);
     const [markedSafe, setMarkedSafe] = useState({});
-    const [acknowledgedDevices, setAcknowledgedDevices] = useState({});
 
     // Fetch devices from API on mount
     useEffect(() => {
@@ -505,84 +504,7 @@ export const LiveMonitoring = () => {
                     </div>
                 )}
             </Modal>
-
-            {/* BLOCKING Emergency Overlay - Must Be Acknowledged */}
-            {hasActiveEmergency && (
-                <div className="fixed inset-0 z-[9999] bg-black/90 flex items-center justify-center">
-                    <div className="max-w-2xl w-full mx-4 space-y-6">
-                        {/* Emergency Header */}
-                        <div className="text-center animate-pulse">
-                            <div className="inline-flex items-center justify-center w-24 h-24 bg-red-500/20 rounded-full mb-4 border-4 border-red-500">
-                                <AlertTriangle className="h-12 w-12 text-red-500" />
-                            </div>
-                            <h1 className="text-4xl font-bold text-red-500 tracking-wider mb-2">
-                                🚨 EMERGENCY ALERT 🚨
-                            </h1>
-                            <p className="text-xl text-gray-300">
-                                Immediate attention required
-                            </p>
-                        </div>
-
-                        {/* Emergency Cards */}
-                        <div className="space-y-4 max-h-96 overflow-y-auto">
-                            {emergencyAlerts.filter(e => !e.acknowledged).map((emergency) => (
-                                <div
-                                    key={emergency.id}
-                                    className="bg-red-900/30 border-2 border-red-500 rounded-xl p-6 animate-pulse"
-                                >
-                                    <div className="flex items-start justify-between">
-                                        <div className="flex items-center gap-4">
-                                            <div className="w-14 h-14 bg-red-500/30 rounded-full flex items-center justify-center">
-                                                <User className="h-8 w-8 text-red-400" />
-                                            </div>
-                                            <div>
-                                                <h3 className="text-2xl font-bold text-white">
-                                                    {emergency.worker_name || 'Unknown Worker'}
-                                                </h3>
-                                                <p className="text-red-400 font-medium">
-                                                    {emergency.type || 'Emergency Button Pressed'}
-                                                </p>
-                                                <div className="flex items-center gap-4 mt-2 text-sm text-gray-400">
-                                                    <span className="flex items-center gap-1">
-                                                        <Radio size={14} />
-                                                        Device: {emergency.device}
-                                                    </span>
-                                                    <span className="flex items-center gap-1">
-                                                        <Clock size={14} />
-                                                        {new Date(emergency.timestamp).toLocaleTimeString()}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div className="mt-4 flex gap-3">
-                                        <Button
-                                            variant="danger"
-                                            className="flex-1"
-                                            icon={<CheckCircle size={18} />}
-                                            onClick={() => {
-                                                acknowledgeEmergency(emergency.id);
-                                                setAcknowledgedDevices(prev => ({
-                                                    ...prev,
-                                                    [emergency.device]: true
-                                                }));
-                                            }}
-                                        >
-                                            Acknowledge & Respond
-                                        </Button>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-
-                        {/* Instructions */}
-                        <div className="text-center text-gray-400 text-sm">
-                            <p>You must acknowledge all emergency alerts before continuing.</p>
-                            <p className="mt-1">Contact emergency services if required.</p>
-                        </div>
-                    </div>
-                </div>
-            )}
         </div>
     );
 };
+
