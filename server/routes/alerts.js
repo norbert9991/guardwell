@@ -5,10 +5,11 @@ const { Alert, Worker } = require('../models');
 // Get all alerts
 router.get('/', async (req, res) => {
     try {
-        const { status, severity } = req.query;
+        const { status, severity, includeArchived } = req.query;
         const where = {};
         if (status) where.status = status;
         if (severity) where.severity = severity;
+        if (includeArchived !== 'true') where.archived = false;
 
         const alerts = await Alert.findAll({
             where,
@@ -98,4 +99,39 @@ router.post('/:id/resolve', async (req, res) => {
     }
 });
 
+// Archive alert
+router.post('/:id/archive', async (req, res) => {
+    try {
+        const [updated] = await Alert.update(
+            { archived: true },
+            { where: { id: req.params.id } }
+        );
+        if (!updated) {
+            return res.status(404).json({ error: 'Alert not found' });
+        }
+        res.json({ message: 'Alert archived successfully' });
+    } catch (error) {
+        console.error('Error archiving alert:', error);
+        res.status(500).json({ error: 'Failed to archive alert' });
+    }
+});
+
+// Restore alert
+router.post('/:id/restore', async (req, res) => {
+    try {
+        const [updated] = await Alert.update(
+            { archived: false },
+            { where: { id: req.params.id } }
+        );
+        if (!updated) {
+            return res.status(404).json({ error: 'Alert not found' });
+        }
+        res.json({ message: 'Alert restored successfully' });
+    } catch (error) {
+        console.error('Error restoring alert:', error);
+        res.status(500).json({ error: 'Failed to restore alert' });
+    }
+});
+
 module.exports = router;
+

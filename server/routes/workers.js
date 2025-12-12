@@ -1,11 +1,16 @@
 const express = require('express');
 const router = express.Router();
 const { Worker, Device } = require('../models');
+const { Op } = require('sequelize');
 
 // Get all workers
 router.get('/', async (req, res) => {
     try {
+        const { includeArchived } = req.query;
+        const where = includeArchived === 'true' ? {} : { archived: false };
+
         const workers = await Worker.findAll({
+            where,
             include: [{ model: Device, as: 'device' }],
             order: [['createdAt', 'DESC']]
         });
@@ -63,6 +68,40 @@ router.put('/:id', async (req, res) => {
     }
 });
 
+// Archive worker
+router.post('/:id/archive', async (req, res) => {
+    try {
+        const [updated] = await Worker.update(
+            { archived: true },
+            { where: { id: req.params.id } }
+        );
+        if (!updated) {
+            return res.status(404).json({ error: 'Worker not found' });
+        }
+        res.json({ message: 'Worker archived successfully' });
+    } catch (error) {
+        console.error('Error archiving worker:', error);
+        res.status(500).json({ error: 'Failed to archive worker' });
+    }
+});
+
+// Restore worker
+router.post('/:id/restore', async (req, res) => {
+    try {
+        const [updated] = await Worker.update(
+            { archived: false },
+            { where: { id: req.params.id } }
+        );
+        if (!updated) {
+            return res.status(404).json({ error: 'Worker not found' });
+        }
+        res.json({ message: 'Worker restored successfully' });
+    } catch (error) {
+        console.error('Error restoring worker:', error);
+        res.status(500).json({ error: 'Failed to restore worker' });
+    }
+});
+
 // Delete worker
 router.delete('/:id', async (req, res) => {
     try {
@@ -80,3 +119,4 @@ router.delete('/:id', async (req, res) => {
 });
 
 module.exports = router;
+

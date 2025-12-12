@@ -17,6 +17,7 @@ export const SocketProvider = ({ children }) => {
     const [connected, setConnected] = useState(false);
     const [sensorData, setSensorData] = useState({});
     const [alerts, setAlerts] = useState([]);
+    const [emergencyAlerts, setEmergencyAlerts] = useState([]);
     const { isAuthenticated } = useAuth();
 
     useEffect(() => {
@@ -55,7 +56,7 @@ export const SocketProvider = ({ children }) => {
             setAlerts(prev => [alert, ...prev].slice(0, 50)); // Keep last 50 alerts
         });
 
-        // Listen for emergency alerts
+        // Listen for emergency alerts - PERSIST these
         newSocket.on('emergency_alert', (emergency) => {
             // Show browser notification
             if (Notification.permission === 'granted') {
@@ -65,6 +66,15 @@ export const SocketProvider = ({ children }) => {
                     requireInteraction: true,
                 });
             }
+
+            // Add to persistent emergency alerts (don't auto-remove)
+            setEmergencyAlerts(prev => {
+                // Check if already exists to avoid duplicates
+                const exists = prev.some(e => e.id === emergency.id ||
+                    (e.device === emergency.device && Date.now() - new Date(e.timestamp).getTime() < 5000));
+                if (exists) return prev;
+                return [{ ...emergency, acknowledged: false }, ...prev];
+            });
 
             setAlerts(prev => [emergency, ...prev]);
         });
@@ -93,14 +103,40 @@ export const SocketProvider = ({ children }) => {
         emitEvent('acknowledge_alert', { alertId });
     };
 
+    // Dismiss a specific emergency alert
+    const dismissEmergency = (emergencyId) => {
+        setEmergencyAlerts(prev => prev.filter(e => e.id !== emergencyId));
+    };
+
+    // Acknowledge emergency (mark as acknowledged but keep in list)
+    const acknowledgeEmergency = (emergencyId) => {
+        setEmergencyAlerts(prev =>
+            prev.map(e => e.id === emergencyId ? { ...e, acknowledged: true } : e)
+        );
+    };
+
+    // Clear all emergency alerts
+    const clearAllEmergencies = () => {
+        setEmergencyAlerts([]);
+    };
+
+    // Check if there are any unacknowledged emergencies
+    const hasActiveEmergency = emergencyAlerts.some(e => !e.acknowledged);
+
     const value = {
         socket,
         connected,
         sensorData,
         alerts,
+        emergencyAlerts,
+        hasActiveEmergency,
         emitEvent,
         acknowledgeAlert,
+        dismissEmergency,
+        acknowledgeEmergency,
+        clearAllEmergencies,
     };
 
     return <SocketContext.Provider value={value}>{children}</SocketContext.Provider>;
 };
+

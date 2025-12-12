@@ -41,10 +41,12 @@ api.interceptors.response.use(
 // Workers API
 // ======================
 export const workersApi = {
-    getAll: () => api.get('/workers'),
+    getAll: (includeArchived = false) => api.get('/workers', { params: { includeArchived } }),
     getById: (id) => api.get(`/workers/${id}`),
     create: (data) => api.post('/workers', data),
     update: (id, data) => api.put(`/workers/${id}`, data),
+    archive: (id) => api.post(`/workers/${id}/archive`),
+    restore: (id) => api.post(`/workers/${id}/restore`),
     delete: (id) => api.delete(`/workers/${id}`)
 };
 
@@ -52,11 +54,13 @@ export const workersApi = {
 // Devices API
 // ======================
 export const devicesApi = {
-    getAll: () => api.get('/devices'),
+    getAll: (includeArchived = false) => api.get('/devices', { params: { includeArchived } }),
     getById: (id) => api.get(`/devices/${id}`),
     create: (data) => api.post('/devices', data),
     update: (id, data) => api.put(`/devices/${id}`, data),
     assign: (id, workerId) => api.post(`/devices/${id}/assign`, { workerId }),
+    archive: (id) => api.post(`/devices/${id}/archive`),
+    restore: (id) => api.post(`/devices/${id}/restore`),
     delete: (id) => api.delete(`/devices/${id}`)
 };
 
@@ -75,7 +79,9 @@ export const alertsApi = {
     getAll: (params = {}) => api.get('/alerts', { params }),
     getById: (id) => api.get(`/alerts/${id}`),
     acknowledge: (id, acknowledgedBy) => api.post(`/alerts/${id}/acknowledge`, { acknowledgedBy }),
-    resolve: (id, notes) => api.post(`/alerts/${id}/resolve`, { notes })
+    resolve: (id, notes) => api.post(`/alerts/${id}/resolve`, { notes }),
+    archive: (id) => api.post(`/alerts/${id}/archive`),
+    restore: (id) => api.post(`/alerts/${id}/restore`)
 };
 
 // ======================
@@ -87,6 +93,11 @@ export const incidentsApi = {
     create: (data) => api.post('/incidents', data),
     update: (id, data) => api.put(`/incidents/${id}`, data),
     resolve: (id, resolution) => api.post(`/incidents/${id}/resolve`, { resolution }),
+    addNote: (id, note, addedBy) => api.post(`/incidents/${id}/notes`, { note, addedBy }),
+    addAction: (id, action, performedBy) => api.post(`/incidents/${id}/actions`, { action, performedBy }),
+    close: (id, resolution) => api.post(`/incidents/${id}/close`, { resolution }),
+    archive: (id) => api.post(`/incidents/${id}/archive`),
+    restore: (id) => api.post(`/incidents/${id}/restore`),
     delete: (id) => api.delete(`/incidents/${id}`)
 };
 
@@ -123,5 +134,16 @@ export const usersApi = {
     delete: (id) => api.delete(`/users/${id}`)
 };
 
+// ======================
+// Reports API
+// ======================
+export const reportsApi = {
+    getWorkerSafety: (startDate, endDate) => api.get('/reports/worker-safety', { params: { startDate, endDate } }),
+    getDevicePerformance: (startDate, endDate) => api.get('/reports/device-performance', { params: { startDate, endDate } }),
+    getAlertAnalytics: (startDate, endDate) => api.get('/reports/alert-analytics', { params: { startDate, endDate } }),
+    getCompliance: (startDate, endDate) => api.get('/reports/compliance', { params: { startDate, endDate } })
+};
+
 export default api;
+
 

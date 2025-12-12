@@ -173,6 +173,7 @@ app.use('/api/sensors', sensorsRouter);
 app.use('/api/alerts', alertsRouter);
 app.use('/api/incidents', incidentsRouter);
 app.use('/api/contacts', contactsRouter);
+app.use('/api/reports', require('./routes/reports'));
 
 // Socket.io connection handling
 io.on('connection', (socket) => {
