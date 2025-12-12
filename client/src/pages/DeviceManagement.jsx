@@ -15,7 +15,10 @@ export const DeviceManagement = () => {
     const [showAddModal, setShowAddModal] = useState(false);
     const [showConfirmModal, setShowConfirmModal] = useState(false);
     const [showAssignModal, setShowAssignModal] = useState(false);
+    const [showAssignConfirm, setShowAssignConfirm] = useState(false);
     const [showConfigureModal, setShowConfigureModal] = useState(false);
+    const [showStatusConfirm, setShowStatusConfirm] = useState(false);
+    const [pendingStatus, setPendingStatus] = useState(null);
     const [selectedDevice, setSelectedDevice] = useState(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
@@ -103,7 +106,11 @@ export const DeviceManagement = () => {
         setShowConfigureModal(true);
     };
 
-    const handleConfirmAssign = async () => {
+    const handleConfirmAssign = () => {
+        setShowAssignConfirm(true);
+    };
+
+    const confirmAssign = async () => {
         setIsSubmitting(true);
         try {
             const response = await devicesApi.assign(selectedDevice.id, assignWorkerId || null);
@@ -113,32 +120,42 @@ export const DeviceManagement = () => {
                 d.id === selectedDevice.id ? response.data : d
             ));
 
+            setShowAssignConfirm(false);
             setShowAssignModal(false);
             setSelectedDevice(null);
             toast.success('Device assigned successfully');
         } catch (error) {
             console.error('Failed to assign device:', error);
             toast.error('Failed to assign device. Please try again.');
+            setShowAssignConfirm(false);
         } finally {
             setIsSubmitting(false);
         }
     };
 
-    const handleUpdateStatus = async (status) => {
+    const handleUpdateStatus = (status) => {
+        setPendingStatus(status);
+        setShowStatusConfirm(true);
+    };
+
+    const confirmUpdateStatus = async () => {
         setIsSubmitting(true);
         try {
-            const response = await devicesApi.update(selectedDevice.id, { status });
+            const response = await devicesApi.update(selectedDevice.id, { status: pendingStatus });
 
             setDevices(prev => prev.map(d =>
                 d.id === selectedDevice.id ? response.data : d
             ));
 
+            setShowStatusConfirm(false);
             setShowConfigureModal(false);
             setSelectedDevice(null);
-            toast.success(`Device status updated to ${status}`);
+            setPendingStatus(null);
+            toast.success(`Device status updated to ${pendingStatus}`);
         } catch (error) {
             console.error('Failed to update device:', error);
             toast.error('Failed to update device. Please try again.');
+            setShowStatusConfirm(false);
         } finally {
             setIsSubmitting(false);
         }
@@ -501,6 +518,44 @@ export const DeviceManagement = () => {
                     </div>
                 )}
             </Modal>
+
+            {/* Assign Device Confirmation */}
+            <ConfirmationModal
+                isOpen={showAssignConfirm}
+                onClose={() => setShowAssignConfirm(false)}
+                onConfirm={confirmAssign}
+                loading={isSubmitting}
+                title="Assign Device"
+                message={assignWorkerId
+                    ? `Are you sure you want to assign this device to ${workers.find(w => w.id == assignWorkerId)?.fullName || 'the selected worker'}?`
+                    : "Are you sure you want to unassign this device?"
+                }
+                confirmText={assignWorkerId ? "Yes, Assign" : "Yes, Unassign"}
+                variant="info"
+                data={[
+                    { label: 'Device ID', value: selectedDevice?.deviceId },
+                    { label: 'Serial Number', value: selectedDevice?.serialNumber },
+                    { label: 'Worker', value: assignWorkerId ? workers.find(w => w.id == assignWorkerId)?.fullName : 'Unassigned' }
+                ]}
+            />
+
+            {/* Update Status Confirmation */}
+            <ConfirmationModal
+                isOpen={showStatusConfirm}
+                onClose={() => { setShowStatusConfirm(false); setPendingStatus(null); }}
+                onConfirm={confirmUpdateStatus}
+                loading={isSubmitting}
+                title="Update Device Status"
+                message={`Are you sure you want to change the device status to "${pendingStatus}"?`}
+                confirmText="Yes, Update Status"
+                variant={pendingStatus === 'Offline' ? 'warning' : pendingStatus === 'Maintenance' ? 'warning' : 'success'}
+                data={[
+                    { label: 'Device ID', value: selectedDevice?.deviceId },
+                    { label: 'Current Status', value: selectedDevice?.status },
+                    { label: 'New Status', value: pendingStatus }
+                ]}
+            />
         </div>
     );
 };
+

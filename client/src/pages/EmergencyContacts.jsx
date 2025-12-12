@@ -87,6 +87,7 @@ export const EmergencyContacts = () => {
     };
 
     const [showEditModal, setShowEditModal] = useState(false);
+    const [showEditConfirm, setShowEditConfirm] = useState(false);
     const [showCallModal, setShowCallModal] = useState(false);
     const [showEmailModal, setShowEmailModal] = useState(false);
     const [showSmsModal, setShowSmsModal] = useState(false);
@@ -167,7 +168,11 @@ export const EmergencyContacts = () => {
         }, 1000);
     };
 
-    const handleSaveEdit = async () => {
+    const handleSaveEdit = () => {
+        setShowEditConfirm(true);
+    };
+
+    const confirmSaveEdit = async () => {
         setIsSubmitting(true);
         try {
             const response = await contactsApi.update(selectedContact.id, {
@@ -177,12 +182,14 @@ export const EmergencyContacts = () => {
             setContacts(prev => prev.map(c =>
                 c.id === selectedContact.id ? response.data : c
             ));
+            setShowEditConfirm(false);
             setShowEditModal(false);
             setSelectedContact(null);
             toast.success('Contact updated successfully');
         } catch (error) {
             console.error('Failed to update contact:', error);
             toast.error('Failed to update contact. Please try again.');
+            setShowEditConfirm(false);
         } finally {
             setIsSubmitting(false);
         }
@@ -766,6 +773,25 @@ export const EmergencyContacts = () => {
                     )}
                 </div>
             </Modal>
+
+            {/* Edit Contact Confirmation Modal */}
+            <ConfirmationModal
+                isOpen={showEditConfirm}
+                onClose={() => setShowEditConfirm(false)}
+                onConfirm={confirmSaveEdit}
+                loading={isSubmitting}
+                title="Save Changes"
+                message="Are you sure you want to save these changes to the emergency contact?"
+                confirmText="Yes, Save Changes"
+                variant="warning"
+                data={[
+                    { label: 'Name', value: formData.name },
+                    { label: 'Phone', value: formData.number },
+                    { label: 'Type', value: formData.type },
+                    { label: 'Priority', value: `P${formData.priority}` }
+                ]}
+            />
         </div>
     );
 };
+

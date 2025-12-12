@@ -20,9 +20,11 @@ import { Table } from '../components/ui/Table';
 import { ConfirmationModal } from '../components/ui/ConfirmationModal';
 import { usersApi } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 
 export const AdminManagement = () => {
     const { user: currentUser, isHeadAdmin } = useAuth();
+    const toast = useToast();
     const [users, setUsers] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [isLoading, setIsLoading] = useState(true);
@@ -30,6 +32,9 @@ export const AdminManagement = () => {
     const [showEditModal, setShowEditModal] = useState(false);
     const [showPasswordModal, setShowPasswordModal] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const [showAddConfirm, setShowAddConfirm] = useState(false);
+    const [showEditConfirm, setShowEditConfirm] = useState(false);
+    const [showPasswordConfirm, setShowPasswordConfirm] = useState(false);
     const [selectedUser, setSelectedUser] = useState(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState('');
@@ -69,11 +74,17 @@ export const AdminManagement = () => {
     const handleAddUser = async (e) => {
         e.preventDefault();
         setError('');
+        // Show confirmation modal
+        setShowAddConfirm(true);
+    };
+
+    const confirmAddUser = async () => {
         setIsSubmitting(true);
 
         try {
             const response = await usersApi.create(formData);
             setUsers(prev => [response.data, ...prev]);
+            setShowAddConfirm(false);
             setShowAddModal(false);
             setFormData({
                 email: '',
@@ -83,8 +94,10 @@ export const AdminManagement = () => {
                 department: '',
                 phone: ''
             });
+            toast.success('User created successfully!');
         } catch (error) {
             setError(error.response?.data?.error || 'Failed to create user');
+            setShowAddConfirm(false);
         } finally {
             setIsSubmitting(false);
         }
@@ -93,6 +106,11 @@ export const AdminManagement = () => {
     const handleEditUser = async (e) => {
         e.preventDefault();
         setError('');
+        // Show confirmation modal
+        setShowEditConfirm(true);
+    };
+
+    const confirmEditUser = async () => {
         setIsSubmitting(true);
 
         try {
@@ -104,10 +122,13 @@ export const AdminManagement = () => {
                 status: formData.status
             });
             setUsers(prev => prev.map(u => u.id === selectedUser.id ? response.data : u));
+            setShowEditConfirm(false);
             setShowEditModal(false);
             setSelectedUser(null);
+            toast.success('User updated successfully!');
         } catch (error) {
             setError(error.response?.data?.error || 'Failed to update user');
+            setShowEditConfirm(false);
         } finally {
             setIsSubmitting(false);
         }
@@ -118,18 +139,24 @@ export const AdminManagement = () => {
             setError('Password must be at least 8 characters');
             return;
         }
+        // Show confirmation modal
+        setShowPasswordConfirm(true);
+    };
 
+    const confirmResetPassword = async () => {
         setIsSubmitting(true);
         setError('');
 
         try {
             await usersApi.resetPassword(selectedUser.id, newPassword);
+            setShowPasswordConfirm(false);
             setShowPasswordModal(false);
             setSelectedUser(null);
             setNewPassword('');
-            alert('Password reset successfully!');
+            toast.success('Password reset successfully!');
         } catch (error) {
             setError(error.response?.data?.error || 'Failed to reset password');
+            setShowPasswordConfirm(false);
         } finally {
             setIsSubmitting(false);
         }
@@ -143,8 +170,9 @@ export const AdminManagement = () => {
             setUsers(prev => prev.filter(u => u.id !== selectedUser.id));
             setShowDeleteConfirm(false);
             setSelectedUser(null);
+            toast.success('User deleted successfully!');
         } catch (error) {
-            alert(error.response?.data?.error || 'Failed to delete user');
+            toast.error(error.response?.data?.error || 'Failed to delete user');
         } finally {
             setIsSubmitting(false);
         }
@@ -597,12 +625,61 @@ export const AdminManagement = () => {
                 isOpen={showDeleteConfirm}
                 onClose={() => setShowDeleteConfirm(false)}
                 onConfirm={handleDeleteUser}
-                isSubmitting={isSubmitting}
+                loading={isSubmitting}
                 title="Delete User"
                 message={`Are you sure you want to delete ${selectedUser?.fullName}? This action cannot be undone.`}
                 confirmText="Delete User"
                 variant="danger"
             />
+
+            {/* Add User Confirmation */}
+            <ConfirmationModal
+                isOpen={showAddConfirm}
+                onClose={() => setShowAddConfirm(false)}
+                onConfirm={confirmAddUser}
+                loading={isSubmitting}
+                title="Create User"
+                message="Are you sure you want to create this new user account?"
+                confirmText="Yes, Create User"
+                variant="info"
+                data={[
+                    { label: 'Email', value: formData.email },
+                    { label: 'Name', value: formData.fullName },
+                    { label: 'Role', value: formData.role },
+                    { label: 'Department', value: formData.department || 'N/A' }
+                ]}
+            />
+
+            {/* Edit User Confirmation */}
+            <ConfirmationModal
+                isOpen={showEditConfirm}
+                onClose={() => setShowEditConfirm(false)}
+                onConfirm={confirmEditUser}
+                loading={isSubmitting}
+                title="Save Changes"
+                message="Are you sure you want to save these changes to the user account?"
+                confirmText="Yes, Save Changes"
+                variant="warning"
+                data={[
+                    { label: 'Name', value: formData.fullName },
+                    { label: 'Role', value: formData.role },
+                    { label: 'Status', value: formData.status },
+                    { label: 'Department', value: formData.department || 'N/A' }
+                ]}
+            />
+
+            {/* Reset Password Confirmation */}
+            <ConfirmationModal
+                isOpen={showPasswordConfirm}
+                onClose={() => setShowPasswordConfirm(false)}
+                onConfirm={confirmResetPassword}
+                loading={isSubmitting}
+                title="Reset Password"
+                message={`Are you sure you want to reset the password for ${selectedUser?.fullName}?`}
+                confirmText="Yes, Reset Password"
+                variant="warning"
+            />
         </div>
     );
 };
+

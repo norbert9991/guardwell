@@ -17,6 +17,7 @@ export const WorkerManagement = () => {
     const [showAddModal, setShowAddModal] = useState(false);
     const [showConfirmModal, setShowConfirmModal] = useState(false);
     const [showEditModal, setShowEditModal] = useState(false);
+    const [showEditConfirm, setShowEditConfirm] = useState(false);
     const [showStatusModal, setShowStatusModal] = useState(false);
     const [selectedWorker, setSelectedWorker] = useState(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -118,20 +119,27 @@ export const WorkerManagement = () => {
         setShowEditModal(true);
     };
 
-    // Handle save edit
-    const handleSaveEdit = async () => {
+    // Handle save edit - show confirmation
+    const handleSaveEdit = () => {
+        setShowEditConfirm(true);
+    };
+
+    // Confirm save edit
+    const confirmSaveEdit = async () => {
         setIsSubmitting(true);
         try {
             const response = await workersApi.update(selectedWorker.id, formData);
             setWorkers(prev => prev.map(w =>
                 w.id === selectedWorker.id ? response.data : w
             ));
+            setShowEditConfirm(false);
             setShowEditModal(false);
             setSelectedWorker(null);
             toast.success('Worker updated successfully');
         } catch (error) {
             console.error('Failed to update worker:', error);
             toast.error('Failed to update worker. Please try again.');
+            setShowEditConfirm(false);
         } finally {
             setIsSubmitting(false);
         }
@@ -660,6 +668,25 @@ export const WorkerManagement = () => {
                     </div>
                 </div>
             </Modal>
+
+            {/* Edit Worker Confirmation Modal */}
+            <ConfirmationModal
+                isOpen={showEditConfirm}
+                onClose={() => setShowEditConfirm(false)}
+                onConfirm={confirmSaveEdit}
+                loading={isSubmitting}
+                title="Save Changes"
+                message="Are you sure you want to save these changes to the worker profile?"
+                confirmText="Yes, Save Changes"
+                variant="warning"
+                data={[
+                    { label: 'Employee #', value: formData.employeeNumber },
+                    { label: 'Name', value: formData.fullName },
+                    { label: 'Department', value: formData.department },
+                    { label: 'Position', value: formData.position }
+                ]}
+            />
         </div>
     );
 };
+

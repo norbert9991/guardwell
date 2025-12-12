@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { AlertTriangle, Clock, User, CheckCircle, Bell, XCircle, Filter, Calendar, Search, X } from 'lucide-react';
+import { AlertTriangle, Clock, User, CheckCircle, Bell, XCircle, Filter, Calendar, Search, X, FileText, Plus } from 'lucide-react';
 import { CardDark, CardBody, CardHeader } from '../components/ui/Card';
 import { MetricCard } from '../components/ui/MetricCard';
 import { Button } from '../components/ui/Button';
 import { SeverityBadge, StatusBadge } from '../components/ui/Badge';
 import { Modal } from '../components/ui/Modal';
 import { ConfirmationModal } from '../components/ui/ConfirmationModal';
-import { alertsApi } from '../utils/api';
+import { alertsApi, incidentsApi } from '../utils/api';
 import { useSocket } from '../context/SocketContext';
 import { useToast } from '../context/ToastContext';
 
@@ -23,6 +23,21 @@ export const AlertManagement = () => {
     const [showAcknowledgeConfirm, setShowAcknowledgeConfirm] = useState(false);
     const [showResolveConfirm, setShowResolveConfirm] = useState(false);
     const [alertToAction, setAlertToAction] = useState(null);
+
+    // Create Incident from Alert state
+    const [showCreateIncidentPrompt, setShowCreateIncidentPrompt] = useState(false);
+    const [showIncidentForm, setShowIncidentForm] = useState(false);
+    const [acknowledgedAlert, setAcknowledgedAlert] = useState(null);
+    const [incidentFormData, setIncidentFormData] = useState({
+        title: '',
+        type: 'Near Miss',
+        severity: 'Medium',
+        workerName: '',
+        workerId: null,
+        location: '',
+        description: '',
+        alertId: null
+    });
 
     // Advanced filters
     const [showFilters, setShowFilters] = useState(false);
@@ -83,6 +98,10 @@ export const AlertManagement = () => {
             acknowledgeAlert(alertId);
             toast.success('Alert acknowledged successfully');
             setShowAcknowledgeConfirm(false);
+
+            // Store the acknowledged alert and prompt for incident creation
+            setAcknowledgedAlert(alertToAction);
+            setShowCreateIncidentPrompt(true);
             setAlertToAction(null);
         } catch (error) {
             console.error('Failed to acknowledge alert:', error);
@@ -90,6 +109,71 @@ export const AlertManagement = () => {
         } finally {
             setIsSubmitting(false);
         }
+    };
+
+    // Handle "Yes" to create incident from alert
+    const handleCreateIncidentFromAlert = () => {
+        if (!acknowledgedAlert) return;
+
+        // Pre-fill incident form with alert data
+        setIncidentFormData({
+            title: `Alert: ${acknowledgedAlert.type}`,
+            type: mapAlertTypeToIncidentType(acknowledgedAlert.type),
+            severity: acknowledgedAlert.severity || 'Medium',
+            workerName: acknowledgedAlert.worker?.fullName || 'Unknown Worker',
+            workerId: acknowledgedAlert.workerId || null,
+            location: 'Workplace', // Default, user can edit
+            description: `Auto-generated from Alert #${acknowledgedAlert.id}\n\nAlert Type: ${acknowledgedAlert.type}\nTrigger Value: ${acknowledgedAlert.triggerValue || 'N/A'}\nThreshold: ${acknowledgedAlert.threshold || 'N/A'}\nDevice: ${acknowledgedAlert.deviceId || 'N/A'}`,
+            alertId: acknowledgedAlert.id
+        });
+
+        setShowCreateIncidentPrompt(false);
+        setShowIncidentForm(true);
+    };
+
+    // Map alert types to incident types
+    const mapAlertTypeToIncidentType = (alertType) => {
+        const typeMap = {
+            'High Temperature': 'Environmental Hazard',
+            'Gas Detection': 'Chemical Exposure',
+            'Fall Detected': 'Major Injury',
+            'Emergency Button': 'Near Miss',
+            'Low Battery': 'Equipment Failure',
+            'Device Offline': 'Equipment Failure'
+        };
+        return typeMap[alertType] || 'Near Miss';
+    };
+
+    // Handle incident form submission
+    const handleSubmitIncident = async () => {
+        setIsSubmitting(true);
+        try {
+            await incidentsApi.create(incidentFormData);
+            toast.success('Incident report created successfully!');
+            setShowIncidentForm(false);
+            setAcknowledgedAlert(null);
+            setIncidentFormData({
+                title: '',
+                type: 'Near Miss',
+                severity: 'Medium',
+                workerName: '',
+                workerId: null,
+                location: '',
+                description: '',
+                alertId: null
+            });
+        } catch (error) {
+            console.error('Failed to create incident:', error);
+            toast.error('Failed to create incident. Please try again.');
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    // Skip incident creation
+    const handleSkipIncident = () => {
+        setShowCreateIncidentPrompt(false);
+        setAcknowledgedAlert(null);
     };
 
     const handleResolve = async (alertId, notes = '') => {
@@ -577,6 +661,169 @@ export const AlertManagement = () => {
                     { label: 'Device', value: alertToAction.deviceId || 'N/A' }
                 ] : []}
             />
+
+            {/* Create Incident Prompt Modal */}
+            <ConfirmationModal
+                isOpen={showCreateIncidentPrompt}
+                onClose={handleSkipIncident}
+                onConfirm={handleCreateIncidentFromAlert}
+                title="Create Incident Report?"
+                message="Would you like to create an incident report from this alert? This helps track and document the event."
+                confirmText="Yes, Create Incident"
+                cancelText="No, Skip"
+                variant="info"
+                data={acknowledgedAlert ? [
+                    { label: 'Alert Type', value: acknowledgedAlert.type },
+                    { label: 'Severity', value: acknowledgedAlert.severity },
+                    { label: 'Worker', value: acknowledgedAlert.worker?.fullName || 'Unknown' }
+                ] : []}
+            />
+
+            {/* Create Incident Form Modal */}
+            <Modal
+                isOpen={showIncidentForm}
+                onClose={() => { setShowIncidentForm(false); setAcknowledgedAlert(null); }}
+                title="Create Incident Report"
+                size="lg"
+            >
+                <div className="space-y-6">
+                    {/* Alert Link Banner */}
+                    <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3 flex items-center gap-3">
+                        <FileText className="h-5 w-5 text-blue-400" />
+                        <span className="text-sm text-blue-300">
+                            Creating incident from Alert #{acknowledgedAlert?.id}
+                        </span>
+                    </div>
+
+                    {/* Form Fields */}
+                    <div className="space-y-4">
+                        {/* Title */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-300 mb-2">
+                                Incident Title *
+                            </label>
+                            <input
+                                type="text"
+                                value={incidentFormData.title}
+                                onChange={(e) => setIncidentFormData(prev => ({ ...prev, title: e.target.value }))}
+                                className="input-dark w-full"
+                                placeholder="Brief description of the incident"
+                            />
+                        </div>
+
+                        {/* Type & Severity Row */}
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-300 mb-2">
+                                    Incident Type *
+                                </label>
+                                <select
+                                    value={incidentFormData.type}
+                                    onChange={(e) => setIncidentFormData(prev => ({ ...prev, type: e.target.value }))}
+                                    className="input-dark w-full"
+                                >
+                                    <option value="Equipment Failure">Equipment Failure</option>
+                                    <option value="Minor Injury">Minor Injury</option>
+                                    <option value="Major Injury">Major Injury</option>
+                                    <option value="Near Miss">Near Miss</option>
+                                    <option value="Environmental Hazard">Environmental Hazard</option>
+                                    <option value="Fire/Explosion">Fire/Explosion</option>
+                                    <option value="Chemical Exposure">Chemical Exposure</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-300 mb-2">
+                                    Severity *
+                                </label>
+                                <select
+                                    value={incidentFormData.severity}
+                                    onChange={(e) => setIncidentFormData(prev => ({ ...prev, severity: e.target.value }))}
+                                    className="input-dark w-full"
+                                >
+                                    <option value="Low">Low</option>
+                                    <option value="Medium">Medium</option>
+                                    <option value="High">High</option>
+                                    <option value="Critical">Critical</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        {/* Worker & Location Row */}
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-300 mb-2">
+                                    Worker Name *
+                                </label>
+                                <input
+                                    type="text"
+                                    value={incidentFormData.workerName}
+                                    onChange={(e) => setIncidentFormData(prev => ({ ...prev, workerName: e.target.value }))}
+                                    className="input-dark w-full"
+                                    placeholder="Name of worker involved"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-300 mb-2">
+                                    Location
+                                </label>
+                                <input
+                                    type="text"
+                                    value={incidentFormData.location}
+                                    onChange={(e) => setIncidentFormData(prev => ({ ...prev, location: e.target.value }))}
+                                    className="input-dark w-full"
+                                    placeholder="Where the incident occurred"
+                                />
+                            </div>
+                        </div>
+
+                        {/* Description */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-300 mb-2">
+                                Description *
+                            </label>
+                            <textarea
+                                value={incidentFormData.description}
+                                onChange={(e) => setIncidentFormData(prev => ({ ...prev, description: e.target.value }))}
+                                className="input-dark w-full h-32 resize-none"
+                                placeholder="Detailed description of what happened..."
+                            />
+                        </div>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex gap-3 pt-4 border-t border-gray-700">
+                        <Button
+                            variant="secondary"
+                            onClick={() => { setShowIncidentForm(false); setAcknowledgedAlert(null); }}
+                            className="flex-1"
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            variant="primary"
+                            onClick={handleSubmitIncident}
+                            disabled={isSubmitting || !incidentFormData.title || !incidentFormData.workerName || !incidentFormData.description}
+                            className="flex-1"
+                        >
+                            {isSubmitting ? (
+                                <span className="flex items-center justify-center gap-2">
+                                    <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                    </svg>
+                                    Creating...
+                                </span>
+                            ) : (
+                                <>
+                                    <Plus size={18} className="mr-2" />
+                                    Create Incident
+                                </>
+                            )}
+                        </Button>
+                    </div>
+                </div>
+            </Modal>
         </div>
     );
 };
+
