@@ -91,9 +91,10 @@ export const LiveMonitoring = () => {
             if (realTimeData.emergency_button && !sosActive[device.deviceId]) {
                 // SOS button was pressed - set active and keep until marked safe
                 setSosActive(prev => ({ ...prev, [device.deviceId]: true }));
-                toast.error(`SOS ACTIVATED for ${device.worker?.fullName || device.deviceId}!`, {
-                    duration: 10000
-                });
+                toast.error(
+                    `Emergency SOS activated for ${device.worker?.fullName || device.deviceId}!`,
+                    'SOS ALERT'
+                );
             }
         });
     }, [sensorData, devices]);
