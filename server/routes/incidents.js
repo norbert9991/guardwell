@@ -121,6 +121,84 @@ router.patch('/:id/worker-status', async (req, res) => {
     }
 });
 
+// Add note to incident
+router.post('/:id/note', async (req, res) => {
+    try {
+        const { note, addedBy } = req.body;
+        const incident = await Incident.findByPk(req.params.id, {
+            include: [{ model: Worker, as: 'worker' }]
+        });
+        if (!incident) {
+            return res.status(404).json({ error: 'Incident not found' });
+        }
+
+        const notes = incident.notes || [];
+        notes.push({
+            id: Date.now(),
+            note,
+            addedBy: addedBy || 'System',
+            timestamp: new Date().toISOString()
+        });
+
+        await incident.update({ notes });
+        res.json(incident);
+    } catch (error) {
+        console.error('Error adding note:', error);
+        res.status(500).json({ error: 'Failed to add note' });
+    }
+});
+
+// Add action to incident
+router.post('/:id/action', async (req, res) => {
+    try {
+        const { action, performedBy } = req.body;
+        const incident = await Incident.findByPk(req.params.id, {
+            include: [{ model: Worker, as: 'worker' }]
+        });
+        if (!incident) {
+            return res.status(404).json({ error: 'Incident not found' });
+        }
+
+        const actionsTaken = incident.actionsTaken || [];
+        actionsTaken.push({
+            id: Date.now(),
+            action,
+            performedBy: performedBy || 'System',
+            timestamp: new Date().toISOString()
+        });
+
+        await incident.update({ actionsTaken });
+        res.json(incident);
+    } catch (error) {
+        console.error('Error adding action:', error);
+        res.status(500).json({ error: 'Failed to add action' });
+    }
+});
+
+// Close incident
+router.post('/:id/close', async (req, res) => {
+    try {
+        const { resolution } = req.body;
+        const incident = await Incident.findByPk(req.params.id, {
+            include: [{ model: Worker, as: 'worker' }]
+        });
+        if (!incident) {
+            return res.status(404).json({ error: 'Incident not found' });
+        }
+
+        await incident.update({
+            status: 'Closed',
+            resolution,
+            resolvedAt: new Date()
+        });
+
+        res.json(incident);
+    } catch (error) {
+        console.error('Error closing incident:', error);
+        res.status(500).json({ error: 'Failed to close incident' });
+    }
+});
+
 // Delete incident (hard delete)
 router.delete('/:id', async (req, res) => {
     try {
@@ -138,3 +216,4 @@ router.delete('/:id', async (req, res) => {
 });
 
 module.exports = router;
+

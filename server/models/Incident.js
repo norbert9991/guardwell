@@ -73,6 +73,16 @@ const Incident = sequelize.define('Incident', {
         defaultValue: 'Unknown',
         comment: 'Status of the worker involved in the incident'
     },
+    notes: {
+        type: DataTypes.JSON,
+        defaultValue: [],
+        comment: 'Array of notes added to the incident'
+    },
+    actionsTaken: {
+        type: DataTypes.JSON,
+        defaultValue: [],
+        comment: 'Array of actions taken for the incident'
+    },
     archived: {
         type: DataTypes.BOOLEAN,
         defaultValue: false

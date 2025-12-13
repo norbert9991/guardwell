@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, Settings, Radio, Activity, Wrench, BatteryLow, Eye } from 'lucide-react';
+import { Plus, Search, Settings, Radio, Activity, Wrench, BatteryLow, Eye, Archive } from 'lucide-react';
 import { CardDark, CardBody } from '../components/ui/Card';
 import { MetricCard } from '../components/ui/MetricCard';
 import { Table } from '../components/ui/Table';
@@ -19,6 +19,7 @@ export const DeviceManagement = () => {
     const [showAssignConfirm, setShowAssignConfirm] = useState(false);
     const [showConfigureModal, setShowConfigureModal] = useState(false);
     const [showStatusConfirm, setShowStatusConfirm] = useState(false);
+    const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
     const [pendingStatus, setPendingStatus] = useState(null);
     const [selectedDevice, setSelectedDevice] = useState(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -166,6 +167,29 @@ export const DeviceManagement = () => {
         }
     };
 
+    // Handle archive device
+    const handleArchive = (device) => {
+        setSelectedDevice(device);
+        setShowArchiveConfirm(true);
+    };
+
+    const confirmArchive = async () => {
+        setIsSubmitting(true);
+        try {
+            await devicesApi.archive(selectedDevice.id);
+            setDevices(prev => prev.filter(d => d.id !== selectedDevice.id));
+            setShowArchiveConfirm(false);
+            setSelectedDevice(null);
+            toast.success('Device archived successfully');
+        } catch (error) {
+            console.error('Failed to archive device:', error);
+            toast.error('Failed to archive device. Please try again.');
+            setShowArchiveConfirm(false);
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
     // Format last communication time
     const formatLastComm = (date) => {
         if (!date) return 'Never';
@@ -218,6 +242,14 @@ export const DeviceManagement = () => {
                         <>
                             <Button size="sm" variant="outline" onClick={() => handleConfigure(row)}>Configure</Button>
                             <Button size="sm" variant="primary" onClick={() => handleAssign(row)}>Assign</Button>
+                            <Button
+                                size="sm"
+                                variant="secondary"
+                                onClick={() => handleArchive(row)}
+                                title="Archive Device"
+                            >
+                                <Archive size={14} />
+                            </Button>
                         </>
                     ) : (
                         <Button size="sm" variant="outline" onClick={() => handleConfigure(row)}>
@@ -570,7 +602,24 @@ export const DeviceManagement = () => {
                     { label: 'New Status', value: pendingStatus }
                 ]}
             />
+
+            {/* Archive Device Confirmation */}
+            <ConfirmationModal
+                isOpen={showArchiveConfirm}
+                onClose={() => { setShowArchiveConfirm(false); setSelectedDevice(null); }}
+                onConfirm={confirmArchive}
+                loading={isSubmitting}
+                title="Archive Device"
+                message="Are you sure you want to archive this device? It will be hidden from the main list but can be restored later."
+                confirmText="Yes, Archive Device"
+                variant="warning"
+                data={[
+                    { label: 'Device ID', value: selectedDevice?.deviceId },
+                    { label: 'Serial Number', value: selectedDevice?.serialNumber },
+                    { label: 'Type', value: selectedDevice?.type },
+                    { label: 'Status', value: selectedDevice?.status }
+                ]}
+            />
         </div>
     );
 };
-
