@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Activity, Thermometer, Wind, Droplets, Battery, Signal, User, Shield, Radio, AlertTriangle, CheckCircle, X, Eye, Clock, Bell } from 'lucide-react';
+import { Activity, Thermometer, Wind, Droplets, Battery, Signal, User, Shield, Radio, AlertTriangle, CheckCircle, X, Eye, Clock, Bell, ShieldCheck } from 'lucide-react';
 import { CardDark, CardBody } from '../components/ui/Card';
 import { MetricCard } from '../components/ui/MetricCard';
 import { Badge } from '../components/ui/Badge';
@@ -7,6 +7,7 @@ import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
 import { useSocket } from '../context/SocketContext';
 import { devicesApi, alertsApi } from '../utils/api';
+import { useToast } from '../context/ToastContext';
 
 export const LiveMonitoring = () => {
     const { sensorData, connected, emitEvent } = useSocket();
@@ -16,6 +17,8 @@ export const LiveMonitoring = () => {
     const [selectedWorker, setSelectedWorker] = useState(null);
     const [showDetailsModal, setShowDetailsModal] = useState(false);
     const [markedSafe, setMarkedSafe] = useState({});
+    const [sosActive, setSosActive] = useState({}); // Track devices with active SOS
+    const toast = useToast();
 
     // Fetch devices from API on mount
     useEffect(() => {
@@ -37,9 +40,15 @@ export const LiveMonitoring = () => {
         // Get real-time data for this device from Socket
         const realTimeData = sensorData[device.deviceId] || {};
 
-        // Determine status based on sensor readings
+        // Check if this device has an active SOS (persists until marked safe)
+        const hasSosActive = sosActive[device.deviceId] || false;
+
+        // Check if emergency button is currently pressed
+        const emergencyPressed = realTimeData.emergency_button || false;
+
+        // Determine status based on sensor readings and SOS state
         let status = 'normal';
-        if (realTimeData.emergency_button || realTimeData.temperature >= 50 || realTimeData.gas_level >= 400) {
+        if (hasSosActive || emergencyPressed || realTimeData.temperature >= 50 || realTimeData.gas_level >= 400) {
             status = 'critical';
         } else if (realTimeData.temperature >= 40 || realTimeData.gas_level >= 200) {
             status = 'warning';
@@ -67,12 +76,27 @@ export const LiveMonitoring = () => {
                     z: realTimeData.gyro_z || 0
                 },
                 movement: realTimeData.accel_x !== undefined ? 'Active' : 'Unknown',
-                emergency: realTimeData.emergency_button || false
+                emergency: emergencyPressed,
+                sosActive: hasSosActive
             },
             status: Object.keys(realTimeData).length > 0 ? status : 'offline',
             lastUpdate: realTimeData.createdAt || 'No data'
         };
     });
+
+    // Effect to set SOS active when emergency button is pressed
+    useEffect(() => {
+        devices.forEach(device => {
+            const realTimeData = sensorData[device.deviceId] || {};
+            if (realTimeData.emergency_button && !sosActive[device.deviceId]) {
+                // SOS button was pressed - set active and keep until marked safe
+                setSosActive(prev => ({ ...prev, [device.deviceId]: true }));
+                toast.error(`SOS ACTIVATED for ${device.worker?.fullName || device.deviceId}!`, {
+                    duration: 10000
+                });
+            }
+        });
+    }, [sensorData, devices]);
 
     // Filter if needed
     const filteredWorkers = workersWithSensorData.filter(worker => {
@@ -137,8 +161,15 @@ export const LiveMonitoring = () => {
         setShowDetailsModal(true);
     };
 
-    // Handle mark safe
-    const handleMarkSafe = (workerId, workerName) => {
+    // Handle mark safe - clears the SOS state for the device
+    const handleMarkSafe = (workerId, workerName, deviceId) => {
+        // Clear the SOS active state for this device
+        setSosActive(prev => {
+            const updated = { ...prev };
+            delete updated[deviceId];
+            return updated;
+        });
+
         setMarkedSafe(prev => ({ ...prev, [workerId]: true }));
 
         // Emit event to backend
@@ -146,19 +177,22 @@ export const LiveMonitoring = () => {
             emitEvent('worker_marked_safe', {
                 workerId,
                 workerName,
+                deviceId,
                 timestamp: new Date().toISOString(),
                 markedBy: 'Operator'
             });
         }
 
-        // Reset after 30 seconds
+        toast.success(`${workerName} has been marked as safe`);
+
+        // Clear the marked safe badge after 5 seconds (visual only)
         setTimeout(() => {
             setMarkedSafe(prev => {
                 const updated = { ...prev };
                 delete updated[workerId];
                 return updated;
             });
-        }, 30000);
+        }, 5000);
     };
 
     // Format time
@@ -261,11 +295,33 @@ export const LiveMonitoring = () => {
                                 </div>
                             </div>
 
-                            {/* SOS Indicator */}
-                            {worker.sensors.emergency && (
-                                <div className="mb-4 p-2 bg-red-500/20 border border-red-500 rounded-lg flex items-center justify-center gap-2 animate-pulse">
-                                    <AlertTriangle className="h-5 w-5 text-red-500" />
-                                    <span className="text-red-500 font-bold tracking-wider">SOS ACTIVATED</span>
+                            {/* SOS Indicator - Shows for active SOS (persists until marked safe) */}
+                            {(worker.sensors.sosActive || worker.sensors.emergency) && !markedSafe[worker.id] && (
+                                <div className="mb-4 p-3 bg-red-500/20 border-2 border-red-500 rounded-lg animate-pulse">
+                                    <div className="flex items-center justify-center gap-2 mb-2">
+                                        <AlertTriangle className="h-6 w-6 text-red-500" />
+                                        <span className="text-red-500 font-bold text-lg tracking-wider">SOS ACTIVATED</span>
+                                    </div>
+                                    <Button
+                                        size="sm"
+                                        variant="success"
+                                        className="w-full bg-green-600 hover:bg-green-700"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleMarkSafe(worker.id, worker.name, worker.device);
+                                        }}
+                                    >
+                                        <ShieldCheck size={16} className="mr-2" />
+                                        Mark as Safe
+                                    </Button>
+                                </div>
+                            )}
+
+                            {/* Marked Safe Indicator */}
+                            {markedSafe[worker.id] && (
+                                <div className="mb-4 p-2 bg-green-500/20 border border-green-500 rounded-lg flex items-center justify-center gap-2">
+                                    <CheckCircle className="h-5 w-5 text-green-500" />
+                                    <span className="text-green-500 font-semibold">Marked Safe</span>
                                 </div>
                             )}
 
@@ -352,15 +408,29 @@ export const LiveMonitoring = () => {
 
                             {/* Actions */}
                             <div className="mt-4 pt-4 border-t border-gray-700">
-                                <Button
-                                    size="sm"
-                                    variant="outline"
-                                    className="w-full"
-                                    onClick={() => handleViewDetails(worker)}
-                                >
-                                    <Eye size={14} className="mr-1" />
-                                    View Details
-                                </Button>
+                                <div className="flex gap-2">
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="flex-1"
+                                        onClick={() => handleViewDetails(worker)}
+                                    >
+                                        <Eye size={14} className="mr-1" />
+                                        View Details
+                                    </Button>
+                                    {/* Show Mark Safe button for devices with active SOS but not yet marked */}
+                                    {(worker.sensors.sosActive || worker.sensors.emergency) && !markedSafe[worker.id] && (
+                                        <Button
+                                            size="sm"
+                                            variant="success"
+                                            className="flex-1 bg-green-600 hover:bg-green-700"
+                                            onClick={() => handleMarkSafe(worker.id, worker.name, worker.device)}
+                                        >
+                                            <ShieldCheck size={14} className="mr-1" />
+                                            Mark Safe
+                                        </Button>
+                                    )}
+                                </div>
                             </div>
                         </CardBody>
                     </CardDark>
