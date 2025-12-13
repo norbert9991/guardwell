@@ -163,7 +163,7 @@ function App() {
                             <Route
                                 path="/admin/users"
                                 element={
-                                    <ProtectedRoute requireAdmin>
+                                    <ProtectedRoute requiredRole="Head Admin">
                                         <LayoutWrapper>
                                             <AdminManagement />
                                         </LayoutWrapper>
@@ -174,7 +174,7 @@ function App() {
                             <Route
                                 path="/admin/audit"
                                 element={
-                                    <ProtectedRoute requireAdmin>
+                                    <ProtectedRoute requiredRole="Head Admin">
                                         <LayoutWrapper>
                                             <AuditLog />
                                         </LayoutWrapper>
@@ -185,7 +185,7 @@ function App() {
                             <Route
                                 path="/admin"
                                 element={
-                                    <ProtectedRoute requireAdmin>
+                                    <ProtectedRoute requiredRole="Head Admin">
                                         <LayoutWrapper>
                                             <SystemAdmin />
                                         </LayoutWrapper>

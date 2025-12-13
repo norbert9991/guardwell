@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, Settings, Radio, Activity, Wrench, BatteryLow } from 'lucide-react';
+import { Plus, Search, Settings, Radio, Activity, Wrench, BatteryLow, Eye } from 'lucide-react';
 import { CardDark, CardBody } from '../components/ui/Card';
 import { MetricCard } from '../components/ui/MetricCard';
 import { Table } from '../components/ui/Table';
@@ -9,6 +9,7 @@ import { Modal } from '../components/ui/Modal';
 import { ConfirmationModal } from '../components/ui/ConfirmationModal';
 import { devicesApi, workersApi } from '../utils/api';
 import { useToast } from '../context/ToastContext';
+import { useAuth, PERMISSIONS } from '../context/AuthContext';
 
 export const DeviceManagement = () => {
     const [searchTerm, setSearchTerm] = useState('');
@@ -25,6 +26,10 @@ export const DeviceManagement = () => {
     const [devices, setDevices] = useState([]);
     const [workers, setWorkers] = useState([]);
     const toast = useToast();
+    const { hasPermission } = useAuth();
+
+    // Permission checks
+    const canManageDevices = hasPermission(PERMISSIONS.MANAGE_DEVICES);
 
     // Fetch devices and workers from API
     useEffect(() => {
@@ -209,8 +214,16 @@ export const DeviceManagement = () => {
             label: 'Actions',
             render: (row) => (
                 <div className="flex gap-2">
-                    <Button size="sm" variant="outline" onClick={() => handleConfigure(row)}>Configure</Button>
-                    <Button size="sm" variant="primary" onClick={() => handleAssign(row)}>Assign</Button>
+                    {canManageDevices ? (
+                        <>
+                            <Button size="sm" variant="outline" onClick={() => handleConfigure(row)}>Configure</Button>
+                            <Button size="sm" variant="primary" onClick={() => handleAssign(row)}>Assign</Button>
+                        </>
+                    ) : (
+                        <Button size="sm" variant="outline" onClick={() => handleConfigure(row)}>
+                            <Eye size={14} className="mr-1" /> View
+                        </Button>
+                    )}
                 </div>
             )
         }
@@ -242,7 +255,9 @@ export const DeviceManagement = () => {
                     <h1 className="text-3xl font-bold text-white mb-2">Device Management</h1>
                     <p className="text-gray-400">Manage wearable devices and configurations</p>
                 </div>
-                <Button icon={<Plus size={18} />} onClick={() => setShowAddModal(true)}>Add Device</Button>
+                {canManageDevices && (
+                    <Button icon={<Plus size={18} />} onClick={() => setShowAddModal(true)}>Add Device</Button>
+                )}
             </div>
 
             {/* Key Metrics */}

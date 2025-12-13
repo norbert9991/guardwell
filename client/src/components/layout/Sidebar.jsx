@@ -11,7 +11,9 @@ import {
     Phone,
     Settings,
     ChevronLeft,
-    ChevronRight
+    ChevronRight,
+    Shield,
+    ShieldCheck
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { cn } from '../../utils/cn';
@@ -19,30 +21,59 @@ import { cn } from '../../utils/cn';
 export const Sidebar = () => {
     const [collapsed, setCollapsed] = useState(false);
     const location = useLocation();
-    const { isAdmin } = useAuth();
+    const { isAdmin, isHeadAdmin, userRole } = useAuth();
 
+    // Menu items with minimum role required
     const menuItems = [
-        { name: 'Dashboard', icon: LayoutDashboard, path: '/', roles: ['Admin', 'Safety Officer'] },
-        { name: 'Live Monitoring', icon: Activity, path: '/live-monitoring', roles: ['Admin', 'Safety Officer'] },
-        { name: 'Workers', icon: Users, path: '/workers', roles: ['Admin', 'Safety Officer'] },
-        { name: 'Devices', icon: Radio, path: '/devices', roles: ['Admin', 'Safety Officer'] },
-        { name: 'Alerts', icon: AlertTriangle, path: '/alerts', roles: ['Admin', 'Safety Officer'] },
-        { name: 'Incidents', icon: FileText, path: '/incidents', roles: ['Admin', 'Safety Officer'] },
-        { name: 'Reports', icon: BarChart3, path: '/reports', roles: ['Admin', 'Safety Officer'] },
-        { name: 'Emergency Contacts', icon: Phone, path: '/emergency-contacts', roles: ['Admin'] },
-        { name: 'User Management', icon: Users, path: '/admin/users', roles: ['Admin'] },
-        { name: 'System Settings', icon: Settings, path: '/admin', roles: ['Admin'] },
+        { name: 'Dashboard', icon: LayoutDashboard, path: '/', minRole: 'Safety Officer' },
+        { name: 'Live Monitoring', icon: Activity, path: '/live-monitoring', minRole: 'Safety Officer' },
+        { name: 'Workers', icon: Users, path: '/workers', minRole: 'Safety Officer' },
+        { name: 'Devices', icon: Radio, path: '/devices', minRole: 'Safety Officer' },
+        { name: 'Alerts', icon: AlertTriangle, path: '/alerts', minRole: 'Safety Officer' },
+        { name: 'Incidents', icon: FileText, path: '/incidents', minRole: 'Safety Officer' },
+        { name: 'Reports', icon: BarChart3, path: '/reports', minRole: 'Safety Officer' },
+        { name: 'Emergency Contacts', icon: Phone, path: '/emergency-contacts', minRole: 'Admin' },
+        { name: 'User Management', icon: Users, path: '/admin/users', minRole: 'Head Admin' },
+        { name: 'System Settings', icon: Settings, path: '/admin', minRole: 'Head Admin' },
     ];
 
-    const filteredMenuItems = menuItems.filter(item =>
-        isAdmin || item.roles.includes('Safety Officer')
-    );
+    // Role hierarchy for filtering
+    const roleHierarchy = { 'Head Admin': 3, 'Admin': 2, 'Safety Officer': 1 };
+    const userLevel = roleHierarchy[userRole] || 0;
+
+    const filteredMenuItems = menuItems.filter(item => {
+        const requiredLevel = roleHierarchy[item.minRole] || 0;
+        return userLevel >= requiredLevel;
+    });
+
+    // Role badge colors
+    const getRoleBadge = () => {
+        if (isHeadAdmin) return { color: 'bg-red-500/20 text-red-400 border-red-500/30', icon: Shield };
+        if (isAdmin) return { color: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30', icon: ShieldCheck };
+        return { color: 'bg-blue-500/20 text-blue-400 border-blue-500/30', icon: Activity };
+    };
+
+    const roleBadge = getRoleBadge();
+    const RoleIcon = roleBadge.icon;
 
     return (
         <div className={cn(
             'glass border-r border-white/10 transition-all duration-300 flex flex-col h-screen sticky top-0',
             collapsed ? 'w-20' : 'w-64'
         )}>
+            {/* Role Badge */}
+            {!collapsed && (
+                <div className="px-4 pt-4">
+                    <div className={cn(
+                        'flex items-center gap-2 px-3 py-2 rounded-lg border text-xs font-medium',
+                        roleBadge.color
+                    )}>
+                        <RoleIcon size={14} />
+                        <span>{userRole}</span>
+                    </div>
+                </div>
+            )}
+
             {/* Collapse Button */}
             <div className="p-4 flex justify-end">
                 <button
@@ -97,3 +128,4 @@ export const Sidebar = () => {
         </div>
     );
 };
+

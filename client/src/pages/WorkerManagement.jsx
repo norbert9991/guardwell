@@ -10,6 +10,7 @@ import { ConfirmationModal } from '../components/ui/ConfirmationModal';
 import { useNavigate } from 'react-router-dom';
 import { workersApi } from '../utils/api';
 import { useToast } from '../context/ToastContext';
+import { useAuth, PERMISSIONS } from '../context/AuthContext';
 
 export const WorkerManagement = () => {
     const [searchTerm, setSearchTerm] = useState('');
@@ -40,6 +41,10 @@ export const WorkerManagement = () => {
 
     const navigate = useNavigate();
     const toast = useToast();
+    const { hasPermission } = useAuth();
+
+    // Permission checks
+    const canManageWorkers = hasPermission(PERMISSIONS.MANAGE_WORKERS);
 
     // Fetch workers on mount
     useEffect(() => {
@@ -217,20 +222,24 @@ export const WorkerManagement = () => {
                     >
                         <Eye size={16} />
                     </button>
-                    <button
-                        onClick={() => handleEditWorker(row)}
-                        className="p-2 hover:bg-dark-lighter rounded text-yellow-500 transition-colors"
-                        title="Edit Worker"
-                    >
-                        <Edit size={16} />
-                    </button>
-                    <button
-                        onClick={() => handleStatusToggle(row)}
-                        className={`p-2 hover:bg-dark-lighter rounded transition-colors ${row.status === 'Active' ? 'text-danger' : 'text-success'}`}
-                        title={row.status === 'Active' ? 'Deactivate' : 'Activate'}
-                    >
-                        <Power size={16} />
-                    </button>
+                    {canManageWorkers && (
+                        <>
+                            <button
+                                onClick={() => handleEditWorker(row)}
+                                className="p-2 hover:bg-dark-lighter rounded text-yellow-500 transition-colors"
+                                title="Edit Worker"
+                            >
+                                <Edit size={16} />
+                            </button>
+                            <button
+                                onClick={() => handleStatusToggle(row)}
+                                className={`p-2 hover:bg-dark-lighter rounded transition-colors ${row.status === 'Active' ? 'text-danger' : 'text-success'}`}
+                                title={row.status === 'Active' ? 'Deactivate' : 'Activate'}
+                            >
+                                <Power size={16} />
+                            </button>
+                        </>
+                    )}
                 </div>
             )
         }
@@ -252,9 +261,11 @@ export const WorkerManagement = () => {
                     <h1 className="text-3xl font-bold text-white mb-2">Worker Management</h1>
                     <p className="text-gray-400">Manage worker profiles and information</p>
                 </div>
-                <Button onClick={() => setShowAddModal(true)} icon={<Plus size={18} />}>
-                    Add Worker
-                </Button>
+                {canManageWorkers && (
+                    <Button onClick={() => setShowAddModal(true)} icon={<Plus size={18} />}>
+                        Add Worker
+                    </Button>
+                )}
             </div>
 
             {/* Key Metrics */}

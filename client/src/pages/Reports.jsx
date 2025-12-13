@@ -4,6 +4,7 @@ import { CardDark, CardBody, CardHeader } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { MetricCard } from '../components/ui/MetricCard';
 import { reportsApi } from '../utils/api';
+import { useAuth, PERMISSIONS } from '../context/AuthContext';
 
 export const Reports = () => {
     const [reportType, setReportType] = useState('worker-safety');
@@ -14,6 +15,10 @@ export const Reports = () => {
     const [reportData, setReportData] = useState(null);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState(null);
+    const { hasPermission } = useAuth();
+
+    // Permission checks
+    const canExportReports = hasPermission(PERMISSIONS.EXPORT_REPORTS);
 
     // Fetch report data
     const fetchReport = async () => {
@@ -502,12 +507,18 @@ export const Reports = () => {
                             />
                         </div>
                         <div className="flex items-end gap-2">
-                            <Button variant="secondary" icon={<Download size={18} />} onClick={exportToCSV}>
-                                Export CSV
-                            </Button>
-                            <Button variant="primary" icon={<FileText size={18} />} onClick={printReport}>
-                                Print PDF
-                            </Button>
+                            {canExportReports ? (
+                                <>
+                                    <Button variant="secondary" icon={<Download size={18} />} onClick={exportToCSV}>
+                                        Export CSV
+                                    </Button>
+                                    <Button variant="primary" icon={<FileText size={18} />} onClick={printReport}>
+                                        Print PDF
+                                    </Button>
+                                </>
+                            ) : (
+                                <span className="text-xs text-gray-500 italic">Export requires Admin access</span>
+                            )}
                         </div>
                     </div>
                 </CardBody>
