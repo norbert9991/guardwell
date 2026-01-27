@@ -11,6 +11,15 @@ const THRESHOLDS = {
     battery: { low: 20 }
 };
 
+// Voice alert type mapping (DFRobot DF2301Q with Tagalog commands)
+const VOICE_ALERT_TYPES = {
+    help: { name: 'Voice Alert - Help', severity: 'Critical', tagalog: 'Tulong' },
+    emergency: { name: 'Voice Alert - Emergency', severity: 'Critical', tagalog: 'Emergency' },
+    fall_shock: { name: 'Voice Alert - Fall/Shock', severity: 'Critical', tagalog: 'Aray' },
+    call_nurse: { name: 'Voice Alert - Call Nurse', severity: 'High', tagalog: 'Tawag' },
+    pain: { name: 'Voice Alert - Pain', severity: 'High', tagalog: 'Sakit' }
+};
+
 // Process sensor data and check for alerts
 const processSensorData = async (data, io) => {
     try {
@@ -28,7 +37,12 @@ const processSensorData = async (data, io) => {
             gyroZ: data.gyro_z,
             emergencyButton: data.emergency_button || false,
             battery: data.battery,
-            rssi: data.rssi
+            rssi: data.rssi,
+            // Voice recognition fields
+            voiceCommand: data.voice_command || null,
+            voiceCommandId: data.voice_command_id || null,
+            voiceAlert: data.voice_alert || false,
+            voiceAlertType: data.alert_type || null
         });
 
         // Update device last communication
@@ -58,6 +72,22 @@ const processSensorData = async (data, io) => {
                 triggerValue: 'Button Pressed',
                 threshold: 'N/A'
             });
+        }
+
+        // Voice alert (DFRobot DF2301Q)
+        if (data.voice_alert && data.alert_type) {
+            const voiceAlertInfo = VOICE_ALERT_TYPES[data.alert_type];
+            if (voiceAlertInfo) {
+                alerts.push({
+                    type: voiceAlertInfo.name,
+                    severity: voiceAlertInfo.severity,
+                    deviceId: data.device_id,
+                    workerId,
+                    triggerValue: `Voice Command: "${voiceAlertInfo.tagalog}"`,
+                    threshold: 'Voice Triggered'
+                });
+                console.log(`🎤 Voice Alert: ${voiceAlertInfo.tagalog} (${data.alert_type}) from ${data.device_id}`);
+            }
         }
 
         // Temperature check
@@ -158,6 +188,8 @@ const processSensorData = async (data, io) => {
                     type: alert.type,
                     worker_name: workerName,
                     device: data.device_id,
+                    voice_command: data.voice_command || null,
+                    voice_alert_type: data.alert_type || null,
                     timestamp: new Date().toISOString()
                 });
 
@@ -204,6 +236,11 @@ const processSensorData = async (data, io) => {
             accel_y: data.accel_y,
             accel_z: data.accel_z,
             emergency_button: data.emergency_button,
+            // Voice recognition data
+            voice_command: data.voice_command,
+            voice_command_id: data.voice_command_id,
+            voice_alert: data.voice_alert,
+            voice_alert_type: data.alert_type,
             worker_id: workerId,
             worker_name: workerName,
             createdAt: sensorRecord.createdAt

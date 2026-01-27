@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { AlertTriangle, User, Radio, Clock, CheckCircle, Phone, Shield } from 'lucide-react';
+import { AlertTriangle, User, Radio, Clock, CheckCircle, Phone, Shield, Mic } from 'lucide-react';
 import { Button } from './ui/Button';
 import { useSocket } from '../context/SocketContext';
 import { useNavigate } from 'react-router-dom';
@@ -58,16 +58,28 @@ export const GlobalEmergencyAlert = () => {
                         >
                             <div className="flex items-start justify-between gap-4">
                                 <div className="flex items-center gap-4">
-                                    <div className="w-16 h-16 bg-red-500/30 rounded-full flex items-center justify-center animate-pulse">
-                                        <User className="h-9 w-9 text-red-400" />
+                                    <div className={`w-16 h-16 ${emergency.type?.includes('Voice Alert') ? 'bg-purple-500/30' : 'bg-red-500/30'} rounded-full flex items-center justify-center animate-pulse`}>
+                                        {emergency.type?.includes('Voice Alert')
+                                            ? <Mic className="h-9 w-9 text-purple-400" />
+                                            : <User className="h-9 w-9 text-red-400" />
+                                        }
                                     </div>
                                     <div>
                                         <h3 className="text-2xl font-bold text-white">
                                             {emergency.worker_name || 'Unknown Worker'}
                                         </h3>
-                                        <p className="text-red-400 font-semibold text-lg">
+                                        <p className={`${emergency.type?.includes('Voice Alert') ? 'text-purple-400' : 'text-red-400'} font-semibold text-lg`}>
                                             {emergency.type || 'Emergency Button Pressed'}
                                         </p>
+                                        {/* Voice Command Badge */}
+                                        {emergency.voice_command && (
+                                            <div className="mt-2 inline-flex items-center gap-2 bg-purple-500/20 border border-purple-500 px-3 py-1.5 rounded-lg">
+                                                <Mic size={14} className="text-purple-400" />
+                                                <span className="text-purple-300 font-semibold">
+                                                    🎤 Voice: "{emergency.voice_command?.split('_')[0]?.toUpperCase()}"
+                                                </span>
+                                            </div>
+                                        )}
                                         <div className="flex flex-wrap items-center gap-4 mt-2 text-sm text-gray-400">
                                             <span className="flex items-center gap-1.5 bg-black/30 px-2 py-1 rounded">
                                                 <Radio size={14} />

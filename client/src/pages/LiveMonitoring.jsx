@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Activity, Thermometer, Wind, Droplets, Battery, Signal, User, Shield, Radio, AlertTriangle, CheckCircle, X, Eye, Clock, Bell, ShieldCheck } from 'lucide-react';
+import { Activity, Thermometer, Wind, Droplets, Battery, Signal, User, Shield, Radio, AlertTriangle, CheckCircle, X, Eye, Clock, Bell, ShieldCheck, Mic } from 'lucide-react';
 import { CardDark, CardBody } from '../components/ui/Card';
 import { MetricCard } from '../components/ui/MetricCard';
 import { Badge } from '../components/ui/Badge';
@@ -46,9 +46,12 @@ export const LiveMonitoring = () => {
         // Check if emergency button is currently pressed
         const emergencyPressed = realTimeData.emergency_button || false;
 
+        // Check for voice alert
+        const voiceAlertActive = realTimeData.voice_alert || false;
+
         // Determine status based on sensor readings and SOS state
         let status = 'normal';
-        if (hasSosActive || emergencyPressed || realTimeData.temperature >= 50 || realTimeData.gas_level >= 400) {
+        if (hasSosActive || emergencyPressed || voiceAlertActive || realTimeData.temperature >= 50 || realTimeData.gas_level >= 400) {
             status = 'critical';
         } else if (realTimeData.temperature >= 40 || realTimeData.gas_level >= 200) {
             status = 'warning';
@@ -77,7 +80,12 @@ export const LiveMonitoring = () => {
                 },
                 movement: realTimeData.accel_x !== undefined ? 'Active' : 'Unknown',
                 emergency: emergencyPressed,
-                sosActive: hasSosActive
+                sosActive: hasSosActive,
+                // Voice recognition data
+                voiceCommand: realTimeData.voice_command || null,
+                voiceCommandId: realTimeData.voice_command_id || null,
+                voiceAlert: voiceAlertActive,
+                voiceAlertType: realTimeData.voice_alert_type || null
             },
             status: Object.keys(realTimeData).length > 0 ? status : 'offline',
             lastUpdate: realTimeData.createdAt || 'No data'
@@ -113,6 +121,18 @@ export const LiveMonitoring = () => {
             case 'offline': return 'border-gray-700 opacity-60';
             default: return 'border-gray-700';
         }
+    };
+
+    // Get voice command display name (Tagalog to English mapping)
+    const getVoiceCommandDisplay = (alertType) => {
+        const voiceCommands = {
+            help: { tagalog: 'TULONG', english: 'Help Requested', icon: '🙋' },
+            emergency: { tagalog: 'EMERGENCY', english: 'Emergency', icon: '🚨' },
+            fall_shock: { tagalog: 'ARAY', english: 'Fall/Shock Detected', icon: '⚠️' },
+            call_nurse: { tagalog: 'TAWAG', english: 'Call Nurse', icon: '📞' },
+            pain: { tagalog: 'SAKIT', english: 'Pain Reported', icon: '🩺' }
+        };
+        return voiceCommands[alertType] || { tagalog: alertType?.toUpperCase(), english: 'Voice Alert', icon: '🎤' };
     };
 
     const getSensorStatus = (value, thresholds) => {
@@ -302,6 +322,38 @@ export const LiveMonitoring = () => {
                                     <div className="flex items-center justify-center gap-2 mb-2">
                                         <AlertTriangle className="h-6 w-6 text-red-500" />
                                         <span className="text-red-500 font-bold text-lg tracking-wider">SOS ACTIVATED</span>
+                                    </div>
+                                    <Button
+                                        size="sm"
+                                        variant="success"
+                                        className="w-full bg-green-600 hover:bg-green-700"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleMarkSafe(worker.id, worker.name, worker.device);
+                                        }}
+                                    >
+                                        <ShieldCheck size={16} className="mr-2" />
+                                        Mark as Safe
+                                    </Button>
+                                </div>
+                            )}
+
+                            {/* Voice Alert Indicator */}
+                            {worker.sensors.voiceAlert && worker.sensors.voiceAlertType && !markedSafe[worker.id] && (
+                                <div className="mb-4 p-3 bg-purple-500/20 border-2 border-purple-500 rounded-lg animate-pulse">
+                                    <div className="flex items-center justify-center gap-2 mb-2">
+                                        <Mic className="h-6 w-6 text-purple-400" />
+                                        <span className="text-purple-400 font-bold text-lg tracking-wider">
+                                            {getVoiceCommandDisplay(worker.sensors.voiceAlertType).icon} VOICE ALERT
+                                        </span>
+                                    </div>
+                                    <div className="text-center mb-3">
+                                        <span className="text-white font-semibold text-xl">
+                                            "{getVoiceCommandDisplay(worker.sensors.voiceAlertType).tagalog}"
+                                        </span>
+                                        <p className="text-purple-300 text-sm">
+                                            {getVoiceCommandDisplay(worker.sensors.voiceAlertType).english}
+                                        </p>
                                     </div>
                                     <Button
                                         size="sm"

@@ -76,6 +76,27 @@ const SensorData = sequelize.define('SensorData', {
         type: DataTypes.INTEGER,
         allowNull: true,
         comment: 'WiFi signal strength dBm'
+    },
+    // Voice recognition (DFRobot DF2301Q)
+    voiceCommand: {
+        type: DataTypes.STRING(50),
+        allowNull: true,
+        comment: 'Voice command name (e.g., tulong_help, sakit_pain)'
+    },
+    voiceCommandId: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+        comment: 'Voice command ID from DF2301Q sensor'
+    },
+    voiceAlert: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: false,
+        comment: 'Whether a voice alert was triggered'
+    },
+    voiceAlertType: {
+        type: DataTypes.STRING(30),
+        allowNull: true,
+        comment: 'Type of voice alert (help, emergency, pain, fall_shock, call_nurse)'
     }
 }, {
     tableName: 'sensor_data',
