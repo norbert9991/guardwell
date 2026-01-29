@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Activity, Thermometer, Wind, Droplets, Battery, Signal, User, Shield, Radio, AlertTriangle, CheckCircle, X, Eye, Clock, Bell, ShieldCheck, Mic, Map, Grid } from 'lucide-react';
+import { Activity, Thermometer, Wind, Droplets, Battery, Signal, User, Shield, Radio, AlertTriangle, CheckCircle, X, Eye, Clock, Bell, ShieldCheck, Mic, Map, Grid, MapPin } from 'lucide-react';
 import { CardDark, CardBody } from '../components/ui/Card';
 import { MetricCard } from '../components/ui/MetricCard';
 import { Badge } from '../components/ui/Badge';
@@ -96,7 +96,8 @@ export const LiveMonitoring = () => {
                 longitude: realTimeData.longitude || null,
                 gpsSpeed: realTimeData.gps_speed || null,
                 gpsValid: realTimeData.gps_valid || false,
-                geofenceViolation: geofenceViolation
+                geofenceViolation: geofenceViolation,
+                gpsChars: realTimeData.gps_chars || 0
             },
             status: Object.keys(realTimeData).length > 0 ? status : 'offline',
             lastUpdate: realTimeData.createdAt || 'No data'
@@ -526,6 +527,39 @@ export const LiveMonitoring = () => {
                                                 </span>
                                             </div>
                                         </div>
+                                    </div>
+
+                                    {/* GPS Debug Section */}
+                                    <div className="mt-3 pt-3 border-t border-gray-700/50">
+                                        <div className="flex items-center gap-2 text-gray-400 mb-2">
+                                            <MapPin size={16} />
+                                            <span className="text-sm font-medium">GPS Status</span>
+                                            <span className={`ml-auto text-xs px-2 py-0.5 rounded ${worker.sensors.gpsValid ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400'}`}>
+                                                {worker.sensors.gpsValid ? '✓ Fix' : '⏳ Acquiring'}
+                                            </span>
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-2 text-xs">
+                                            <div className="bg-black/20 p-2 rounded">
+                                                <span className="text-gray-500 block">Chars Received</span>
+                                                <span className={`font-mono ${worker.sensors.gpsChars > 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                                    {worker.sensors.gpsChars?.toLocaleString() || 0}
+                                                </span>
+                                            </div>
+                                            <div className="bg-black/20 p-2 rounded">
+                                                <span className="text-gray-500 block">Geofence</span>
+                                                <span className={`font-semibold ${worker.sensors.geofenceViolation ? 'text-red-400' : 'text-green-400'}`}>
+                                                    {worker.sensors.geofenceViolation ? '⚠ Outside' : '✓ Inside'}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        {worker.sensors.gpsValid && worker.sensors.latitude && (
+                                            <div className="mt-2 bg-black/20 p-2 rounded text-xs">
+                                                <span className="text-gray-500 block">Coordinates</span>
+                                                <span className="text-cyan-400 font-mono">
+                                                    {worker.sensors.latitude?.toFixed(6)}, {worker.sensors.longitude?.toFixed(6)}
+                                                </span>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
 

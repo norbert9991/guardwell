@@ -48,7 +48,8 @@ const processSensorData = async (data, io) => {
             longitude: data.longitude || null,
             gpsSpeed: data.gps_speed || null,
             gpsValid: data.gps_valid || false,
-            geofenceViolation: data.geofence_violation || false
+            geofenceViolation: data.geofence_violation || false,
+            gpsChars: data.gps_chars || 0
         });
 
         // Update device last communication
@@ -266,6 +267,7 @@ const processSensorData = async (data, io) => {
             gps_speed: data.gps_speed,
             gps_valid: data.gps_valid,
             geofence_violation: data.geofence_violation,
+            gps_chars: data.gps_chars,
             worker_id: workerId,
             worker_name: workerName,
             createdAt: sensorRecord.createdAt

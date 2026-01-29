@@ -7,7 +7,7 @@
 #include <Adafruit_Sensor.h>
 #include <ArduinoJson.h>
 #include "DFRobot_DF2301Q.h"
-#include <TinyGPS++.h>  // GPS Library - Install via Library Manager
+#include <TinyGPS++.h>
 
 // ============================================
 // CONFIGURATION
@@ -17,43 +17,40 @@ const char* WIFI_PASSWORD = "lelai09099729715";
 const char* SERVER_URL = "https://guardwell.onrender.com/api/sensors/data";
 const char* DEVICE_ID = "DEV-001";
 
-// Geofence center (306 Pablo Dela Cruz, Novaliches, Quezon City)
-const float GEOFENCE_LAT = 14.7089;
-const float GEOFENCE_LNG = 121.0430;
-const float GEOFENCE_RADIUS = 100.0;  // meters
+// Geofence
+const float FACILITY_LAT = 14.7089;
+const float FACILITY_LON = 121.0430;
+const float GEOFENCE_RADIUS_METERS = 100.0;
 
 // ============================================
-// PINS
+// PINS - ALL UNIQUE, NO SHARING
 // ============================================
 #define DHTPIN      4
 #define DHTTYPE     DHT22
 #define MQ2PIN      34      
 #define TOUCHPIN    27
 #define BUZZER      18
+#define I2C_SDA     21
+#define I2C_SCL     22 
 
-// Voice Recognition UART pins
+// Voice Sensor (UART - Serial2 default pins)
 #define VOICE_RX    16      
 #define VOICE_TX    17      
 
-// GPS UART pins (NEO-M8N)
+// GPS (UART - Serial1)
+// KEEP HARDWARE: GPS TX → ESP32 GPIO 25, GPS RX → ESP32 GPIO 26
 #define GPS_RX      25
 #define GPS_TX      26
-
-// I2C Pins for MPU6050
-#define I2C_SDA     21
-#define I2C_SCL     22 
 
 // ============================================
 // OBJECTS
 // ============================================
 DHT dht(DHTPIN, DHTTYPE);
 Adafruit_MPU6050 mpu;
-HardwareSerial voiceSerial(2);
-DFRobot_DF2301Q_UART voiceSensor(&voiceSerial, VOICE_RX, VOICE_TX);
-
-// GPS Objects
-HardwareSerial gpsSerial(1);  // Use Serial1 for GPS
 TinyGPSPlus gps;
+
+// Voice uses Serial2 (UART2)
+DFRobot_DF2301Q_UART voiceSensor(&Serial2, VOICE_RX, VOICE_TX);
 
 // ============================================
 // VARIABLES
@@ -63,137 +60,193 @@ unsigned long buzzerStartTime = 0;
 unsigned long lastSendTime = 0;
 const unsigned long SEND_INTERVAL = 2000;
 bool mpuConnected = false;
+bool voiceConnected = false;
+bool gpsConnected = false;
 
-// Voice recognition variables
 String lastVoiceCommand = "none";
 uint8_t lastVoiceCommandID = 0;
 bool voiceAlertTriggered = false;
 
-// GPS variables
-float latitude = 0.0;
-float longitude = 0.0;
-float gpsSpeed = 0.0;
+float currentLat = 0.0;
+float currentLon = 0.0;
 bool gpsValid = false;
-bool outsideGeofence = false;
+bool insideGeofence = true;
+unsigned long lastGeofenceCheck = 0;
 
 // ============================================
 // SETUP
 // ============================================
 void setup() {
   Serial.begin(115200);
-  delay(1000);
+  delay(2000);
 
   Serial.println("\n========================================");
-  Serial.println(" GuardWell ESP32 + GPS (Tagalog Version)");
+  Serial.println(" GuardWell ESP32 (GPS + Geofence)");
   Serial.println("========================================");
+  Serial.println("Pin Config:");
+  Serial.println("  Voice: RX=16, TX=17 (Serial2)");
+  Serial.println("  GPS:   RX=25, TX=26 (Serial1)");
+  Serial.println("========================================\n");
 
-  // Initialize Sensors
   pinMode(TOUCHPIN, INPUT);
   pinMode(BUZZER, OUTPUT);
   pinMode(MQ2PIN, INPUT);
   digitalWrite(BUZZER, LOW);
 
-  // --- Initialize I2C (MPU6050) ---
   Wire.begin(I2C_SDA, I2C_SCL); 
 
-  // --- Initialize GPS ---
-  Serial.print("Initializing GPS (NEO-M8N)... ");
-  gpsSerial.begin(9600, SERIAL_8N1, GPS_RX, GPS_TX);
-  Serial.println("✅ Ready (Waiting for fix...)");
-
-  // --- Initialize DHT ---
-  Serial.print("Checking DHT Sensor... ");
+  // --- 1. DHT ---
+  Serial.print("[1/5] DHT Sensor... ");
   dht.begin();
   delay(2000);
   float testTemp = dht.readTemperature();
   if (isnan(testTemp)) {
-    Serial.println("❌ Failed! (Check wiring/pull-up resistor)");
+    Serial.println("❌");
   } else {
-    Serial.printf("✅ Ready (Current Temp: %.1f C)\n", testTemp);
+    Serial.printf("✅ %.1f°C\n", testTemp);
   }
 
-  // --- Initialize MPU6050 ---
-  Serial.print("Checking MPU6050... ");
+  // --- 2. MPU6050 ---
+  Serial.print("[2/5] MPU6050... ");
   if (!mpu.begin()) {
-    Serial.println("❌ Not found (Check Wiring: SDA->21, SCL->22)");
+    Serial.println("❌");
     mpuConnected = false;
   } else {
-    Serial.println("✅ Ready");
+    Serial.println("✅");
     mpu.setAccelerometerRange(MPU6050_RANGE_16_G);
     mpu.setGyroRange(MPU6050_RANGE_500_DEG);
     mpu.setFilterBandwidth(MPU6050_BAND_21_HZ);
     mpuConnected = true;
   }
 
-  // --- Initialize Voice Sensor ---
-  Serial.print("Checking Voice Sensor... ");
+  // --- 3. Voice Sensor (MUST init before GPS to claim Serial2 first) ---
+  Serial.print("[3/5] Voice Sensor... ");
+  delay(200);
   if (!voiceSensor.begin()) {
-    Serial.println("❌ Not found (Check Wiring: DT->16, CR->17)");
+    Serial.println("❌");
+    voiceConnected = false;
   } else {
-    Serial.println("✅ Ready");
+    Serial.println("✅");
     voiceSensor.settingCMD(DF2301Q_UART_MSG_CMD_SET_VOLUME, 7);
     voiceSensor.settingCMD(DF2301Q_UART_MSG_CMD_SET_MUTE, 0);
     voiceSensor.settingCMD(DF2301Q_UART_MSG_CMD_SET_WAKE_TIME, 20);
+    voiceConnected = true;
   }
 
+  // --- 4. GPS (Using Serial1 with SAFE pin remapping) ---
+  Serial.print("[4/5] GPS NEO-M8N... ");
+  // CRITICAL: Remap Serial1 pins BEFORE begin() is effectively called
+  // Using explicit UART1 with custom pins
+  Serial1.begin(9600, SERIAL_8N1, GPS_RX, GPS_TX);
+  delay(500);  // Give GPS time to initialize
+  
+  // Quick test - check if any data coming in
+  unsigned long testStart = millis();
+  int charCount = 0;
+  while (millis() - testStart < 1000) {
+    if (Serial1.available()) {
+      Serial1.read();  // Just count, don't process yet
+      charCount++;
+    }
+  }
+  
+  if (charCount > 0) {
+    Serial.printf("✅ (%d bytes/sec)\n", charCount);
+    gpsConnected = true;
+  } else {
+    Serial.println("⚡ Started (no data yet)");
+    gpsConnected = true;  // Still try to use it
+  }
+  
+  Serial.printf("     Geofence: %.4f, %.4f (R=%.0fm)\n", 
+                FACILITY_LAT, FACILITY_LON, GEOFENCE_RADIUS_METERS);
+
+  // --- 5. WiFi ---
+  Serial.print("[5/5] WiFi... ");
   connectToWiFi();
-  Serial.println("✅ Setup complete - Waiting for commands...\n");
+  
+  Serial.println("\n✅ Setup complete!");
+  Serial.println("📡 GPS will acquire satellites near window...\n");
 }
 
 // ============================================
 // LOOP
 // ============================================
 void loop() {
-  // Reconnect WiFi if lost
   if (WiFi.status() != WL_CONNECTED) {
     connectToWiFi();
   }
 
-  // Read GPS data continuously
-  readGPS();
-
   handleTouchSensor();
-  handleVoiceRecognition();
+  
+  if (voiceConnected) {
+    handleVoiceRecognition();
+  }
+  
+  if (gpsConnected) {
+    handleGPS();
+  }
+
+  // GPS debug every 15 seconds if no fix
+  static unsigned long lastDebug = 0;
+  if (millis() - lastDebug > 15000 && !gpsValid && gpsConnected) {
+    lastDebug = millis();
+    Serial.printf("[GPS] chars=%lu, valid=%s\n", 
+                 (unsigned long)gps.charsProcessed(), 
+                 gps.location.isValid() ? "YES" : "NO");
+  }
 
   if (millis() - lastSendTime >= SEND_INTERVAL) {
     lastSendTime = millis();
     readAndSendSensorData();
   }
 
-  // Handle buzzer timeout
   if (buzzerActive && millis() - buzzerStartTime >= 3000) {
     digitalWrite(BUZZER, LOW);
     buzzerActive = false;
   }
 
-  delay(50);
+  delay(10);  // Shorter delay for better GPS processing
 }
 
 // ============================================
-// GPS FUNCTIONS
+// GPS
 // ============================================
-void readGPS() {
-  while (gpsSerial.available() > 0) {
-    if (gps.encode(gpsSerial.read())) {
-      if (gps.location.isValid()) {
-        latitude = gps.location.lat();
-        longitude = gps.location.lng();
-        gpsValid = true;
-        
-        if (gps.speed.isValid()) {
-          gpsSpeed = gps.speed.kmph();
-        }
+void handleGPS() {
+  // Read all available GPS data
+  while (Serial1.available() > 0) {
+    char c = Serial1.read();
+    gps.encode(c);
+  }
 
-        // Check geofence
-        checkGeofence();
-      }
+  if (gps.location.isValid() && gps.location.isUpdated()) {
+    currentLat = gps.location.lat();
+    currentLon = gps.location.lng();
+    gpsValid = true;
+
+    if (millis() - lastGeofenceCheck >= 5000) {
+      lastGeofenceCheck = millis();
+      checkGeofence();
     }
   }
 }
 
-// Calculate distance between two GPS points (Haversine formula)
+void checkGeofence() {
+  if (!gpsValid) return;
+
+  float distance = calculateDistance(currentLat, currentLon, FACILITY_LAT, FACILITY_LON);
+  bool wasInside = insideGeofence;
+  insideGeofence = (distance <= GEOFENCE_RADIUS_METERS);
+
+  if (wasInside && !insideGeofence) {
+    Serial.println("🚨 GEOFENCE VIOLATION!");
+    triggerAlert(500);
+    sendGeofenceViolation(distance);
+  }
+}
+
 float calculateDistance(float lat1, float lon1, float lat2, float lon2) {
-  const float R = 6371000; // Earth's radius in meters
+  const float R = 6371000.0;
   float dLat = radians(lat2 - lat1);
   float dLon = radians(lon2 - lon1);
   float a = sin(dLat/2) * sin(dLat/2) +
@@ -203,59 +256,25 @@ float calculateDistance(float lat1, float lon1, float lat2, float lon2) {
   return R * c;
 }
 
-void checkGeofence() {
-  if (!gpsValid) return;
-  
-  float distance = calculateDistance(latitude, longitude, GEOFENCE_LAT, GEOFENCE_LNG);
-  
-  if (distance > GEOFENCE_RADIUS) {
-    if (!outsideGeofence) {
-      // Just left the geofence
-      outsideGeofence = true;
-      Serial.println("⚠️ GEOFENCE ALERT: Worker LEFT safe zone!");
-      triggerAlert(500);
-      sendGeofenceAlert();
-    }
-  } else {
-    if (outsideGeofence) {
-      // Returned to geofence
-      outsideGeofence = false;
-      Serial.println("✅ Worker returned to safe zone");
-    }
-  }
-}
-
-void sendGeofenceAlert() {
-  StaticJsonDocument<256> doc;
-  doc["device_id"] = DEVICE_ID;
-  doc["geofence_violation"] = true;
-  doc["latitude"] = latitude;
-  doc["longitude"] = longitude;
-  String payload;
-  serializeJson(doc, payload);
-  sendToServer(payload);
-}
-
 // ============================================
 // WIFI
 // ============================================
 void connectToWiFi() {
   if (WiFi.status() == WL_CONNECTED) return;
   
-  Serial.print("Connecting to WiFi");
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   
   int attempts = 0;
-  while (WiFi.status() != WL_CONNECTED && attempts < 10) {
+  while (WiFi.status() != WL_CONNECTED && attempts < 20) {
     delay(500);
     Serial.print(".");
     attempts++;
   }
 
   if (WiFi.status() == WL_CONNECTED) {
-    Serial.println("\n✅ WiFi Connected");
+    Serial.printf("✅ %s\n", WiFi.localIP().toString().c_str());
   } else {
-    Serial.println("\n❌ WiFi Failed (Will retry later)");
+    Serial.println("❌");
   }
 }
 
@@ -267,81 +286,65 @@ void handleTouchSensor() {
     buzzerActive = true;
     buzzerStartTime = millis();
     digitalWrite(BUZZER, HIGH);
-    Serial.println("🚨 EMERGENCY BUTTON PRESSED");
+    Serial.println("🚨 EMERGENCY!");
     sendEmergencyAlert();
     delay(1000);
   }
 }
 
 // ============================================
-// VOICE RECOGNITION (TAGALOG)
+// VOICE RECOGNITION
 // ============================================
 void handleVoiceRecognition() {
   uint8_t cmdID = voiceSensor.getCMDID();
   
   if (cmdID != 0) {
     lastVoiceCommandID = cmdID;
-    Serial.printf("\n🎤 Voice Command Detected! ID: %d\n", cmdID);
+    Serial.printf("🎤 Voice: %d\n", cmdID);
     
     switch(cmdID) {
-      case 2: // "Buzzer" (Manual Test)
+      case 2:
         lastVoiceCommand = "test_buzzer";
-        Serial.println("💡 Voice: 'BUZZER' (Test) Recognized!");
-        triggerAlert(100); 
         triggerAlert(100); 
         break;
-
-      case 5:  // "Tulong" (Help)
+      case 5:
         lastVoiceCommand = "tulong_help";
         voiceAlertTriggered = true;
-        Serial.println("🚨 VOICE ALERT: 'TULONG' requested!");
         triggerAlert(500);
         sendVoiceAlert("help");
         break;
-        
-      case 6:  // "Emergency"
+      case 6:
         lastVoiceCommand = "emergency";
         voiceAlertTriggered = true;
-        Serial.println("🚨 VOICE ALERT: 'EMERGENCY'!");
         triggerAlert(1000);
         sendVoiceAlert("emergency");
         break;
-        
-      case 7:  // "Aray" (Reaction to fall/shock)
+      case 7:
         lastVoiceCommand = "aray_shock";
         voiceAlertTriggered = true;
-        Serial.println("🚨 VOICE ALERT: 'ARAY' reported!");
         triggerAlert(800);
         sendVoiceAlert("fall_shock");
         break;
-        
-      case 8:  // "Tawag" (Call)
+      case 8:
         lastVoiceCommand = "tawag_call";
         voiceAlertTriggered = true;
-        Serial.println("🚨 VOICE ALERT: 'TAWAG' requested!");
         triggerAlert(600);
         sendVoiceAlert("call_nurse");
         break;
-        
-      case 10:  // "Tama na" (Cancel alarm)
+      case 10:
         lastVoiceCommand = "cancel";
         voiceAlertTriggered = false;
-        Serial.println("✅ VOICE: 'TAMA NA' - Alarm cancelled");
         digitalWrite(BUZZER, LOW);
         buzzerActive = false;
         break;
-        
-      case 11:  // "Sakit" (Pain)
+      case 11:
         lastVoiceCommand = "sakit_pain";
         voiceAlertTriggered = true;
-        Serial.println("🚨 VOICE ALERT: 'SAKIT' reported!");
         triggerAlert(700);
         sendVoiceAlert("pain");
         break;
-        
       default:
         lastVoiceCommand = "unknown_" + String(cmdID);
-        Serial.printf("🎤 Unknown voice command ID: %d\n", cmdID);
         break;
     }
   }
@@ -358,75 +361,34 @@ void triggerAlert(int duration) {
 // SENSOR READINGS
 // ============================================
 void readAndSendSensorData() {
-  // --- 1. Read DHT Sensor ---
   float temp = dht.readTemperature();
   float hum  = dht.readHumidity();
+  if (isnan(temp)) temp = 0.0;
+  if (isnan(hum)) hum = 0.0;
 
-  if (isnan(temp) || isnan(hum)) {
-    Serial.println("⚠️ DHT Sensor Read Failed!");
-    temp = 0.0;
-    hum = 0.0;
-  }
+  int gasPPM = map(analogRead(MQ2PIN), 0, 4095, 0, 1000); 
 
-  // --- 2. Read MQ2 Gas Sensor ---
-  int mq2Raw = analogRead(MQ2PIN);
-  int gasPPM = map(mq2Raw, 0, 4095, 0, 1000); 
-
-  // --- 3. Read MPU6050 ---
-  float ax = 0, ay = 0, az = 0;
-  float gx = 0, gy = 0, gz = 0;
+  float ax=0, ay=0, az=0, gx=0, gy=0, gz=0;
   bool fallDetected = false;
 
   if (mpuConnected) {
     sensors_event_t a, g, t;
     mpu.getEvent(&a, &g, &t);
-    
-    ax = a.acceleration.x;
-    ay = a.acceleration.y;
-    az = a.acceleration.z;
-    gx = g.gyro.x;
-    gy = g.gyro.y;
-    gz = g.gyro.z;
-
-    float accelMag = sqrt(pow(ax, 2) + pow(ay, 2) + pow(az, 2));
-    if (accelMag > 25.0) {
-      fallDetected = true;
-    }
+    ax = a.acceleration.x; ay = a.acceleration.y; az = a.acceleration.z;
+    gx = g.gyro.x; gy = g.gyro.y; gz = g.gyro.z;
+    if (sqrt(ax*ax + ay*ay + az*az) > 25.0) fallDetected = true;
   }
 
-  // ==========================================
-  // 🖨️ RAW DATA MONITOR
-  // ==========================================
-  Serial.println("\n------------------------------------------------");
-  Serial.println("📊 SENSOR RAW DATA MONITOR");
-  Serial.println("------------------------------------------------");
-  
-  Serial.printf("🌡️  TEMP:      %.2f °C\n", temp);
-  Serial.printf("💧  HUMIDITY:  %.2f %%\n", hum);
-  Serial.printf("⛽  GAS (MQ2): Raw: %d  |  Est. PPM: %d\n", mq2Raw, gasPPM);
-  
-  if (mpuConnected) {
-    Serial.printf("📐  ACCEL (m/s^2):  X:%.2f  Y:%.2f  Z:%.2f\n", ax, ay, az);
-    Serial.printf("🔄  GYRO  (rad/s):  X:%.2f  Y:%.2f  Z:%.2f\n", gx, gy, gz);
-    if (fallDetected) Serial.println("⚠️  STATUS: FALL DETECTED!");
-  } else {
-    Serial.println("❌  MPU6050: Not Connected");
-  }
-
-  // GPS Status
+  // Compact status
+  Serial.printf("T:%.1f H:%.1f G:%d ", temp, hum, gasPPM);
   if (gpsValid) {
-    Serial.printf("📍  GPS:       LAT: %.6f  LNG: %.6f\n", latitude, longitude);
-    Serial.printf("🚗  SPEED:     %.2f km/h\n", gpsSpeed);
-    Serial.printf("🔲  GEOFENCE:  %s\n", outsideGeofence ? "⚠️ OUTSIDE" : "✅ INSIDE");
+    Serial.printf("GPS:%.5f,%.5f %s\n", currentLat, currentLon, 
+                  insideGeofence ? "IN" : "OUT");
   } else {
-    Serial.println("📍  GPS:       Waiting for fix...");
+    Serial.printf("GPS:wait(%lu)\n", (unsigned long)gps.charsProcessed());
   }
 
-  Serial.printf("📶  WiFi RSSI: %ld dBm\n", WiFi.RSSI());
-  Serial.printf("🔋  Battery:   85%%\n");
-  Serial.println("------------------------------------------------\n");
-
-  // --- 4. Prepare JSON for Server ---
+  // Build JSON
   StaticJsonDocument<768> doc;
   doc["device_id"] = DEVICE_ID;
   doc["temperature"] = temp;
@@ -435,47 +397,38 @@ void readAndSendSensorData() {
   doc["voice_command"] = lastVoiceCommand;
   doc["voice_command_id"] = lastVoiceCommandID;
   doc["voice_alert"] = voiceAlertTriggered;
-
-  doc["accel_x"] = ax;
-  doc["accel_y"] = ay;
-  doc["accel_z"] = az;
-  doc["gyro_x"] = gx;
-  doc["gyro_y"] = gy;
-  doc["gyro_z"] = gz;
-  
-  // GPS Data
-  doc["latitude"] = latitude;
-  doc["longitude"] = longitude;
-  doc["gps_speed"] = gpsSpeed;
+  doc["accel_x"] = ax; doc["accel_y"] = ay; doc["accel_z"] = az;
+  doc["gyro_x"] = gx; doc["gyro_y"] = gy; doc["gyro_z"] = gz;
+  if (fallDetected) doc["fall_detected"] = true;
+  doc["latitude"] = currentLat;
+  doc["longitude"] = currentLon;
   doc["gps_valid"] = gpsValid;
-  doc["geofence_violation"] = outsideGeofence;
-
-  if (fallDetected) {
-     doc["fall_detected"] = true;
-     Serial.println("⚠️ SENDING FALL ALERT TO SERVER...");
+  doc["geofence_violation"] = !insideGeofence;
+  if (gpsValid) {
+    doc["satellites"] = gps.satellites.value();
+    doc["gps_speed"] = gps.speed.kmph();
   }
-
+  doc["gps_chars"] = (unsigned long)gps.charsProcessed();  // Debug: GPS chars received
   doc["battery"] = 85;
   doc["rssi"] = WiFi.RSSI();
 
   String payload;
   serializeJson(doc, payload);
-  
-  Serial.println("--> Sending JSON to Server...");
   sendToServer(payload);
   
   if (voiceAlertTriggered) voiceAlertTriggered = false;
 }
 
 // ============================================
-// ALERTS & SERVER
+// SERVER
 // ============================================
 void sendEmergencyAlert() {
   StaticJsonDocument<256> doc;
   doc["device_id"] = DEVICE_ID;
   doc["emergency_button"] = true;
-  doc["latitude"] = latitude;
-  doc["longitude"] = longitude;
+  doc["latitude"] = currentLat;
+  doc["longitude"] = currentLon;
+  doc["gps_valid"] = gpsValid;
   String payload;
   serializeJson(doc, payload);
   sendToServer(payload);
@@ -487,8 +440,20 @@ void sendVoiceAlert(String alertType) {
   doc["voice_alert"] = true;
   doc["alert_type"] = alertType;
   doc["voice_command"] = lastVoiceCommand;
-  doc["latitude"] = latitude;
-  doc["longitude"] = longitude;
+  doc["latitude"] = currentLat;
+  doc["longitude"] = currentLon;
+  String payload;
+  serializeJson(doc, payload);
+  sendToServer(payload);
+}
+
+void sendGeofenceViolation(float distance) {
+  StaticJsonDocument<256> doc;
+  doc["device_id"] = DEVICE_ID;
+  doc["geofence_violation"] = true;
+  doc["latitude"] = currentLat;
+  doc["longitude"] = currentLon;
+  doc["distance_from_center"] = distance;
   String payload;
   serializeJson(doc, payload);
   sendToServer(payload);
@@ -505,14 +470,6 @@ void sendToServer(String jsonData) {
   http.addHeader("Content-Type", "application/json");
 
   int httpCode = http.POST(jsonData);
-
-  if (httpCode > 0) {
-    Serial.printf("✅ Sent (Code: %d)\n", httpCode);
-    Serial.println(http.getString());
-  } else {
-    Serial.printf("❌ Failed (Error: %s)\n",
-                  http.errorToString(httpCode).c_str());
-  }
-
+  Serial.printf("[%d]\n", httpCode);
   http.end();
 }

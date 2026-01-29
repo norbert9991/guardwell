@@ -123,6 +123,11 @@ const SensorData = sequelize.define('SensorData', {
         type: DataTypes.BOOLEAN,
         defaultValue: false,
         comment: 'Whether worker is outside the geofence'
+    },
+    gpsChars: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+        comment: 'GPS chars processed (debug)'
     }
 }, {
     tableName: 'sensor_data',
