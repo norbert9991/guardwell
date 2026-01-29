@@ -42,7 +42,13 @@ const processSensorData = async (data, io) => {
             voiceCommand: data.voice_command || null,
             voiceCommandId: data.voice_command_id || null,
             voiceAlert: data.voice_alert || false,
-            voiceAlertType: data.alert_type || null
+            voiceAlertType: data.alert_type || null,
+            // GPS fields (NEO-M8N)
+            latitude: data.latitude || null,
+            longitude: data.longitude || null,
+            gpsSpeed: data.gps_speed || null,
+            gpsValid: data.gps_valid || false,
+            geofenceViolation: data.geofence_violation || false
         });
 
         // Update device last communication
@@ -88,6 +94,19 @@ const processSensorData = async (data, io) => {
                 });
                 console.log(`🎤 Voice Alert: ${voiceAlertInfo.tagalog} (${data.alert_type}) from ${data.device_id}`);
             }
+        }
+
+        // Geofence violation (GPS)
+        if (data.geofence_violation) {
+            alerts.push({
+                type: 'Geofence Violation',
+                severity: 'High',
+                deviceId: data.device_id,
+                workerId,
+                triggerValue: `Left safe zone (${data.latitude?.toFixed(6)}, ${data.longitude?.toFixed(6)})`,
+                threshold: '100m radius'
+            });
+            console.log(`📍 Geofence Alert: Worker left safe zone from ${data.device_id}`);
         }
 
         // Temperature check
@@ -241,6 +260,12 @@ const processSensorData = async (data, io) => {
             voice_command_id: data.voice_command_id,
             voice_alert: data.voice_alert,
             voice_alert_type: data.alert_type,
+            // GPS data
+            latitude: data.latitude,
+            longitude: data.longitude,
+            gps_speed: data.gps_speed,
+            gps_valid: data.gps_valid,
+            geofence_violation: data.geofence_violation,
             worker_id: workerId,
             worker_name: workerName,
             createdAt: sensorRecord.createdAt

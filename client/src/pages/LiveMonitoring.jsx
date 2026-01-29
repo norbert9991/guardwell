@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Activity, Thermometer, Wind, Droplets, Battery, Signal, User, Shield, Radio, AlertTriangle, CheckCircle, X, Eye, Clock, Bell, ShieldCheck, Mic } from 'lucide-react';
+import { Activity, Thermometer, Wind, Droplets, Battery, Signal, User, Shield, Radio, AlertTriangle, CheckCircle, X, Eye, Clock, Bell, ShieldCheck, Mic, Map, Grid } from 'lucide-react';
 import { CardDark, CardBody } from '../components/ui/Card';
 import { MetricCard } from '../components/ui/MetricCard';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
+import { LocationMap } from '../components/ui/LocationMap';
 import { useSocket } from '../context/SocketContext';
 import { devicesApi, alertsApi } from '../utils/api';
 import { useToast } from '../context/ToastContext';
@@ -17,7 +18,8 @@ export const LiveMonitoring = () => {
     const [selectedWorker, setSelectedWorker] = useState(null);
     const [showDetailsModal, setShowDetailsModal] = useState(false);
     const [markedSafe, setMarkedSafe] = useState({});
-    const [sosActive, setSosActive] = useState({}); // Track devices with active SOS
+    const [sosActive, setSosActive] = useState({});
+    const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'map'
     const toast = useToast();
 
     // Fetch devices from API on mount
@@ -49,9 +51,12 @@ export const LiveMonitoring = () => {
         // Check for voice alert
         const voiceAlertActive = realTimeData.voice_alert || false;
 
+        // Check for geofence violation
+        const geofenceViolation = realTimeData.geofence_violation || false;
+
         // Determine status based on sensor readings and SOS state
         let status = 'normal';
-        if (hasSosActive || emergencyPressed || voiceAlertActive || realTimeData.temperature >= 50 || realTimeData.gas_level >= 400) {
+        if (hasSosActive || emergencyPressed || voiceAlertActive || geofenceViolation || realTimeData.temperature >= 50 || realTimeData.gas_level >= 400) {
             status = 'critical';
         } else if (realTimeData.temperature >= 40 || realTimeData.gas_level >= 200) {
             status = 'warning';
@@ -85,7 +90,13 @@ export const LiveMonitoring = () => {
                 voiceCommand: realTimeData.voice_command || null,
                 voiceCommandId: realTimeData.voice_command_id || null,
                 voiceAlert: voiceAlertActive,
-                voiceAlertType: realTimeData.voice_alert_type || null
+                voiceAlertType: realTimeData.voice_alert_type || null,
+                // GPS data
+                latitude: realTimeData.latitude || null,
+                longitude: realTimeData.longitude || null,
+                gpsSpeed: realTimeData.gps_speed || null,
+                gpsValid: realTimeData.gps_valid || false,
+                geofenceViolation: geofenceViolation
             },
             status: Object.keys(realTimeData).length > 0 ? status : 'offline',
             lastUpdate: realTimeData.createdAt || 'No data'
@@ -253,6 +264,29 @@ export const LiveMonitoring = () => {
                         <option value="assembly">Assembly</option>
                         <option value="maintenance">Maintenance</option>
                     </select>
+                    {/* View Mode Toggle */}
+                    <div className="flex rounded-lg overflow-hidden border border-gray-700">
+                        <button
+                            onClick={() => setViewMode('grid')}
+                            className={`px-3 py-2 flex items-center gap-2 transition-colors ${viewMode === 'grid'
+                                ? 'bg-primary-600 text-white'
+                                : 'bg-dark-lighter text-gray-400 hover:text-white'
+                                }`}
+                        >
+                            <Grid size={18} />
+                            <span className="text-sm">Grid</span>
+                        </button>
+                        <button
+                            onClick={() => setViewMode('map')}
+                            className={`px-3 py-2 flex items-center gap-2 transition-colors ${viewMode === 'map'
+                                ? 'bg-primary-600 text-white'
+                                : 'bg-dark-lighter text-gray-400 hover:text-white'
+                                }`}
+                        >
+                            <Map size={18} />
+                            <span className="text-sm">Map</span>
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -288,209 +322,246 @@ export const LiveMonitoring = () => {
                 />
             </div>
 
+            {/* Map View */}
+            {viewMode === 'map' && (
+                <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                        <h2 className="text-xl font-semibold text-white">Worker Locations</h2>
+                        <div className="flex items-center gap-4 text-sm">
+                            <span className="flex items-center gap-2">
+                                <span className="w-3 h-3 rounded-full bg-blue-500"></span>
+                                Normal
+                            </span>
+                            <span className="flex items-center gap-2">
+                                <span className="w-3 h-3 rounded-full bg-orange-500"></span>
+                                Warning
+                            </span>
+                            <span className="flex items-center gap-2">
+                                <span className="w-3 h-3 rounded-full bg-red-500"></span>
+                                Critical
+                            </span>
+                            <span className="flex items-center gap-2">
+                                <span className="w-3 h-3 rounded-full bg-violet-500"></span>
+                                Outside Geofence
+                            </span>
+                        </div>
+                    </div>
+                    <LocationMap
+                        workers={filteredWorkers.map(w => ({
+                            ...w,
+                            deviceId: w.device
+                        }))}
+                        geofenceCenter={[14.7089, 121.0430]}
+                        geofenceRadius={100}
+                    />
+                </div>
+            )}
+
             {/* Devices Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                {filteredWorkers.map((worker) => (
-                    <CardDark
-                        key={worker.id}
-                        className={`${getStatusColor(worker.status)} transition-all duration-300`}
-                    >
-                        <CardBody className="p-6">
-                            {/* Worker Info */}
-                            <div className="flex items-start gap-4 mb-4 pb-4 border-b border-gray-700">
-                                <div className="w-12 h-12 bg-primary-500 rounded-full flex items-center justify-center flex-shrink-0">
-                                    <User className="h-7 w-7 text-white" />
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    <h3 className="font-semibold text-white truncate">{worker.name}</h3>
-                                    <p className="text-sm text-gray-400">{worker.department}</p>
-                                    <div className="flex items-center gap-2 mt-1">
-                                        <Badge variant="info" className="text-xs">{worker.device}</Badge>
-                                        <Badge
-                                            variant={worker.status === 'offline' ? 'secondary' : worker.status === 'critical' ? 'danger' : 'success'}
-                                            className="text-xs"
-                                        >
-                                            {worker.status === 'offline' ? 'Offline' : worker.sensors.movement}
-                                        </Badge>
+            {viewMode === 'grid' && (
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                    {filteredWorkers.map((worker) => (
+                        <CardDark
+                            key={worker.id}
+                            className={`${getStatusColor(worker.status)} transition-all duration-300`}
+                        >
+                            <CardBody className="p-6">
+                                {/* Worker Info */}
+                                <div className="flex items-start gap-4 mb-4 pb-4 border-b border-gray-700">
+                                    <div className="w-12 h-12 bg-primary-500 rounded-full flex items-center justify-center flex-shrink-0">
+                                        <User className="h-7 w-7 text-white" />
                                     </div>
-                                </div>
-                            </div>
-
-                            {/* SOS Indicator - Shows for active SOS (persists until marked safe) */}
-                            {(worker.sensors.sosActive || worker.sensors.emergency) && !markedSafe[worker.id] && (
-                                <div className="mb-4 p-3 bg-red-500/20 border-2 border-red-500 rounded-lg animate-pulse">
-                                    <div className="flex items-center justify-center gap-2 mb-2">
-                                        <AlertTriangle className="h-6 w-6 text-red-500" />
-                                        <span className="text-red-500 font-bold text-lg tracking-wider">SOS ACTIVATED</span>
-                                    </div>
-                                    <Button
-                                        size="sm"
-                                        variant="success"
-                                        className="w-full bg-green-600 hover:bg-green-700"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleMarkSafe(worker.id, worker.name, worker.device);
-                                        }}
-                                    >
-                                        <ShieldCheck size={16} className="mr-2" />
-                                        Mark as Safe
-                                    </Button>
-                                </div>
-                            )}
-
-                            {/* Voice Alert Indicator */}
-                            {worker.sensors.voiceAlert && worker.sensors.voiceAlertType && !markedSafe[worker.id] && (
-                                <div className="mb-4 p-3 bg-purple-500/20 border-2 border-purple-500 rounded-lg animate-pulse">
-                                    <div className="flex items-center justify-center gap-2 mb-2">
-                                        <Mic className="h-6 w-6 text-purple-400" />
-                                        <span className="text-purple-400 font-bold text-lg tracking-wider">
-                                            {getVoiceCommandDisplay(worker.sensors.voiceAlertType).icon} VOICE ALERT
-                                        </span>
-                                    </div>
-                                    <div className="text-center mb-3">
-                                        <span className="text-white font-semibold text-xl">
-                                            "{getVoiceCommandDisplay(worker.sensors.voiceAlertType).tagalog}"
-                                        </span>
-                                        <p className="text-purple-300 text-sm">
-                                            {getVoiceCommandDisplay(worker.sensors.voiceAlertType).english}
-                                        </p>
-                                    </div>
-                                    <Button
-                                        size="sm"
-                                        variant="success"
-                                        className="w-full bg-green-600 hover:bg-green-700"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleMarkSafe(worker.id, worker.name, worker.device);
-                                        }}
-                                    >
-                                        <ShieldCheck size={16} className="mr-2" />
-                                        Mark as Safe
-                                    </Button>
-                                </div>
-                            )}
-
-                            {/* Marked Safe Indicator */}
-                            {markedSafe[worker.id] && (
-                                <div className="mb-4 p-2 bg-green-500/20 border border-green-500 rounded-lg flex items-center justify-center gap-2">
-                                    <CheckCircle className="h-5 w-5 text-green-500" />
-                                    <span className="text-green-500 font-semibold">Marked Safe</span>
-                                </div>
-                            )}
-
-                            {/* Sensor Readings */}
-                            <div className="space-y-3">
-                                {/* Temperature */}
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-2 text-gray-400">
-                                        <Thermometer size={16} />
-                                        <span className="text-sm">Temperature</span>
-                                    </div>
-                                    <span className={`font-semibold ${getSensorStatus(worker.sensors.temperature, { warning: 40, critical: 50 })}`}>
-                                        {worker.sensors.temperature.toFixed(1)}°C
-                                    </span>
-                                </div>
-
-                                {/* Gas Level */}
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-2 text-gray-400">
-                                        <Wind size={16} />
-                                        <span className="text-sm">Gas Level</span>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <span className={`text-xs px-2 py-0.5 rounded ${getGasLevelInfo(worker.sensors.gas).bgColor} ${getGasLevelInfo(worker.sensors.gas).color}`}>
-                                            {getGasLevelInfo(worker.sensors.gas).label}
-                                        </span>
-                                        <span className={`font-semibold ${getGasLevelInfo(worker.sensors.gas).color}`}>
-                                            {worker.sensors.gas} PPM
-                                        </span>
-                                    </div>
-                                </div>
-
-                                {/* Humidity */}
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-2 text-gray-400">
-                                        <Droplets size={16} />
-                                        <span className="text-sm">Humidity</span>
-                                    </div>
-                                    <span className="font-semibold text-gray-300">{worker.sensors.humidity.toFixed(1)}%</span>
-                                </div>
-
-                                {/* Battery */}
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-2 text-gray-400">
-                                        <Battery size={16} />
-                                        <span className="text-sm">Battery</span>
-                                    </div>
-                                    <span className={`font-semibold ${worker.sensors.battery < 20 ? 'text-danger' : worker.sensors.battery < 50 ? 'text-warning' : 'text-success'}`}>
-                                        {worker.sensors.battery}%
-                                    </span>
-                                </div>
-
-                                {/* Signal */}
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-2 text-gray-400">
-                                        <Signal size={16} />
-                                        <span className="text-sm">Signal</span>
-                                    </div>
-                                    <span className="font-semibold text-gray-300">{worker.sensors.signal} dBm</span>
-                                </div>
-
-                                {/* Motion Data */}
-                                <div className="mt-3 pt-3 border-t border-gray-700/50">
-                                    <div className="flex items-center gap-2 text-gray-400 mb-2">
-                                        <Activity size={16} />
-                                        <span className="text-sm font-medium">Motion (X, Y, Z)</span>
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-2 text-xs">
-                                        <div className="bg-black/20 p-2 rounded">
-                                            <span className="text-gray-500 block">Accel (m/s²)</span>
-                                            <span className="text-gray-300 font-mono">
-                                                {worker.sensors.accel.x.toFixed(1)}, {worker.sensors.accel.y.toFixed(1)}, {worker.sensors.accel.z.toFixed(1)}
-                                            </span>
-                                        </div>
-                                        <div className="bg-black/20 p-2 rounded">
-                                            <span className="text-gray-500 block">Gyro (°/s)</span>
-                                            <span className="text-gray-300 font-mono">
-                                                {worker.sensors.gyro.x.toFixed(1)}, {worker.sensors.gyro.y.toFixed(1)}, {worker.sensors.gyro.z.toFixed(1)}
-                                            </span>
+                                    <div className="flex-1 min-w-0">
+                                        <h3 className="font-semibold text-white truncate">{worker.name}</h3>
+                                        <p className="text-sm text-gray-400">{worker.department}</p>
+                                        <div className="flex items-center gap-2 mt-1">
+                                            <Badge variant="info" className="text-xs">{worker.device}</Badge>
+                                            <Badge
+                                                variant={worker.status === 'offline' ? 'secondary' : worker.status === 'critical' ? 'danger' : 'success'}
+                                                className="text-xs"
+                                            >
+                                                {worker.status === 'offline' ? 'Offline' : worker.sensors.movement}
+                                            </Badge>
                                         </div>
                                     </div>
                                 </div>
-                            </div>
 
-                            {/* Actions */}
-                            <div className="mt-4 pt-4 border-t border-gray-700">
-                                <div className="flex gap-2">
-                                    <Button
-                                        size="sm"
-                                        variant="outline"
-                                        className="flex-1"
-                                        onClick={() => handleViewDetails(worker)}
-                                    >
-                                        <Eye size={14} className="mr-1" />
-                                        View Details
-                                    </Button>
-                                    {/* Show Mark Safe button for devices with active SOS but not yet marked */}
-                                    {(worker.sensors.sosActive || worker.sensors.emergency) && !markedSafe[worker.id] && (
+                                {/* SOS Indicator - Shows for active SOS (persists until marked safe) */}
+                                {(worker.sensors.sosActive || worker.sensors.emergency) && !markedSafe[worker.id] && (
+                                    <div className="mb-4 p-3 bg-red-500/20 border-2 border-red-500 rounded-lg animate-pulse">
+                                        <div className="flex items-center justify-center gap-2 mb-2">
+                                            <AlertTriangle className="h-6 w-6 text-red-500" />
+                                            <span className="text-red-500 font-bold text-lg tracking-wider">SOS ACTIVATED</span>
+                                        </div>
                                         <Button
                                             size="sm"
                                             variant="success"
-                                            className="flex-1 bg-green-600 hover:bg-green-700"
-                                            onClick={() => handleMarkSafe(worker.id, worker.name, worker.device)}
+                                            className="w-full bg-green-600 hover:bg-green-700"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleMarkSafe(worker.id, worker.name, worker.device);
+                                            }}
                                         >
-                                            <ShieldCheck size={14} className="mr-1" />
-                                            Mark Safe
+                                            <ShieldCheck size={16} className="mr-2" />
+                                            Mark as Safe
                                         </Button>
-                                    )}
-                                </div>
-                            </div>
-                        </CardBody>
-                    </CardDark>
-                ))}
-            </div>
+                                    </div>
+                                )}
 
-            {filteredWorkers.length === 0 && (
+                                {/* Voice Alert Indicator */}
+                                {worker.sensors.voiceAlert && worker.sensors.voiceAlertType && !markedSafe[worker.id] && (
+                                    <div className="mb-4 p-3 bg-purple-500/20 border-2 border-purple-500 rounded-lg animate-pulse">
+                                        <div className="flex items-center justify-center gap-2 mb-2">
+                                            <Mic className="h-6 w-6 text-purple-400" />
+                                            <span className="text-purple-400 font-bold text-lg tracking-wider">
+                                                {getVoiceCommandDisplay(worker.sensors.voiceAlertType).icon} VOICE ALERT
+                                            </span>
+                                        </div>
+                                        <div className="text-center mb-3">
+                                            <span className="text-white font-semibold text-xl">
+                                                "{getVoiceCommandDisplay(worker.sensors.voiceAlertType).tagalog}"
+                                            </span>
+                                            <p className="text-purple-300 text-sm">
+                                                {getVoiceCommandDisplay(worker.sensors.voiceAlertType).english}
+                                            </p>
+                                        </div>
+                                        <Button
+                                            size="sm"
+                                            variant="success"
+                                            className="w-full bg-green-600 hover:bg-green-700"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleMarkSafe(worker.id, worker.name, worker.device);
+                                            }}
+                                        >
+                                            <ShieldCheck size={16} className="mr-2" />
+                                            Mark as Safe
+                                        </Button>
+                                    </div>
+                                )}
+
+                                {/* Marked Safe Indicator */}
+                                {markedSafe[worker.id] && (
+                                    <div className="mb-4 p-2 bg-green-500/20 border border-green-500 rounded-lg flex items-center justify-center gap-2">
+                                        <CheckCircle className="h-5 w-5 text-green-500" />
+                                        <span className="text-green-500 font-semibold">Marked Safe</span>
+                                    </div>
+                                )}
+
+                                {/* Sensor Readings */}
+                                <div className="space-y-3">
+                                    {/* Temperature */}
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-2 text-gray-400">
+                                            <Thermometer size={16} />
+                                            <span className="text-sm">Temperature</span>
+                                        </div>
+                                        <span className={`font-semibold ${getSensorStatus(worker.sensors.temperature, { warning: 40, critical: 50 })}`}>
+                                            {worker.sensors.temperature.toFixed(1)}°C
+                                        </span>
+                                    </div>
+
+                                    {/* Gas Level */}
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-2 text-gray-400">
+                                            <Wind size={16} />
+                                            <span className="text-sm">Gas Level</span>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <span className={`text-xs px-2 py-0.5 rounded ${getGasLevelInfo(worker.sensors.gas).bgColor} ${getGasLevelInfo(worker.sensors.gas).color}`}>
+                                                {getGasLevelInfo(worker.sensors.gas).label}
+                                            </span>
+                                            <span className={`font-semibold ${getGasLevelInfo(worker.sensors.gas).color}`}>
+                                                {worker.sensors.gas} PPM
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    {/* Humidity */}
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-2 text-gray-400">
+                                            <Droplets size={16} />
+                                            <span className="text-sm">Humidity</span>
+                                        </div>
+                                        <span className="font-semibold text-gray-300">{worker.sensors.humidity.toFixed(1)}%</span>
+                                    </div>
+
+                                    {/* Battery */}
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-2 text-gray-400">
+                                            <Battery size={16} />
+                                            <span className="text-sm">Battery</span>
+                                        </div>
+                                        <span className={`font-semibold ${worker.sensors.battery < 20 ? 'text-danger' : worker.sensors.battery < 50 ? 'text-warning' : 'text-success'}`}>
+                                            {worker.sensors.battery}%
+                                        </span>
+                                    </div>
+
+                                    {/* Signal */}
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-2 text-gray-400">
+                                            <Signal size={16} />
+                                            <span className="text-sm">Signal</span>
+                                        </div>
+                                        <span className="font-semibold text-gray-300">{worker.sensors.signal} dBm</span>
+                                    </div>
+
+                                    {/* Motion Data */}
+                                    <div className="mt-3 pt-3 border-t border-gray-700/50">
+                                        <div className="flex items-center gap-2 text-gray-400 mb-2">
+                                            <Activity size={16} />
+                                            <span className="text-sm font-medium">Motion (X, Y, Z)</span>
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-2 text-xs">
+                                            <div className="bg-black/20 p-2 rounded">
+                                                <span className="text-gray-500 block">Accel (m/s²)</span>
+                                                <span className="text-gray-300 font-mono">
+                                                    {worker.sensors.accel.x.toFixed(1)}, {worker.sensors.accel.y.toFixed(1)}, {worker.sensors.accel.z.toFixed(1)}
+                                                </span>
+                                            </div>
+                                            <div className="bg-black/20 p-2 rounded">
+                                                <span className="text-gray-500 block">Gyro (°/s)</span>
+                                                <span className="text-gray-300 font-mono">
+                                                    {worker.sensors.gyro.x.toFixed(1)}, {worker.sensors.gyro.y.toFixed(1)}, {worker.sensors.gyro.z.toFixed(1)}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Actions */}
+                                <div className="mt-4 pt-4 border-t border-gray-700">
+                                    <div className="flex gap-2">
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            className="flex-1"
+                                            onClick={() => handleViewDetails(worker)}
+                                        >
+                                            <Eye size={14} className="mr-1" />
+                                            View Details
+                                        </Button>
+                                        {/* Show Mark Safe button for devices with active SOS but not yet marked */}
+                                        {(worker.sensors.sosActive || worker.sensors.emergency) && !markedSafe[worker.id] && (
+                                            <Button
+                                                size="sm"
+                                                variant="success"
+                                                className="flex-1 bg-green-600 hover:bg-green-700"
+                                                onClick={() => handleMarkSafe(worker.id, worker.name, worker.device)}
+                                            >
+                                                <ShieldCheck size={14} className="mr-1" />
+                                                Mark Safe
+                                            </Button>
+                                        )}
+                                    </div>
+                                </div>
+                            </CardBody>
+                        </CardDark>
+                    ))}
+                </div>
+            )}
+
+            {viewMode === 'grid' && filteredWorkers.length === 0 && (
                 <CardDark>
                     <CardBody className="p-12 text-center">
                         <Activity className="h-16 w-16 text-gray-600 mx-auto mb-4" />

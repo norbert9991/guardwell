@@ -97,6 +97,32 @@ const SensorData = sequelize.define('SensorData', {
         type: DataTypes.STRING(30),
         allowNull: true,
         comment: 'Type of voice alert (help, emergency, pain, fall_shock, call_nurse)'
+    },
+    // GPS (NEO-M8N)
+    latitude: {
+        type: DataTypes.DECIMAL(10, 8),
+        allowNull: true,
+        comment: 'GPS latitude from NEO-M8N'
+    },
+    longitude: {
+        type: DataTypes.DECIMAL(11, 8),
+        allowNull: true,
+        comment: 'GPS longitude from NEO-M8N'
+    },
+    gpsSpeed: {
+        type: DataTypes.FLOAT,
+        allowNull: true,
+        comment: 'GPS speed in km/h'
+    },
+    gpsValid: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: false,
+        comment: 'Whether GPS has a valid fix'
+    },
+    geofenceViolation: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: false,
+        comment: 'Whether worker is outside the geofence'
     }
 }, {
     tableName: 'sensor_data',
