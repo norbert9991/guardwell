@@ -35,16 +35,16 @@ export const Table = ({
 
     return (
         <div className={cn('overflow-x-auto', className)}>
-            <table className="min-w-full divide-y divide-white/10">
-                <thead className="bg-white/5">
+            <table className="min-w-full divide-y divide-[#E3E6EB]">
+                <thead className="bg-[#EEF1F4]">
                     <tr>
                         {columns.map((column) => (
                             <th
                                 key={column.key}
                                 onClick={() => column.sortable && handleSort(column.key)}
                                 className={cn(
-                                    'px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider',
-                                    column.sortable && 'cursor-pointer hover:text-white transition-colors'
+                                    'px-6 py-3 text-left text-xs font-medium text-[#4B5563] uppercase tracking-wider',
+                                    column.sortable && 'cursor-pointer hover:text-[#1F2937] transition-colors'
                                 )}
                             >
                                 <div className="flex items-center gap-2">
@@ -57,18 +57,18 @@ export const Table = ({
                         ))}
                     </tr>
                 </thead>
-                <tbody className="divide-y divide-white/5">
+                <tbody className="divide-y divide-[#E3E6EB] bg-white">
                     {sortedData.map((row, index) => (
                         <tr
                             key={index}
                             onClick={() => onRowClick?.(row)}
                             className={cn(
-                                'hover:bg-white/5 transition-colors',
+                                'hover:bg-[#EEF1F4] transition-colors',
                                 onRowClick && 'cursor-pointer'
                             )}
                         >
                             {columns.map((column) => (
-                                <td key={column.key} className="px-6 py-4 whitespace-nowrap text-sm text-gray-200">
+                                <td key={column.key} className="px-6 py-4 whitespace-nowrap text-sm text-[#1F2937]">
                                     {column.render ? column.render(row) : row[column.key]}
                                 </td>
                             ))}
@@ -77,7 +77,7 @@ export const Table = ({
                 </tbody>
             </table>
             {sortedData.length === 0 && (
-                <div className="text-center py-8 text-gray-500">
+                <div className="text-center py-8 text-[#6B7280]">
                     No data available
                 </div>
             )}

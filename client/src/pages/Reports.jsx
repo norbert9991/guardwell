@@ -238,7 +238,7 @@ export const Reports = () => {
         }
     };
 
-    // Render charts/details
+    // Render charts/details - LIGHT THEME
     const renderDetails = () => {
         if (!reportData) return null;
 
@@ -248,9 +248,9 @@ export const Reports = () => {
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                         {/* Incidents by Severity */}
                         <CardDark>
-                            <CardHeader className="px-6 py-4 border-b border-gray-700">
-                                <h3 className="font-semibold text-white flex items-center gap-2">
-                                    <BarChart3 size={18} />
+                            <CardHeader className="px-6 py-4 border-b border-[#E3E6EB]">
+                                <h3 className="font-semibold text-[#1F2937] flex items-center gap-2">
+                                    <BarChart3 size={18} className="text-[#6FA3D8]" />
                                     Incidents by Severity
                                 </h3>
                             </CardHeader>
@@ -266,14 +266,14 @@ export const Reports = () => {
                                         const maxCount = Math.max(...Object.values(reportData.incidentsBySeverity || {}), 1);
                                         return (
                                             <div key={severity} className="flex items-center gap-3">
-                                                <span className="w-20 text-sm text-gray-400">{severity}</span>
-                                                <div className="flex-1 h-6 bg-gray-700 rounded overflow-hidden">
+                                                <span className="w-20 text-sm text-[#4B5563] font-medium">{severity}</span>
+                                                <div className="flex-1 h-6 bg-[#EEF1F4] rounded overflow-hidden">
                                                     <div
                                                         className={`h-full ${colors[severity]} transition-all`}
                                                         style={{ width: `${(count / maxCount) * 100}%` }}
                                                     />
                                                 </div>
-                                                <span className="w-8 text-right text-white font-semibold">{count}</span>
+                                                <span className="w-8 text-right text-[#1F2937] font-semibold">{count}</span>
                                             </div>
                                         );
                                     })}
@@ -283,22 +283,22 @@ export const Reports = () => {
 
                         {/* Incidents by Type */}
                         <CardDark>
-                            <CardHeader className="px-6 py-4 border-b border-gray-700">
-                                <h3 className="font-semibold text-white flex items-center gap-2">
-                                    <PieChart size={18} />
+                            <CardHeader className="px-6 py-4 border-b border-[#E3E6EB]">
+                                <h3 className="font-semibold text-[#1F2937] flex items-center gap-2">
+                                    <PieChart size={18} className="text-[#E85D2A]" />
                                     Incidents by Type
                                 </h3>
                             </CardHeader>
                             <CardBody className="p-6">
                                 <div className="space-y-2">
                                     {Object.entries(reportData.incidentsByType || {}).map(([type, count]) => (
-                                        <div key={type} className="flex justify-between items-center py-2 border-b border-gray-700/50">
-                                            <span className="text-gray-300">{type}</span>
-                                            <span className="text-white font-semibold">{count}</span>
+                                        <div key={type} className="flex justify-between items-center py-2 border-b border-[#E3E6EB]">
+                                            <span className="text-[#4B5563]">{type}</span>
+                                            <span className="text-[#1F2937] font-semibold">{count}</span>
                                         </div>
                                     ))}
                                     {Object.keys(reportData.incidentsByType || {}).length === 0 && (
-                                        <p className="text-gray-500 text-center py-4">No incidents in this period</p>
+                                        <p className="text-[#6B7280] text-center py-4">No incidents in this period</p>
                                     )}
                                 </div>
                             </CardBody>
@@ -311,9 +311,9 @@ export const Reports = () => {
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                         {/* Devices by Status */}
                         <CardDark>
-                            <CardHeader className="px-6 py-4 border-b border-gray-700">
-                                <h3 className="font-semibold text-white flex items-center gap-2">
-                                    <BarChart3 size={18} />
+                            <CardHeader className="px-6 py-4 border-b border-[#E3E6EB]">
+                                <h3 className="font-semibold text-[#1F2937] flex items-center gap-2">
+                                    <BarChart3 size={18} className="text-[#6FA3D8]" />
                                     Devices by Status
                                 </h3>
                             </CardHeader>
@@ -329,14 +329,14 @@ export const Reports = () => {
                                         const maxCount = Math.max(...Object.values(reportData.devicesByStatus || {}), 1);
                                         return (
                                             <div key={status} className="flex items-center gap-3">
-                                                <span className="w-24 text-sm text-gray-400">{status}</span>
-                                                <div className="flex-1 h-6 bg-gray-700 rounded overflow-hidden">
+                                                <span className="w-24 text-sm text-[#4B5563] font-medium">{status}</span>
+                                                <div className="flex-1 h-6 bg-[#EEF1F4] rounded overflow-hidden">
                                                     <div
                                                         className={`h-full ${colors[status]} transition-all`}
                                                         style={{ width: `${(count / maxCount) * 100}%` }}
                                                     />
                                                 </div>
-                                                <span className="w-8 text-right text-white font-semibold">{count}</span>
+                                                <span className="w-8 text-right text-[#1F2937] font-semibold">{count}</span>
                                             </div>
                                         );
                                     })}
@@ -346,25 +346,25 @@ export const Reports = () => {
 
                         {/* Sensor Averages */}
                         <CardDark>
-                            <CardHeader className="px-6 py-4 border-b border-gray-700">
-                                <h3 className="font-semibold text-white flex items-center gap-2">
-                                    <TrendingUp size={18} />
+                            <CardHeader className="px-6 py-4 border-b border-[#E3E6EB]">
+                                <h3 className="font-semibold text-[#1F2937] flex items-center gap-2">
+                                    <TrendingUp size={18} className="text-[#10B981]" />
                                     Average Sensor Readings
                                 </h3>
                             </CardHeader>
                             <CardBody className="p-6">
                                 <div className="grid grid-cols-3 gap-4 text-center">
-                                    <div className="bg-[#0d1220] p-4 rounded-lg border border-[#2d3a52]">
-                                        <p className="text-2xl font-bold text-white">{reportData.avgReadings?.temperature || 0}°C</p>
-                                        <p className="text-sm text-gray-400">Temperature</p>
+                                    <div className="bg-[#EEF1F4] p-4 rounded-lg border border-[#E3E6EB]">
+                                        <p className="text-2xl font-bold text-[#1F2937]">{reportData.avgReadings?.temperature || 0}°C</p>
+                                        <p className="text-sm text-[#4B5563]">Temperature</p>
                                     </div>
-                                    <div className="bg-[#0d1220] p-4 rounded-lg border border-[#2d3a52]">
-                                        <p className="text-2xl font-bold text-white">{reportData.avgReadings?.humidity || 0}%</p>
-                                        <p className="text-sm text-gray-400">Humidity</p>
+                                    <div className="bg-[#EEF1F4] p-4 rounded-lg border border-[#E3E6EB]">
+                                        <p className="text-2xl font-bold text-[#1F2937]">{reportData.avgReadings?.humidity || 0}%</p>
+                                        <p className="text-sm text-[#4B5563]">Humidity</p>
                                     </div>
-                                    <div className="bg-[#0d1220] p-4 rounded-lg border border-[#2d3a52]">
-                                        <p className="text-2xl font-bold text-white">{reportData.avgReadings?.gasLevel || 0}</p>
-                                        <p className="text-sm text-gray-400">Gas (PPM)</p>
+                                    <div className="bg-[#EEF1F4] p-4 rounded-lg border border-[#E3E6EB]">
+                                        <p className="text-2xl font-bold text-[#1F2937]">{reportData.avgReadings?.gasLevel || 0}</p>
+                                        <p className="text-sm text-[#4B5563]">Gas (PPM)</p>
                                     </div>
                                 </div>
                             </CardBody>
@@ -377,22 +377,22 @@ export const Reports = () => {
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                         {/* Alerts by Type */}
                         <CardDark>
-                            <CardHeader className="px-6 py-4 border-b border-gray-700">
-                                <h3 className="font-semibold text-white flex items-center gap-2">
-                                    <PieChart size={18} />
+                            <CardHeader className="px-6 py-4 border-b border-[#E3E6EB]">
+                                <h3 className="font-semibold text-[#1F2937] flex items-center gap-2">
+                                    <PieChart size={18} className="text-[#E85D2A]" />
                                     Alerts by Type
                                 </h3>
                             </CardHeader>
                             <CardBody className="p-6">
                                 <div className="space-y-2">
                                     {Object.entries(reportData.alertsByType || {}).map(([type, count]) => (
-                                        <div key={type} className="flex justify-between items-center py-2 border-b border-gray-700/50">
-                                            <span className="text-gray-300">{type}</span>
-                                            <span className="text-white font-semibold">{count}</span>
+                                        <div key={type} className="flex justify-between items-center py-2 border-b border-[#E3E6EB]">
+                                            <span className="text-[#4B5563]">{type}</span>
+                                            <span className="text-[#1F2937] font-semibold">{count}</span>
                                         </div>
                                     ))}
                                     {Object.keys(reportData.alertsByType || {}).length === 0 && (
-                                        <p className="text-gray-500 text-center py-4">No alerts in this period</p>
+                                        <p className="text-[#6B7280] text-center py-4">No alerts in this period</p>
                                     )}
                                 </div>
                             </CardBody>
@@ -400,9 +400,9 @@ export const Reports = () => {
 
                         {/* Alerts by Severity */}
                         <CardDark>
-                            <CardHeader className="px-6 py-4 border-b border-gray-700">
-                                <h3 className="font-semibold text-white flex items-center gap-2">
-                                    <BarChart3 size={18} />
+                            <CardHeader className="px-6 py-4 border-b border-[#E3E6EB]">
+                                <h3 className="font-semibold text-[#1F2937] flex items-center gap-2">
+                                    <BarChart3 size={18} className="text-[#6FA3D8]" />
                                     Alerts by Severity
                                 </h3>
                             </CardHeader>
@@ -418,14 +418,14 @@ export const Reports = () => {
                                         const maxCount = Math.max(...Object.values(reportData.alertsBySeverity || {}), 1);
                                         return (
                                             <div key={severity} className="flex items-center gap-3">
-                                                <span className="w-20 text-sm text-gray-400">{severity}</span>
-                                                <div className="flex-1 h-6 bg-gray-700 rounded overflow-hidden">
+                                                <span className="w-20 text-sm text-[#4B5563] font-medium">{severity}</span>
+                                                <div className="flex-1 h-6 bg-[#EEF1F4] rounded overflow-hidden">
                                                     <div
                                                         className={`h-full ${colors[severity]} transition-all`}
                                                         style={{ width: `${(count / maxCount) * 100}%` }}
                                                     />
                                                 </div>
-                                                <span className="w-8 text-right text-white font-semibold">{count}</span>
+                                                <span className="w-8 text-right text-[#1F2937] font-semibold">{count}</span>
                                             </div>
                                         );
                                     })}
@@ -438,18 +438,18 @@ export const Reports = () => {
             case 'compliance':
                 return (
                     <CardDark>
-                        <CardHeader className="px-6 py-4 border-b border-gray-700">
-                            <h3 className="font-semibold text-white flex items-center gap-2">
-                                <FileText size={18} />
+                        <CardHeader className="px-6 py-4 border-b border-[#E3E6EB]">
+                            <h3 className="font-semibold text-[#1F2937] flex items-center gap-2">
+                                <FileText size={18} className="text-[#6FA3D8]" />
                                 Detailed Metrics
                             </h3>
                         </CardHeader>
                         <CardBody className="p-6">
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                                 {reportData.metrics && Object.entries(reportData.metrics).map(([key, value]) => (
-                                    <div key={key} className="bg-[#0d1220] p-4 rounded-lg border border-[#2d3a52] text-center">
-                                        <p className="text-2xl font-bold text-white">{value}</p>
-                                        <p className="text-sm text-gray-400">{key.replace(/([A-Z])/g, ' $1').trim()}</p>
+                                    <div key={key} className="bg-[#EEF1F4] p-4 rounded-lg border border-[#E3E6EB] text-center">
+                                        <p className="text-2xl font-bold text-[#1F2937]">{value}</p>
+                                        <p className="text-sm text-[#4B5563]">{key.replace(/([A-Z])/g, ' $1').trim()}</p>
                                     </div>
                                 ))}
                             </div>
@@ -466,8 +466,8 @@ export const Reports = () => {
         <div className="space-y-6 print:bg-white print:text-black">
             <div className="flex items-center justify-between print:hidden">
                 <div>
-                    <h1 className="text-3xl font-bold text-white mb-2">Reports & Analytics</h1>
-                    <p className="text-gray-400">Generate and view system reports with real data</p>
+                    <h1 className="text-3xl font-bold text-[#1F2937] mb-2">Reports & Analytics</h1>
+                    <p className="text-[#4B5563]">Generate and view system reports with real data</p>
                 </div>
             </div>
 
@@ -476,11 +476,11 @@ export const Reports = () => {
                 <CardBody className="p-6">
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                         <div>
-                            <label className="block text-sm font-medium text-gray-300 mb-2">Report Type</label>
+                            <label className="block text-sm font-medium text-[#4B5563] mb-2">Report Type</label>
                             <select
                                 value={reportType}
                                 onChange={(e) => setReportType(e.target.value)}
-                                className="input-dark w-full"
+                                className="w-full px-3 py-2 bg-white border border-[#E3E6EB] rounded-lg text-[#1F2937] focus:ring-2 focus:ring-[#6FA3D8] focus:border-[#6FA3D8] transition-all"
                             >
                                 <option value="worker-safety">Worker Safety Report</option>
                                 <option value="device-performance">Device Performance Report</option>
@@ -489,21 +489,21 @@ export const Reports = () => {
                             </select>
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-300 mb-2">Start Date</label>
+                            <label className="block text-sm font-medium text-[#4B5563] mb-2">Start Date</label>
                             <input
                                 type="date"
                                 value={dateRange.start}
                                 onChange={(e) => setDateRange({ ...dateRange, start: e.target.value })}
-                                className="input-dark w-full"
+                                className="w-full px-3 py-2 bg-white border border-[#E3E6EB] rounded-lg text-[#1F2937] focus:ring-2 focus:ring-[#6FA3D8] focus:border-[#6FA3D8] transition-all"
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-300 mb-2">End Date</label>
+                            <label className="block text-sm font-medium text-[#4B5563] mb-2">End Date</label>
                             <input
                                 type="date"
                                 value={dateRange.end}
                                 onChange={(e) => setDateRange({ ...dateRange, end: e.target.value })}
-                                className="input-dark w-full"
+                                className="w-full px-3 py-2 bg-white border border-[#E3E6EB] rounded-lg text-[#1F2937] focus:ring-2 focus:ring-[#6FA3D8] focus:border-[#6FA3D8] transition-all"
                             />
                         </div>
                         <div className="flex items-end gap-2">
@@ -517,7 +517,7 @@ export const Reports = () => {
                                     </Button>
                                 </>
                             ) : (
-                                <span className="text-xs text-gray-500 italic">Export requires Admin access</span>
+                                <span className="text-xs text-[#6B7280] italic">Export requires Admin access</span>
                             )}
                         </div>
                     </div>
@@ -527,7 +527,7 @@ export const Reports = () => {
             {/* Loading State */}
             {isLoading && (
                 <div className="flex items-center justify-center h-32">
-                    <div className="text-gray-400">Loading report data...</div>
+                    <div className="text-[#4B5563]">Loading report data...</div>
                 </div>
             )}
 
@@ -536,7 +536,7 @@ export const Reports = () => {
                 <CardDark>
                     <CardBody className="p-6 text-center">
                         <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-                        <p className="text-red-400">{error}</p>
+                        <p className="text-red-500 font-medium">{error}</p>
                         <Button variant="secondary" className="mt-4" onClick={fetchReport}>
                             Retry
                         </Button>
@@ -550,10 +550,10 @@ export const Reports = () => {
                     {/* Print Header */}
                     <div className="hidden print:block mb-8">
                         <h1 className="text-2xl font-bold">{reportType.replace('-', ' ').toUpperCase()} REPORT</h1>
-                        <p className="text-gray-600">
+                        <p className="text-[#4B5563]">
                             Period: {dateRange.start} to {dateRange.end}
                         </p>
-                        <p className="text-gray-600">Generated: {new Date().toLocaleString()}</p>
+                        <p className="text-[#4B5563]">Generated: {new Date().toLocaleString()}</p>
                     </div>
 
                     {/* Metrics */}

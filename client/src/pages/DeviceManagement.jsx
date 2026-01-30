@@ -216,13 +216,13 @@ export const DeviceManagement = () => {
             key: 'worker',
             label: 'Assigned To',
             sortable: true,
-            render: (row) => row.worker?.fullName || <span className="text-gray-500">Unassigned</span>
+            render: (row) => row.worker?.fullName || <span className="text-[#6B7280]">Unassigned</span>
         },
         {
             key: 'battery',
             label: 'Battery',
             render: (row) => (
-                <span className={row.battery < 20 ? 'text-danger' : row.battery < 50 ? 'text-warning' : 'text-success'}>
+                <span className={row.battery < 20 ? 'text-red-500' : row.battery < 50 ? 'text-orange-500' : 'text-green-500'}>
                     {row.battery}%
                 </span>
             )
@@ -275,7 +275,7 @@ export const DeviceManagement = () => {
     if (isLoading) {
         return (
             <div className="flex items-center justify-center h-64">
-                <div className="text-gray-400">Loading devices...</div>
+                <div className="text-[#6B7280]">Loading devices...</div>
             </div>
         );
     }
@@ -284,8 +284,8 @@ export const DeviceManagement = () => {
         <div className="space-y-6">
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-3xl font-bold text-white mb-2">Device Management</h1>
-                    <p className="text-gray-400">Manage wearable devices and configurations</p>
+                    <h1 className="text-3xl font-bold text-[#1F2937] mb-2">Device Management</h1>
+                    <p className="text-[#4B5563]">Manage wearable devices and configurations</p>
                 </div>
                 {canManageDevices && (
                     <Button icon={<Plus size={18} />} onClick={() => setShowAddModal(true)}>Add Device</Button>
@@ -327,7 +327,7 @@ export const DeviceManagement = () => {
             <CardDark>
                 <CardBody className="p-6">
                     <div className="relative">
-                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[#6B7280]" size={20} />
                         <input
                             type="text"
                             placeholder="Search devices..."

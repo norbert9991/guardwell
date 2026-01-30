@@ -184,12 +184,12 @@ export const WorkerManagement = () => {
             sortable: true,
             render: (row) => (
                 <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-primary-500 rounded-full flex items-center justify-center">
+                    <div className="w-10 h-10 bg-[#6FA3D8] rounded-full flex items-center justify-center">
                         <User className="h-6 w-6 text-white" />
                     </div>
                     <div>
-                        <div className="font-medium text-white">{row.fullName}</div>
-                        <div className="text-xs text-gray-400">{row.position}</div>
+                        <div className="font-medium text-[#1F2937]">{row.fullName}</div>
+                        <div className="text-xs text-[#4B5563]">{row.position}</div>
                     </div>
                 </div>
             )
@@ -202,7 +202,7 @@ export const WorkerManagement = () => {
             render: (row) => row.assignedDevice ? (
                 <Badge variant="info">{row.assignedDevice}</Badge>
             ) : (
-                <span className="text-gray-500 text-sm">Not Assigned</span>
+                <span className="text-[#6B7280] text-sm">Not Assigned</span>
             )
         },
         {
@@ -217,7 +217,7 @@ export const WorkerManagement = () => {
                 <div className="flex items-center gap-2">
                     <button
                         onClick={() => navigate(`/workers/${row.id}`)}
-                        className="p-2 hover:bg-dark-lighter rounded text-primary-500 transition-colors"
+                        className="p-2 hover:bg-[#EEF1F4] rounded text-[#6FA3D8] transition-colors"
                         title="View Details"
                     >
                         <Eye size={16} />
@@ -226,14 +226,14 @@ export const WorkerManagement = () => {
                         <>
                             <button
                                 onClick={() => handleEditWorker(row)}
-                                className="p-2 hover:bg-dark-lighter rounded text-yellow-500 transition-colors"
+                                className="p-2 hover:bg-[#EEF1F4] rounded text-[#F59E0B] transition-colors"
                                 title="Edit Worker"
                             >
                                 <Edit size={16} />
                             </button>
                             <button
                                 onClick={() => handleStatusToggle(row)}
-                                className={`p-2 hover:bg-dark-lighter rounded transition-colors ${row.status === 'Active' ? 'text-danger' : 'text-success'}`}
+                                className={`p-2 hover:bg-[#EEF1F4] rounded transition-colors ${row.status === 'Active' ? 'text-red-500' : 'text-green-500'}`}
                                 title={row.status === 'Active' ? 'Deactivate' : 'Activate'}
                             >
                                 <Power size={16} />
@@ -258,8 +258,8 @@ export const WorkerManagement = () => {
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-3xl font-bold text-white mb-2">Worker Management</h1>
-                    <p className="text-gray-400">Manage worker profiles and information</p>
+                    <h1 className="text-3xl font-bold text-[#1F2937] mb-2">Worker Management</h1>
+                    <p className="text-[#4B5563]">Manage worker profiles and information</p>
                 </div>
                 {canManageWorkers && (
                     <Button onClick={() => setShowAddModal(true)} icon={<Plus size={18} />}>
@@ -305,7 +305,7 @@ export const WorkerManagement = () => {
                 <CardBody className="p-6">
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div className="md:col-span-2 relative">
-                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[#6B7280]" size={20} />
                             <input
                                 type="text"
                                 placeholder="Search by name, employee number..."
@@ -655,10 +655,10 @@ export const WorkerManagement = () => {
                             }`} />
                     </div>
 
-                    <h3 className="text-xl font-bold text-white mb-2">
+                    <h3 className="text-xl font-bold text-[#1F2937] mb-2">
                         {selectedWorker?.fullName}
                     </h3>
-                    <p className="text-gray-400 mb-6">
+                    <p className="text-[#4B5563] mb-6">
                         {selectedWorker?.status === 'Active'
                             ? 'This will deactivate the worker. They will not receive alerts and their device will be unmonitored.'
                             : 'This will reactivate the worker. They will resume normal monitoring and alerts.'

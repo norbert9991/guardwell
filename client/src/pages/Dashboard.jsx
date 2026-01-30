@@ -202,9 +202,9 @@ export const Dashboard = () => {
                 {/* Recent Alerts */}
                 <div className="lg:col-span-2">
                     <CardDark className="h-full border-t-4 border-t-[#F59E0B]">
-                        <CardHeader className="px-6 py-5 border-b border-white/10 bg-white/5">
+                        <CardHeader className="px-6 py-5 border-b border-[#E3E6EB]">
                             <div className="flex items-center justify-between">
-                                <h2 className="text-xl font-bold text-white flex items-center gap-3">
+                                <h2 className="text-xl font-bold text-[#1F2937] flex items-center gap-3">
                                     <div className="p-2 rounded-lg bg-[#F59E0B]/20">
                                         <AlertTriangle className="h-5 w-5 text-[#F59E0B]" />
                                     </div>
@@ -216,22 +216,22 @@ export const Dashboard = () => {
                             </div>
                         </CardHeader>
                         <CardBody className="p-0">
-                            <div className="divide-y divide-white/10">
+                            <div className="divide-y divide-[#E3E6EB]">
                                 {allAlerts.length > 0 ? (
                                     allAlerts.slice(0, 5).map((alert, index) => (
-                                        <div key={alert.id || index} className="p-5 hover:bg-white/5 transition-colors group">
+                                        <div key={alert.id || index} className="p-5 hover:bg-[#EEF1F4] transition-colors group">
                                             <div className="flex items-start justify-between">
                                                 <div className="flex-1">
                                                     <div className="flex items-center gap-3 mb-2">
                                                         <SeverityBadge severity={alert.severity} />
-                                                        <span className="font-semibold text-white text-lg">{alert.type}</span>
+                                                        <span className="font-semibold text-[#1F2937] text-lg">{alert.type}</span>
                                                     </div>
-                                                    <div className="flex items-center gap-6 text-sm text-gray-400">
-                                                        <span className="flex items-center gap-2 group-hover:text-gray-300 transition-colors">
+                                                    <div className="flex items-center gap-6 text-sm text-[#4B5563]">
+                                                        <span className="flex items-center gap-2 group-hover:text-[#1F2937] transition-colors">
                                                             <Users size={16} className="text-[#00BFA5]" />
                                                             {alert.worker?.fullName || alert.worker || alert.device || 'Unknown'}
                                                         </span>
-                                                        <span className="flex items-center gap-2 group-hover:text-gray-300 transition-colors">
+                                                        <span className="flex items-center gap-2 group-hover:text-[#1F2937] transition-colors">
                                                             <Clock size={16} className="text-[#3B82F6]" />
                                                             {formatTimeAgo(alert.createdAt || alert.timestamp)}
                                                         </span>
@@ -258,11 +258,11 @@ export const Dashboard = () => {
                                         </div>
                                     ))
                                 ) : (
-                                    <div className="p-12 text-center text-gray-500">
-                                        <div className="w-16 h-16 bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4">
-                                            <AlertTriangle className="h-8 w-8 text-gray-600" />
+                                    <div className="p-12 text-center text-[#6B7280]">
+                                        <div className="w-16 h-16 bg-[#EEF1F4] rounded-full flex items-center justify-center mx-auto mb-4">
+                                            <AlertTriangle className="h-8 w-8 text-[#9CA3AF]" />
                                         </div>
-                                        <p className="text-lg font-medium">No recent alerts</p>
+                                        <p className="text-lg font-medium text-[#4B5563]">No recent alerts</p>
                                         <p className="text-sm">Everything is running smoothly</p>
                                     </div>
                                 )}
@@ -284,10 +284,10 @@ export const Dashboard = () => {
                                     <AlertTriangle className="h-10 w-10 text-[#EF4444]" />
                                 )}
                             </div>
-                            <h3 className="text-xl font-bold text-white mb-2">
+                            <h3 className="text-xl font-bold text-[#1F2937] mb-2">
                                 {emergencyTriggered ? 'Emergency Activated!' : 'Emergency Alert'}
                             </h3>
-                            <p className="text-sm text-gray-300 mb-6">
+                            <p className="text-sm text-[#4B5563] mb-6">
                                 {emergencyTriggered
                                     ? 'All units have been notified. Response teams are being dispatched.'
                                     : 'Trigger immediate emergency response for all active units'
@@ -307,8 +307,8 @@ export const Dashboard = () => {
 
                     {/* Today's Performance - Now with real data */}
                     <CardDark className="border-t-4 border-t-[#3B82F6]">
-                        <CardHeader className="px-6 py-4 border-b border-white/10 bg-white/5">
-                            <h3 className="font-bold text-white flex items-center gap-2">
+                        <CardHeader className="px-6 py-4 border-b border-[#E3E6EB]">
+                            <h3 className="font-bold text-[#1F2937] flex items-center gap-2">
                                 <Activity className="h-5 w-5 text-[#3B82F6]" />
                                 Live Sensor Data
                             </h3>
@@ -316,23 +316,23 @@ export const Dashboard = () => {
                         <CardBody className="p-6">
                             <div className="space-y-5">
                                 <div className="flex items-center justify-between group">
-                                    <span className="text-sm text-gray-400 group-hover:text-white transition-colors">Avg Temperature</span>
-                                    <span className={`text-lg font-bold ${avgTemp >= 40 ? 'text-danger' : 'text-white'}`}>{avgTemp}°C</span>
+                                    <span className="text-sm text-[#4B5563] group-hover:text-[#1F2937] transition-colors">Avg Temperature</span>
+                                    <span className={`text-lg font-bold ${avgTemp >= 40 ? 'text-red-500' : 'text-[#1F2937]'}`}>{avgTemp}°C</span>
                                 </div>
                                 <div className="flex items-center justify-between group">
-                                    <span className="text-sm text-gray-400 group-hover:text-white transition-colors">Highest Gas Reading</span>
-                                    <span className={`text-lg font-bold ${maxGas >= 200 ? 'text-warning' : 'text-white'}`}>{maxGas} PPM</span>
+                                    <span className="text-sm text-[#4B5563] group-hover:text-[#1F2937] transition-colors">Highest Gas Reading</span>
+                                    <span className={`text-lg font-bold ${maxGas >= 200 ? 'text-orange-500' : 'text-[#1F2937]'}`}>{maxGas} PPM</span>
                                 </div>
                                 <div className="flex items-center justify-between group">
-                                    <span className="text-sm text-gray-400 group-hover:text-white transition-colors">Critical Alerts</span>
+                                    <span className="text-sm text-[#4B5563] group-hover:text-[#1F2937] transition-colors">Critical Alerts</span>
                                     <span className={`text-lg font-bold ${criticalAlerts > 0 ? 'text-[#EF4444]' : 'text-[#10B981]'}`}>{criticalAlerts}</span>
                                 </div>
                                 <div className="flex items-center justify-between group">
-                                    <span className="text-sm text-gray-400 flex items-center gap-2 group-hover:text-white transition-colors">
+                                    <span className="text-sm text-[#4B5563] flex items-center gap-2 group-hover:text-[#1F2937] transition-colors">
                                         <Battery size={16} className="text-[#10B981]" />
                                         Avg Battery Level
                                     </span>
-                                    <span className={`text-lg font-bold ${avgBattery < 20 ? 'text-danger' : 'text-[#10B981]'}`}>{avgBattery || '--'}%</span>
+                                    <span className={`text-lg font-bold ${avgBattery < 20 ? 'text-red-500' : 'text-[#10B981]'}`}>{avgBattery || '--'}%</span>
                                 </div>
                             </div>
                         </CardBody>
@@ -341,25 +341,25 @@ export const Dashboard = () => {
                     {/* Quick Actions */}
                     <CardDark className="border-t-4 border-t-[#00BFA5]">
                         <CardBody className="p-6">
-                            <h3 className="font-bold text-white mb-4 flex items-center gap-2">
+                            <h3 className="font-bold text-[#1F2937] mb-4 flex items-center gap-2">
                                 <TrendingUp className="h-5 w-5 text-[#00BFA5]" />
                                 Quick Actions
                             </h3>
                             <div className="space-y-3">
                                 <Link to="/live-monitoring">
-                                    <Button variant="outline" className="w-full justify-start py-3 hover:bg-[#00BFA5]/10 border-white/10 hover:border-[#00BFA5]" size="sm">
+                                    <Button variant="outline" className="w-full justify-start py-3 hover:bg-[#00BFA5]/10 border-[#E3E6EB] hover:border-[#00BFA5]" size="sm">
                                         <Activity size={18} className="mr-3 text-[#00BFA5]" />
                                         Live Monitoring
                                     </Button>
                                 </Link>
                                 <Link to="/workers">
-                                    <Button variant="outline" className="w-full justify-start py-3 hover:bg-[#3B82F6]/10 border-white/10 hover:border-[#3B82F6] hover:text-[#3B82F6]" size="sm">
+                                    <Button variant="outline" className="w-full justify-start py-3 hover:bg-[#3B82F6]/10 border-[#E3E6EB] hover:border-[#3B82F6] hover:text-[#3B82F6]" size="sm">
                                         <Users size={18} className="mr-3 text-[#3B82F6]" />
                                         Manage Workers
                                     </Button>
                                 </Link>
                                 <Link to="/reports">
-                                    <Button variant="outline" className="w-full justify-start py-3 hover:bg-[#F59E0B]/10 border-white/10 hover:border-[#F59E0B] hover:text-[#F59E0B]" size="sm">
+                                    <Button variant="outline" className="w-full justify-start py-3 hover:bg-[#F59E0B]/10 border-[#E3E6EB] hover:border-[#F59E0B] hover:text-[#F59E0B]" size="sm">
                                         <TrendingUp size={18} className="mr-3 text-[#F59E0B]" />
                                         View Reports
                                     </Button>

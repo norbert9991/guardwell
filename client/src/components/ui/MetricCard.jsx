@@ -9,9 +9,9 @@ export const MetricCard = ({ title, value, icon: Icon, color, subtitle, trend, c
             <CardBody className="p-6 relative z-10">
                 <div className="flex items-center justify-between">
                     <div>
-                        <p className="text-sm font-medium text-[#6B7280] mb-1 tracking-wide uppercase">{title}</p>
+                        <p className="text-sm font-medium text-[#4B5563] mb-1 tracking-wide uppercase">{title}</p>
                         <h3 className="text-3xl font-bold text-[#1F2937] mb-2 tracking-tight">{value}</h3>
-                        {subtitle && <p className="text-sm text-[#9CA3AF]">{subtitle}</p>}
+                        {subtitle && <p className="text-sm text-[#6B7280]">{subtitle}</p>}
                         {trend && (
                             <div className="flex items-center gap-1 mt-2 text-[#22c55e]">
                                 <TrendingUp size={14} />
