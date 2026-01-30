@@ -185,11 +185,11 @@ export const EmergencyQueuePanel = () => {
                 </button>
             )}
 
-            {/* Expanded Panel */}
+            {/* Expanded Panel - Solid background, no transparency */}
             {isExpanded && (
-                <div className="fixed right-0 top-0 h-screen w-96 bg-dark-lighter border-l border-gray-700 shadow-2xl z-50 flex flex-col">
+                <div className="fixed right-0 top-0 h-screen w-96 border-l border-gray-700 shadow-2xl z-50 flex flex-col" style={{ backgroundColor: '#0f1419' }}>
                     {/* Header */}
-                    <div className="p-4 border-b border-gray-700 bg-dark">
+                    <div className="p-4 border-b border-gray-700" style={{ backgroundColor: '#0a0d10' }}>
                         <div className="flex items-center justify-between mb-3">
                             <div className="flex items-center gap-3">
                                 <div className={`p-2 rounded-lg ${pendingCount > 0 ? 'bg-red-500/20 animate-pulse' : 'bg-gray-700/50'}`}>
@@ -247,10 +247,10 @@ export const EmergencyQueuePanel = () => {
                                 <div
                                     key={emergency.id}
                                     className={`rounded-lg border transition-all ${emergency.status === 'Pending'
-                                            ? 'bg-red-500/10 border-red-500/50'
-                                            : emergency.status === 'Acknowledged'
-                                                ? 'bg-yellow-500/10 border-yellow-500/50'
-                                                : 'bg-blue-500/10 border-blue-500/50'
+                                        ? 'bg-red-500/10 border-red-500/50'
+                                        : emergency.status === 'Acknowledged'
+                                            ? 'bg-yellow-500/10 border-yellow-500/50'
+                                            : 'bg-blue-500/10 border-blue-500/50'
                                         }`}
                                 >
                                     {/* Card Header */}
@@ -381,7 +381,7 @@ export const EmergencyQueuePanel = () => {
                     </div>
 
                     {/* Footer */}
-                    <div className="p-3 border-t border-gray-700 bg-dark">
+                    <div className="p-3 border-t border-gray-700" style={{ backgroundColor: '#0a0d10' }}>
                         <div className="flex items-center justify-between text-xs text-gray-500">
                             <span className="flex items-center gap-1">
                                 <span className={`w-2 h-2 rounded-full ${connected ? 'bg-green-500' : 'bg-red-500'}`} />
