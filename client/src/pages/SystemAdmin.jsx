@@ -637,7 +637,7 @@ export const SystemAdmin = () => {
         <div className="space-y-6">
             {/* Header */}
             <div>
-                <h1 className="text-3xl font-bold text-white mb-2">System Administration</h1>
+                <h1 className="text-3xl font-bold text-[#1F2937] mb-2">System Administration</h1>
                 <p className="text-gray-400">Manage system settings, thresholds, and configurations</p>
             </div>
 

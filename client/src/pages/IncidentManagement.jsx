@@ -138,7 +138,7 @@ export const IncidentManagement = () => {
     if (isLoading) {
         return (
             <div className="flex items-center justify-center h-64">
-                <div className="text-gray-400">Loading incidents...</div>
+                <div className="text-[#6B7280]">Loading incidents...</div>
             </div>
         );
     }
@@ -147,8 +147,8 @@ export const IncidentManagement = () => {
         <div className="space-y-6">
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-3xl font-bold text-white mb-2">Incident Management</h1>
-                    <p className="text-gray-400">Track and manage safety incidents</p>
+                    <h1 className="text-3xl font-bold text-[#1F2937] mb-2">Incident Management</h1>
+                    <p className="text-[#4B5563]">Track and manage safety incidents</p>
                 </div>
                 <Button icon={<Plus size={18} />} onClick={() => setShowCreateModal(true)}>Create Incident</Button>
             </div>
@@ -206,9 +206,9 @@ export const IncidentManagement = () => {
                 <CardBody className="p-0">
                     {filteredIncidents.length === 0 ? (
                         <div className="p-12 text-center">
-                            <FileText className="h-16 w-16 text-gray-600 mx-auto mb-4" />
-                            <h3 className="text-xl font-semibold text-gray-400 mb-2">No Incidents</h3>
-                            <p className="text-gray-500">No incidents have been recorded yet.</p>
+                            <FileText className="h-16 w-16 text-[#9CA3AF] mx-auto mb-4" />
+                            <h3 className="text-xl font-semibold text-[#4B5563] mb-2">No Incidents</h3>
+                            <p className="text-[#6B7280]">No incidents have been recorded yet.</p>
                         </div>
                     ) : (
                         <Table columns={columns} data={filteredIncidents} />

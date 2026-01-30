@@ -281,7 +281,7 @@ export const AlertManagement = () => {
     if (isLoading) {
         return (
             <div className="flex items-center justify-center h-64">
-                <div className="text-gray-400">Loading alerts...</div>
+                <div className="text-[#6B7280]">Loading alerts...</div>
             </div>
         );
     }
@@ -290,8 +290,8 @@ export const AlertManagement = () => {
         <div className="space-y-6">
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold text-white mb-2">Alert Management</h1>
-                    <p className="text-gray-400">Monitor and manage safety alerts</p>
+                    <h1 className="text-3xl font-bold text-[#1F2937] mb-2">Alert Management</h1>
+                    <p className="text-[#4B5563]">Monitor and manage safety alerts</p>
                 </div>
                 <div className="flex gap-2 flex-wrap">
                     <Button
@@ -323,9 +323,9 @@ export const AlertManagement = () => {
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                             {/* Search */}
                             <div className="lg:col-span-2">
-                                <label className="block text-sm font-medium text-gray-300 mb-2">Search</label>
+                                <label className="block text-sm font-medium text-[#4B5563] mb-2">Search</label>
                                 <div className="relative">
-                                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500" size={18} />
+                                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[#6B7280]" size={18} />
                                     <input
                                         type="text"
                                         placeholder="Search alerts..."
@@ -338,7 +338,7 @@ export const AlertManagement = () => {
 
                             {/* Status Filter */}
                             <div>
-                                <label className="block text-sm font-medium text-gray-300 mb-2">Status</label>
+                                <label className="block text-sm font-medium text-[#4B5563] mb-2">Status</label>
                                 <select
                                     value={filter}
                                     onChange={(e) => setFilter(e.target.value)}
@@ -353,7 +353,7 @@ export const AlertManagement = () => {
 
                             {/* Severity Filter */}
                             <div>
-                                <label className="block text-sm font-medium text-gray-300 mb-2">Severity</label>
+                                <label className="block text-sm font-medium text-[#4B5563] mb-2">Severity</label>
                                 <select
                                     value={severityFilter}
                                     onChange={(e) => setSeverityFilter(e.target.value)}
@@ -369,7 +369,7 @@ export const AlertManagement = () => {
 
                             {/* Alert Type Filter */}
                             <div>
-                                <label className="block text-sm font-medium text-gray-300 mb-2">Alert Type</label>
+                                <label className="block text-sm font-medium text-[#4B5563] mb-2">Alert Type</label>
                                 <select
                                     value={typeFilter}
                                     onChange={(e) => setTypeFilter(e.target.value)}
@@ -384,7 +384,7 @@ export const AlertManagement = () => {
 
                             {/* Date Range Filter */}
                             <div>
-                                <label className="block text-sm font-medium text-gray-300 mb-2">Date Range</label>
+                                <label className="block text-sm font-medium text-[#4B5563] mb-2">Date Range</label>
                                 <select
                                     value={dateFilter}
                                     onChange={(e) => setDateFilter(e.target.value)}
@@ -403,7 +403,7 @@ export const AlertManagement = () => {
                             {dateFilter === 'custom' && (
                                 <>
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-300 mb-2">From Date</label>
+                                        <label className="block text-sm font-medium text-[#4B5563] mb-2">From Date</label>
                                         <input
                                             type="date"
                                             value={startDate}
@@ -412,7 +412,7 @@ export const AlertManagement = () => {
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-300 mb-2">To Date</label>
+                                        <label className="block text-sm font-medium text-[#4B5563] mb-2">To Date</label>
                                         <input
                                             type="date"
                                             value={endDate}
@@ -425,9 +425,9 @@ export const AlertManagement = () => {
                         </div>
 
                         {/* Filter Summary */}
-                        <div className="mt-4 pt-4 border-t border-gray-700 flex items-center justify-between">
-                            <p className="text-sm text-gray-400">
-                                Showing <span className="text-white font-semibold">{filteredAlerts.length}</span> of <span className="text-white font-semibold">{alerts.length}</span> alerts
+                        <div className="mt-4 pt-4 border-t border-[#E3E6EB] flex items-center justify-between">
+                            <p className="text-sm text-[#4B5563]">
+                                Showing <span className="text-[#1F2937] font-semibold">{filteredAlerts.length}</span> of <span className="text-[#1F2937] font-semibold">{alerts.length}</span> alerts
                             </p>
                         </div>
                     </CardBody>
@@ -462,9 +462,9 @@ export const AlertManagement = () => {
             {filteredAlerts.length === 0 ? (
                 <CardDark>
                     <CardBody className="p-12 text-center">
-                        <AlertTriangle className="h-16 w-16 text-gray-600 mx-auto mb-4" />
-                        <h3 className="text-xl font-semibold text-gray-400 mb-2">No Alerts</h3>
-                        <p className="text-gray-500">
+                        <AlertTriangle className="h-16 w-16 text-[#9CA3AF] mx-auto mb-4" />
+                        <h3 className="text-xl font-semibold text-[#4B5563] mb-2">No Alerts</h3>
+                        <p className="text-[#6B7280]">
                             {filter === 'all' ? 'No alerts have been recorded yet.' : `No ${filter} alerts found.`}
                         </p>
                     </CardBody>
@@ -478,29 +478,29 @@ export const AlertManagement = () => {
                                     <div className="flex-1">
                                         <div className="flex items-center gap-3 mb-3">
                                             <SeverityBadge severity={alert.severity} />
-                                            <h3 className="text-xl font-semibold text-white">{alert.type}</h3>
+                                            <h3 className="text-xl font-semibold text-[#1F2937]">{alert.type}</h3>
                                             <StatusBadge status={alert.status} />
                                         </div>
                                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                                             <div>
-                                                <p className="text-gray-400 flex items-center gap-1 mb-1">
+                                                <p className="text-[#4B5563] flex items-center gap-1 mb-1">
                                                     <User size={14} /> Worker
                                                 </p>
-                                                <p className="text-white font-medium">{alert.worker?.fullName || alert.deviceId || 'Unknown'}</p>
+                                                <p className="text-[#1F2937] font-medium">{alert.worker?.fullName || alert.deviceId || 'Unknown'}</p>
                                             </div>
                                             <div>
-                                                <p className="text-gray-400 mb-1">Device</p>
-                                                <p className="text-white font-medium">{alert.deviceId || 'N/A'}</p>
+                                                <p className="text-[#4B5563] mb-1">Device</p>
+                                                <p className="text-[#1F2937] font-medium">{alert.deviceId || 'N/A'}</p>
                                             </div>
                                             <div>
-                                                <p className="text-gray-400 mb-1">Trigger Value</p>
-                                                <p className="text-danger font-medium">{alert.triggerValue || 'N/A'}</p>
+                                                <p className="text-[#4B5563] mb-1">Trigger Value</p>
+                                                <p className="text-red-500 font-medium">{alert.triggerValue || 'N/A'}</p>
                                             </div>
                                             <div>
-                                                <p className="text-gray-400 flex items-center gap-1 mb-1">
+                                                <p className="text-[#4B5563] flex items-center gap-1 mb-1">
                                                     <Clock size={14} /> Time
                                                 </p>
-                                                <p className="text-white font-medium">{formatTime(alert.createdAt)}</p>
+                                                <p className="text-[#1F2937] font-medium">{formatTime(alert.createdAt)}</p>
                                             </div>
                                         </div>
                                     </div>

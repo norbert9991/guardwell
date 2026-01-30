@@ -295,7 +295,7 @@ export const AdminManagement = () => {
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-3xl font-bold text-white mb-2">Admin Management</h1>
+                    <h1 className="text-3xl font-bold text-[#1F2937] mb-2">Admin Management</h1>
                     <p className="text-gray-400">Manage system administrators and safety officers</p>
                 </div>
                 <Button icon={<Plus size={18} />} onClick={() => {

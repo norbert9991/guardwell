@@ -6,7 +6,7 @@ export const SystemSettings = () => {
     return (
         <div className="space-y-6">
             <div>
-                <h1 className="text-3xl font-bold text-white mb-2">System Settings</h1>
+                <h1 className="text-3xl font-bold text-[#1F2937] mb-2">System Settings</h1>
                 <p className="text-gray-400">Configure system parameters and settings</p>
             </div>
 

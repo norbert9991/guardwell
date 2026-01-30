@@ -237,7 +237,7 @@ export const LiveMonitoring = () => {
     if (isLoading) {
         return (
             <div className="flex items-center justify-center h-64">
-                <div className="text-gray-400">Loading devices...</div>
+                <div className="text-[#6B7280]">Loading devices...</div>
             </div>
         );
     }
@@ -247,13 +247,13 @@ export const LiveMonitoring = () => {
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-3xl font-bold text-white mb-2">Live Monitoring</h1>
-                    <p className="text-gray-400">Real-time worker and sensor data monitoring</p>
+                    <h1 className="text-3xl font-bold text-[#1F2937] mb-2">Live Monitoring</h1>
+                    <p className="text-[#4B5563]">Real-time worker and sensor data monitoring</p>
                 </div>
                 <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-2 px-4 py-2 bg-dark-lighter rounded-lg border border-gray-700">
+                    <div className="flex items-center gap-2 px-4 py-2 bg-[#EEF1F4] rounded-lg border border-[#E3E6EB]">
                         <div className={`status-dot ${connected ? 'status-online' : 'status-offline'}`} />
-                        <span className="text-sm text-gray-300">{connected ? 'Live' : 'Disconnected'}</span>
+                        <span className="text-sm text-[#4B5563]">{connected ? 'Live' : 'Disconnected'}</span>
                     </div>
                     <select
                         value={filter}
@@ -270,8 +270,8 @@ export const LiveMonitoring = () => {
                         <button
                             onClick={() => setViewMode('grid')}
                             className={`px-3 py-2 flex items-center gap-2 transition-colors ${viewMode === 'grid'
-                                ? 'bg-primary-600 text-white'
-                                : 'bg-dark-lighter text-gray-400 hover:text-white'
+                                ? 'bg-[#6FA3D8] text-white'
+                                : 'bg-[#EEF1F4] text-[#4B5563] hover:text-[#1F2937]'
                                 }`}
                         >
                             <Grid size={18} />
@@ -280,8 +280,8 @@ export const LiveMonitoring = () => {
                         <button
                             onClick={() => setViewMode('map')}
                             className={`px-3 py-2 flex items-center gap-2 transition-colors ${viewMode === 'map'
-                                ? 'bg-primary-600 text-white'
-                                : 'bg-dark-lighter text-gray-400 hover:text-white'
+                                ? 'bg-[#6FA3D8] text-white'
+                                : 'bg-[#EEF1F4] text-[#4B5563] hover:text-[#1F2937]'
                                 }`}
                         >
                             <Map size={18} />
@@ -327,7 +327,7 @@ export const LiveMonitoring = () => {
             {viewMode === 'map' && (
                 <div className="space-y-4">
                     <div className="flex items-center justify-between">
-                        <h2 className="text-xl font-semibold text-white">Worker Locations</h2>
+                        <h2 className="text-xl font-semibold text-[#1F2937]">Worker Locations</h2>
                         <div className="flex items-center gap-4 text-sm">
                             <span className="flex items-center gap-2">
                                 <span className="w-3 h-3 rounded-full bg-blue-500"></span>
@@ -453,7 +453,7 @@ export const LiveMonitoring = () => {
                                 <div className="space-y-3">
                                     {/* Temperature */}
                                     <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-2 text-gray-400">
+                                        <div className="flex items-center gap-2 text-[#4B5563]">
                                             <Thermometer size={16} />
                                             <span className="text-sm">Temperature</span>
                                         </div>
@@ -464,7 +464,7 @@ export const LiveMonitoring = () => {
 
                                     {/* Gas Level */}
                                     <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-2 text-gray-400">
+                                        <div className="flex items-center gap-2 text-[#4B5563]">
                                             <Wind size={16} />
                                             <span className="text-sm">Gas Level</span>
                                         </div>
@@ -480,20 +480,20 @@ export const LiveMonitoring = () => {
 
                                     {/* Humidity */}
                                     <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-2 text-gray-400">
+                                        <div className="flex items-center gap-2 text-[#4B5563]">
                                             <Droplets size={16} />
                                             <span className="text-sm">Humidity</span>
                                         </div>
-                                        <span className="font-semibold text-gray-300">{worker.sensors.humidity.toFixed(1)}%</span>
+                                        <span className="font-semibold text-[#4B5563]">{worker.sensors.humidity.toFixed(1)}%</span>
                                     </div>
 
                                     {/* Battery */}
                                     <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-2 text-gray-400">
+                                        <div className="flex items-center gap-2 text-[#4B5563]">
                                             <Battery size={16} />
                                             <span className="text-sm">Battery</span>
                                         </div>
-                                        <span className={`font-semibold ${worker.sensors.battery < 20 ? 'text-danger' : worker.sensors.battery < 50 ? 'text-warning' : 'text-success'}`}>
+                                        <span className={`font-semibold ${worker.sensors.battery < 20 ? 'text-red-500' : worker.sensors.battery < 50 ? 'text-orange-500' : 'text-green-500'}`}>
                                             {worker.sensors.battery}%
                                         </span>
                                     </div>

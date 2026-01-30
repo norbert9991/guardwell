@@ -90,7 +90,7 @@ export const WorkerProfile = () => {
                     Back
                 </Button>
                 <div>
-                    <h1 className="text-3xl font-bold text-white mb-2">Worker Profile</h1>
+                    <h1 className="text-3xl font-bold text-[#1F2937] mb-2">Worker Profile</h1>
                     <p className="text-gray-400">View and manage worker information</p>
                 </div>
             </div>
