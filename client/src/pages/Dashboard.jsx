@@ -145,17 +145,17 @@ export const Dashboard = () => {
             {/* Header */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-4xl font-bold text-white mb-2 tracking-tight">Dashboard</h1>
-                    <p className="text-gray-400 text-lg">Real-time overview of worker safety and monitoring system</p>
+                    <h1 className="text-4xl font-bold text-[#1F2937] mb-2 tracking-tight">Dashboard</h1>
+                    <p className="text-[#6B7280] text-lg">Real-time overview of worker safety and monitoring system</p>
                 </div>
                 <div className="text-right hidden md:block">
                     <div className="flex items-center gap-2 justify-end mb-2">
                         <div className={`w-2 h-2 rounded-full ${connected ? 'bg-green-500' : 'bg-red-500'}`} />
-                        <span className="text-sm text-gray-400">{connected ? 'Live' : 'Disconnected'}</span>
+                        <span className="text-sm text-[#6B7280]">{connected ? 'Live' : 'Disconnected'}</span>
                     </div>
                     <div className="flex items-center gap-2 justify-end">
-                        <Clock size={16} className="text-[#00E5FF]" />
-                        <span className="text-2xl font-bold text-white font-mono">
+                        <Clock size={16} className="text-[#6FA3D8]" />
+                        <span className="text-2xl font-bold text-[#1F2937] font-mono">
                             {currentTime.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                         </span>
                     </div>

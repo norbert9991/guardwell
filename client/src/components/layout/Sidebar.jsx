@@ -52,11 +52,11 @@ export const Sidebar = () => {
         return userLevel >= requiredLevel;
     });
 
-    // Role badge colors
+    // Role badge colors - Light theme
     const getRoleBadge = () => {
-        if (isHeadAdmin) return { color: 'bg-red-500/20 text-red-400 border-red-500/30', icon: Shield };
-        if (isAdmin) return { color: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30', icon: ShieldCheck };
-        return { color: 'bg-blue-500/20 text-blue-400 border-blue-500/30', icon: Activity };
+        if (isHeadAdmin) return { color: 'bg-[#E85D2A]/10 text-[#E85D2A] border-[#E85D2A]/30', icon: Shield };
+        if (isAdmin) return { color: 'bg-[#F4A261]/10 text-[#E85D2A] border-[#F4A261]/30', icon: ShieldCheck };
+        return { color: 'bg-[#6FA3D8]/10 text-[#2F4A6D] border-[#6FA3D8]/30', icon: Activity };
     };
 
     const roleBadge = getRoleBadge();
@@ -64,9 +64,24 @@ export const Sidebar = () => {
 
     return (
         <div className={cn(
-            'glass border-r border-white/10 transition-all duration-300 flex flex-col h-screen sticky top-0',
+            'bg-white border-r border-[#E3E6EB] transition-all duration-300 flex flex-col h-screen sticky top-0 shadow-sm',
             collapsed ? 'w-20' : 'w-64'
         )}>
+            {/* Logo */}
+            <div className="px-4 py-5 border-b border-[#E3E6EB]">
+                <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#E85D2A] to-[#F4A261] flex items-center justify-center">
+                        <Shield size={20} className="text-white" />
+                    </div>
+                    {!collapsed && (
+                        <div>
+                            <h1 className="text-lg font-bold text-[#1F2937]">GuardWell</h1>
+                            <p className="text-xs text-[#6B7280]">Safety Monitoring</p>
+                        </div>
+                    )}
+                </div>
+            </div>
+
             {/* Role Badge */}
             {!collapsed && (
                 <div className="px-4 pt-4">
@@ -84,14 +99,14 @@ export const Sidebar = () => {
             <div className="p-4 flex justify-end">
                 <button
                     onClick={() => setCollapsed(!collapsed)}
-                    className="p-2 rounded-lg hover:bg-white/10 text-gray-400 hover:text-white transition-colors"
+                    className="p-2 rounded-lg hover:bg-[#EEF1F4] text-[#6B7280] hover:text-[#1F2937] transition-colors"
                 >
                     {collapsed ? <ChevronRight size={20} /> : <ChevronLeft size={20} />}
                 </button>
             </div>
 
             {/* Menu Items */}
-            <nav className="flex-1 px-3 space-y-2 py-4">
+            <nav className="flex-1 px-3 space-y-1 py-2">
                 {filteredMenuItems.map((item) => {
                     const Icon = item.icon;
                     const isActive = location.pathname === item.path;
@@ -101,14 +116,14 @@ export const Sidebar = () => {
                             key={item.path}
                             to={item.path}
                             className={cn(
-                                'flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group relative overflow-hidden',
+                                'flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group relative',
                                 isActive
-                                    ? 'bg-gradient-to-r from-[#00BFA5]/20 to-[#009479]/20 text-[#00BFA5] shadow-[0_0_15px_rgba(0,191,165,0.15)] border border-[#00BFA5]/20'
-                                    : 'text-gray-400 hover:bg-white/5 hover:text-gray-200 hover:translate-x-1'
+                                    ? 'bg-gradient-to-r from-[#6FA3D8]/15 to-[#2F4A6D]/10 text-[#2F4A6D] border border-[#6FA3D8]/30'
+                                    : 'text-[#6B7280] hover:bg-[#EEF1F4] hover:text-[#1F2937]'
                             )}
                             title={collapsed ? item.name : ''}
                         >
-                            <Icon size={20} className={cn("flex-shrink-0 transition-colors", isActive ? "text-[#00BFA5]" : "group-hover:text-white")} />
+                            <Icon size={20} className={cn("flex-shrink-0 transition-colors", isActive ? "text-[#6FA3D8]" : "group-hover:text-[#1F2937]")} />
                             {!collapsed && (
                                 <span className="font-medium tracking-wide">{item.name}</span>
                             )}
@@ -116,13 +131,13 @@ export const Sidebar = () => {
                             {item.badge > 0 && (
                                 <span className={cn(
                                     "ml-auto px-2 py-0.5 text-xs font-bold rounded-full",
-                                    "bg-red-500 text-white animate-pulse"
+                                    "bg-[#E85D2A] text-white animate-pulse"
                                 )}>
                                     {item.badge}
                                 </span>
                             )}
                             {isActive && !collapsed && !item.badge && (
-                                <div className="ml-auto w-1.5 h-1.5 rounded-full bg-[#00BFA5] shadow-[0_0_8px_#00BFA5]" />
+                                <div className="ml-auto w-1.5 h-1.5 rounded-full bg-[#6FA3D8] shadow-[0_0_8px_#6FA3D8]" />
                             )}
                         </Link>
                     );
@@ -131,11 +146,11 @@ export const Sidebar = () => {
 
             {/* Footer */}
             {!collapsed && (
-                <div className="p-6 border-t border-white/10 bg-black/20">
-                    <p className="text-xs text-gray-500 text-center font-medium tracking-wider uppercase">
+                <div className="p-6 border-t border-[#E3E6EB] bg-[#EEF1F4]/50">
+                    <p className="text-xs text-[#6B7280] text-center font-medium tracking-wider uppercase">
                         GuardWell v1.0
                     </p>
-                    <p className="text-xs text-gray-600 text-center mt-1">
+                    <p className="text-xs text-[#9CA3AF] text-center mt-1">
                         Cathay Metal Inc.
                     </p>
                 </div>

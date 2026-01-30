@@ -81,6 +81,43 @@ const syncDatabase = async (force = false) => {
                     });
                     console.log('✅ Added longitude column to alerts');
                 }
+
+                // IMPORTANT: Change status/type/severity from ENUM to VARCHAR if needed
+                // This allows new status values like 'Responding' to work
+                try {
+                    // MySQL requires different syntax to modify column types
+                    await sequelize.query(`
+                        ALTER TABLE alerts 
+                        MODIFY COLUMN status VARCHAR(20) DEFAULT 'Pending'
+                    `);
+                    console.log('✅ Changed status column to VARCHAR');
+                } catch (alterErr) {
+                    // Column might already be VARCHAR or other issue
+                    if (!alterErr.message.includes('Unknown column')) {
+                        console.log('Note: Status column modification:', alterErr.message);
+                    }
+                }
+
+                try {
+                    await sequelize.query(`
+                        ALTER TABLE alerts 
+                        MODIFY COLUMN type VARCHAR(50) NOT NULL
+                    `);
+                    console.log('✅ Changed type column to VARCHAR');
+                } catch (alterErr) {
+                    console.log('Note: Type column modification:', alterErr.message);
+                }
+
+                try {
+                    await sequelize.query(`
+                        ALTER TABLE alerts 
+                        MODIFY COLUMN severity VARCHAR(20) NOT NULL
+                    `);
+                    console.log('✅ Changed severity column to VARCHAR');
+                } catch (alterErr) {
+                    console.log('Note: Severity column modification:', alterErr.message);
+                }
+
             } catch (colError) {
                 // Table might not exist yet, which is fine - sync() will create it
                 if (!colError.message.includes('doesn\'t exist')) {

@@ -13,10 +13,11 @@ export const CardDark = ({ children, className, hover = true, ...props }) => {
     return (
         <div
             className={cn(
-                'card-dark',
-                hover && 'hover:border-primary-500/50',
+                'bg-white rounded-xl border border-[#E3E6EB] transition-all duration-300',
+                hover && 'hover:border-[#6FA3D8]/50 hover:shadow-lg',
                 className
             )}
+            style={{ boxShadow: '0 2px 8px rgba(214, 219, 226, 0.5)' }}
             {...props}
         >
             {children}
@@ -26,7 +27,7 @@ export const CardDark = ({ children, className, hover = true, ...props }) => {
 
 export const CardHeader = ({ children, className, ...props }) => {
     return (
-        <div className={cn('px-6 py-4 border-b border-white/10', className)} {...props}>
+        <div className={cn('px-6 py-4 border-b border-[#E3E6EB]', className)} {...props}>
             {children}
         </div>
     );
@@ -42,7 +43,7 @@ export const CardBody = ({ children, className, ...props }) => {
 
 export const CardFooter = ({ children, className, ...props }) => {
     return (
-        <div className={cn('px-6 py-4 border-t border-white/10 bg-white/5', className)} {...props}>
+        <div className={cn('px-6 py-4 border-t border-[#E3E6EB] bg-[#EEF1F4]/50', className)} {...props}>
             {children}
         </div>
     );

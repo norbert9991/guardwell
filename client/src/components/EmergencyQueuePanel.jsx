@@ -6,21 +6,22 @@ import {
 import { Button } from './ui/Button';
 import { Badge } from './ui/Badge';
 import { useSocket } from '../context/SocketContext';
+import { useEmergencyPanel } from '../context/EmergencyPanelContext';
 import { alertsApi } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 
 /**
- * Emergency Queue Panel
+ * Emergency Queue Panel - Light Theme
  * Persistent sidebar showing all active emergencies with queue management.
- * Allows batch operations and individual emergency handling.
+ * Uses EmergencyPanelContext for shared expanded state with layout.
  */
 export const EmergencyQueuePanel = () => {
     const { emergencyAlerts, connected } = useSocket();
+    const { isExpanded, setIsExpanded } = useEmergencyPanel();
     const { user } = useAuth();
     const toast = useToast();
 
-    const [isExpanded, setIsExpanded] = useState(true);
     const [activeEmergencies, setActiveEmergencies] = useState([]);
     const [selectedIds, setSelectedIds] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
@@ -131,16 +132,6 @@ export const EmergencyQueuePanel = () => {
         setSelectedIds(pendingIds);
     };
 
-    // Get status color
-    const getStatusColor = (status) => {
-        switch (status) {
-            case 'Pending': return 'bg-red-500';
-            case 'Acknowledged': return 'bg-yellow-500';
-            case 'Responding': return 'bg-blue-500';
-            default: return 'bg-gray-500';
-        }
-    };
-
     // Get status badge variant
     const getStatusBadge = (status) => {
         switch (status) {
@@ -171,13 +162,13 @@ export const EmergencyQueuePanel = () => {
                 <button
                     onClick={() => setIsExpanded(true)}
                     className={`fixed right-0 top-1/2 -translate-y-1/2 z-50 p-3 rounded-l-lg shadow-lg transition-all
-                        ${pendingCount > 0 ? 'bg-red-600 animate-pulse' : 'bg-dark-lighter border border-gray-700'}`}
+                        ${pendingCount > 0 ? 'bg-[#E85D2A] animate-pulse' : 'bg-white border border-[#E3E6EB]'}`}
                 >
                     <div className="flex flex-col items-center gap-2">
-                        <ChevronLeft size={20} className="text-white" />
-                        <Bell size={20} className="text-white" />
+                        <ChevronLeft size={20} className={pendingCount > 0 ? 'text-white' : 'text-[#6B7280]'} />
+                        <Bell size={20} className={pendingCount > 0 ? 'text-white' : 'text-[#6B7280]'} />
                         {totalActive > 0 && (
-                            <span className="bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">
+                            <span className="bg-[#E85D2A] text-white text-xs font-bold px-2 py-0.5 rounded-full">
                                 {totalActive}
                             </span>
                         )}
@@ -185,28 +176,28 @@ export const EmergencyQueuePanel = () => {
                 </button>
             )}
 
-            {/* Expanded Panel - Solid background, no transparency */}
+            {/* Expanded Panel - Light Theme */}
             {isExpanded && (
-                <div className="fixed right-0 top-0 h-screen w-96 border-l border-gray-700 shadow-2xl z-50 flex flex-col" style={{ backgroundColor: '#0f1419' }}>
+                <div className="fixed right-0 top-0 h-screen w-96 bg-white border-l border-[#E3E6EB] shadow-xl z-50 flex flex-col">
                     {/* Header */}
-                    <div className="p-4 border-b border-gray-700" style={{ backgroundColor: '#0a0d10' }}>
+                    <div className="p-4 border-b border-[#E3E6EB] bg-[#EEF1F4]">
                         <div className="flex items-center justify-between mb-3">
                             <div className="flex items-center gap-3">
-                                <div className={`p-2 rounded-lg ${pendingCount > 0 ? 'bg-red-500/20 animate-pulse' : 'bg-gray-700/50'}`}>
-                                    <Bell size={20} className={pendingCount > 0 ? 'text-red-500' : 'text-gray-400'} />
+                                <div className={`p-2 rounded-lg ${pendingCount > 0 ? 'bg-[#E85D2A]/20 animate-pulse' : 'bg-[#E3E6EB]'}`}>
+                                    <Bell size={20} className={pendingCount > 0 ? 'text-[#E85D2A]' : 'text-[#6B7280]'} />
                                 </div>
                                 <div>
-                                    <h2 className="text-lg font-bold text-white">Emergency Queue</h2>
-                                    <p className="text-xs text-gray-400">
+                                    <h2 className="text-lg font-bold text-[#1F2937]">Emergency Queue</h2>
+                                    <p className="text-xs text-[#6B7280]">
                                         {pendingCount} pending • {totalActive} active
                                     </p>
                                 </div>
                             </div>
                             <button
                                 onClick={() => setIsExpanded(false)}
-                                className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
+                                className="p-2 hover:bg-[#E3E6EB] rounded-lg transition-colors"
                             >
-                                <ChevronRight size={20} className="text-gray-400" />
+                                <ChevronRight size={20} className="text-[#6B7280]" />
                             </button>
                         </div>
 
@@ -235,22 +226,22 @@ export const EmergencyQueuePanel = () => {
                     </div>
 
                     {/* Emergency List */}
-                    <div className="flex-1 overflow-y-auto p-3 space-y-3">
+                    <div className="flex-1 overflow-y-auto p-3 space-y-3 bg-[#EEF1F4]">
                         {activeEmergencies.length === 0 ? (
                             <div className="flex flex-col items-center justify-center h-full text-center">
-                                <Shield size={48} className="text-green-500 mb-4" />
-                                <p className="text-gray-400 font-medium">No Active Emergencies</p>
-                                <p className="text-gray-500 text-sm">All clear!</p>
+                                <Shield size={48} className="text-[#22c55e] mb-4" />
+                                <p className="text-[#1F2937] font-medium">No Active Emergencies</p>
+                                <p className="text-[#6B7280] text-sm">All clear!</p>
                             </div>
                         ) : (
                             activeEmergencies.map((emergency) => (
                                 <div
                                     key={emergency.id}
-                                    className={`rounded-lg border transition-all ${emergency.status === 'Pending'
-                                        ? 'bg-red-500/10 border-red-500/50'
+                                    className={`rounded-lg border transition-all bg-white ${emergency.status === 'Pending'
+                                        ? 'border-[#E85D2A]/50 shadow-md'
                                         : emergency.status === 'Acknowledged'
-                                            ? 'bg-yellow-500/10 border-yellow-500/50'
-                                            : 'bg-blue-500/10 border-blue-500/50'
+                                            ? 'border-[#F4A261]/50'
+                                            : 'border-[#6FA3D8]/50'
                                         }`}
                                 >
                                     {/* Card Header */}
@@ -262,37 +253,37 @@ export const EmergencyQueuePanel = () => {
                                                 className="mt-1"
                                             >
                                                 {selectedIds.includes(emergency.id) ? (
-                                                    <CheckSquare size={18} className="text-primary-500" />
+                                                    <CheckSquare size={18} className="text-[#6FA3D8]" />
                                                 ) : (
-                                                    <Square size={18} className="text-gray-500" />
+                                                    <Square size={18} className="text-[#9CA3AF]" />
                                                 )}
                                             </button>
 
                                             {/* Icon */}
-                                            <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${emergency.type === 'Voice Alert' ? 'bg-purple-500/30' : 'bg-red-500/30'
+                                            <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${emergency.type === 'Voice Alert' ? 'bg-[#6FA3D8]/20' : 'bg-[#E85D2A]/20'
                                                 }`}>
                                                 {emergency.type === 'Voice Alert' ? (
-                                                    <Mic size={18} className="text-purple-400" />
+                                                    <Mic size={18} className="text-[#6FA3D8]" />
                                                 ) : (
-                                                    <AlertTriangle size={18} className="text-red-400" />
+                                                    <AlertTriangle size={18} className="text-[#E85D2A]" />
                                                 )}
                                             </div>
 
                                             {/* Info */}
                                             <div className="flex-1 min-w-0">
                                                 <div className="flex items-center gap-2 mb-1">
-                                                    <span className="font-semibold text-white truncate">
+                                                    <span className="font-semibold text-[#1F2937] truncate">
                                                         {emergency.worker?.fullName || emergency.worker_name || 'Unknown'}
                                                     </span>
                                                     <Badge variant={getStatusBadge(emergency.status)} className="text-xs">
                                                         {emergency.status}
                                                     </Badge>
                                                 </div>
-                                                <p className="text-xs text-gray-400 truncate">
+                                                <p className="text-xs text-[#6B7280] truncate">
                                                     {emergency.type}
                                                     {emergency.voiceCommand && ` - "${emergency.voiceCommand}"`}
                                                 </p>
-                                                <div className="flex items-center gap-3 mt-1 text-xs text-gray-500">
+                                                <div className="flex items-center gap-3 mt-1 text-xs text-[#9CA3AF]">
                                                     <span className="flex items-center gap-1">
                                                         <Radio size={10} />
                                                         {emergency.deviceId || emergency.device}
@@ -303,7 +294,7 @@ export const EmergencyQueuePanel = () => {
                                                     </span>
                                                 </div>
                                                 {emergency.assignedTo && (
-                                                    <div className="flex items-center gap-1 mt-1 text-xs text-blue-400">
+                                                    <div className="flex items-center gap-1 mt-1 text-xs text-[#6FA3D8]">
                                                         <UserCheck size={10} />
                                                         Assigned: {emergency.assignedTo}
                                                     </div>
@@ -381,15 +372,15 @@ export const EmergencyQueuePanel = () => {
                     </div>
 
                     {/* Footer */}
-                    <div className="p-3 border-t border-gray-700" style={{ backgroundColor: '#0a0d10' }}>
-                        <div className="flex items-center justify-between text-xs text-gray-500">
+                    <div className="p-3 border-t border-[#E3E6EB] bg-white">
+                        <div className="flex items-center justify-between text-xs text-[#6B7280]">
                             <span className="flex items-center gap-1">
-                                <span className={`w-2 h-2 rounded-full ${connected ? 'bg-green-500' : 'bg-red-500'}`} />
+                                <span className={`w-2 h-2 rounded-full ${connected ? 'bg-[#22c55e]' : 'bg-[#E85D2A]'}`} />
                                 {connected ? 'Live' : 'Disconnected'}
                             </span>
                             <button
                                 onClick={fetchActiveEmergencies}
-                                className="text-primary-400 hover:text-primary-300"
+                                className="text-[#6FA3D8] hover:text-[#2F4A6D]"
                             >
                                 Refresh
                             </button>

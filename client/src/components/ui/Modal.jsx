@@ -36,36 +36,35 @@ export const Modal = ({
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             {/* Backdrop */}
             <div
-                className="absolute inset-0 bg-black/70 backdrop-blur-md"
+                className="absolute inset-0 bg-black/40 backdrop-blur-sm"
                 onClick={onClose}
             />
 
-            {/* Modal */}
+            {/* Modal - Light Theme */}
             <div className={cn(
                 'relative w-full animate-slide-in',
-                'bg-gradient-to-br from-[#1a2235] to-[#151B2B]',
-                'border border-[#2d3a52] rounded-xl',
-                'shadow-2xl shadow-black/50',
+                'bg-white',
+                'border border-[#E3E6EB] rounded-xl',
+                'shadow-2xl',
                 sizes[size],
                 className
             )}>
-                {/* Glow effect */}
-                <div className="absolute -inset-[1px] bg-gradient-to-r from-[#00E5FF]/20 via-transparent to-[#00E5FF]/20 rounded-xl blur-sm pointer-events-none" />
+                {/* Subtle accent line */}
+                <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#6FA3D8] via-[#2F4A6D] to-[#E85D2A] rounded-t-xl" />
 
                 {/* Header */}
                 {(title || showClose) && (
-                    <div className="relative flex items-center justify-between px-6 py-4 border-b border-[#2d3a52]/80">
-                        <div className="absolute inset-0 bg-gradient-to-r from-[#00E5FF]/5 to-transparent pointer-events-none" />
+                    <div className="relative flex items-center justify-between px-6 py-4 border-b border-[#E3E6EB]">
                         {title && (
-                            <h3 className="relative text-xl font-bold text-white tracking-tight flex items-center gap-3">
-                                <div className="w-1 h-6 bg-gradient-to-b from-[#00E5FF] to-[#00b8cc] rounded-full" />
+                            <h3 className="relative text-xl font-bold text-[#1F2937] tracking-tight flex items-center gap-3">
+                                <div className="w-1 h-6 bg-gradient-to-b from-[#6FA3D8] to-[#2F4A6D] rounded-full" />
                                 {title}
                             </h3>
                         )}
                         {showClose && (
                             <button
                                 onClick={onClose}
-                                className="relative p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-all duration-200"
+                                className="relative p-2 text-[#6B7280] hover:text-[#1F2937] hover:bg-[#EEF1F4] rounded-lg transition-all duration-200"
                             >
                                 <X size={20} />
                             </button>

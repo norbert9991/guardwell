@@ -170,17 +170,29 @@ router.post('/:id/assign', async (req, res) => {
 router.post('/:id/respond', async (req, res) => {
     try {
         const { respondingBy, responseNotes } = req.body;
+
+        // Build update object - only include fields that are provided
+        const updateData = {
+            status: 'Responding'
+        };
+
+        // Only add optional fields if they're provided and columns exist
+        if (respondingBy) {
+            updateData.assignedTo = respondingBy;
+        }
+        if (responseNotes) {
+            updateData.responseNotes = responseNotes;
+        }
+
         const [updated] = await Alert.update(
-            {
-                status: 'Responding',
-                assignedTo: respondingBy,
-                responseNotes
-            },
+            updateData,
             { where: { id: req.params.id } }
         );
+
         if (!updated) {
             return res.status(404).json({ error: 'Alert not found' });
         }
+
         const alert = await Alert.findByPk(req.params.id, {
             include: [{ model: Worker, as: 'worker' }]
         });
@@ -189,14 +201,14 @@ router.post('/:id/respond', async (req, res) => {
         req.io.emit('emergency_status_updated', {
             alertId: req.params.id,
             status: 'Responding',
-            assignedTo: alert.assignedTo,
+            assignedTo: alert.assignedTo || respondingBy,
             alert
         });
 
         res.json(alert);
     } catch (error) {
-        console.error('Error marking alert as responding:', error);
-        res.status(500).json({ error: 'Failed to mark alert as responding' });
+        console.error('Error marking alert as responding:', error.message, error);
+        res.status(500).json({ error: 'Failed to mark alert as responding', details: error.message });
     }
 });
 
