@@ -23,24 +23,23 @@ const float FACILITY_LON = 121.0430;
 const float GEOFENCE_RADIUS_METERS = 100.0;
 
 // ============================================
-// PINS - ALL UNIQUE, NO SHARING
+// PINS
 // ============================================
 #define DHTPIN      4
 #define DHTTYPE     DHT22
 #define MQ2PIN      34      
 #define TOUCHPIN    27
 #define BUZZER      18
+
+// Shared I2C Bus (Voice Sensor + MPU6050)
+// Voice: C/SDA→21, D/SCL→22
+// MPU6050: SDA→21, SCL→22
 #define I2C_SDA     21
 #define I2C_SCL     22 
 
-// Voice Sensor (UART - Serial2 default pins)
-#define VOICE_RX    16      
-#define VOICE_TX    17      
-
-// GPS (UART - Serial1)
-// KEEP HARDWARE: GPS TX → ESP32 GPIO 25, GPS RX → ESP32 GPIO 26
-#define GPS_RX      25
-#define GPS_TX      26
+// GPS (UART - Serial2, using old voice pins)
+#define GPS_RX      16  // ESP32 receives from GPS TX
+#define GPS_TX      17  // ESP32 sends to GPS RX
 
 // ============================================
 // OBJECTS
@@ -48,9 +47,7 @@ const float GEOFENCE_RADIUS_METERS = 100.0;
 DHT dht(DHTPIN, DHTTYPE);
 Adafruit_MPU6050 mpu;
 TinyGPSPlus gps;
-
-// Voice uses Serial2 (UART2)
-DFRobot_DF2301Q_UART voiceSensor(&Serial2, VOICE_RX, VOICE_TX);
+DFRobot_DF2301Q_I2C voiceSensor;  // I2C mode!
 
 // ============================================
 // VARIABLES
@@ -81,11 +78,14 @@ void setup() {
   delay(2000);
 
   Serial.println("\n========================================");
-  Serial.println(" GuardWell ESP32 (GPS + Geofence)");
+  Serial.println(" GuardWell ESP32 (New Pin Config)");
   Serial.println("========================================");
-  Serial.println("Pin Config:");
-  Serial.println("  Voice: RX=16, TX=17 (Serial2)");
-  Serial.println("  GPS:   RX=25, TX=26 (Serial1)");
+  Serial.println("I2C Bus (pins 21, 22):");
+  Serial.println("  - Voice Sensor (I2C)");
+  Serial.println("  - MPU6050");
+  Serial.println("GPS UART (pins 16, 17):");
+  Serial.println("  - GPS TX → GPIO 16");
+  Serial.println("  - GPS RX → GPIO 17");
   Serial.println("========================================\n");
 
   pinMode(TOUCHPIN, INPUT);
@@ -93,21 +93,36 @@ void setup() {
   pinMode(MQ2PIN, INPUT);
   digitalWrite(BUZZER, LOW);
 
-  Wire.begin(I2C_SDA, I2C_SCL); 
-
-  // --- 1. DHT ---
-  Serial.print("[1/5] DHT Sensor... ");
-  dht.begin();
-  delay(2000);
-  float testTemp = dht.readTemperature();
-  if (isnan(testTemp)) {
-    Serial.println("❌");
-  } else {
-    Serial.printf("✅ %.1f°C\n", testTemp);
+  // === 1. GPS (UART Serial2) - First to avoid conflicts ===
+  Serial.print("[1/5] GPS NEO-M8N... ");
+  Serial2.begin(9600, SERIAL_8N1, GPS_RX, GPS_TX);
+  delay(500);
+  
+  // Quick test
+  int charCount = 0;
+  unsigned long testStart = millis();
+  while (millis() - testStart < 1000) {
+    if (Serial2.available()) {
+      Serial2.read();
+      charCount++;
+    }
   }
+  
+  if (charCount > 0) {
+    Serial.printf("✅ (%d chars/sec)\n", charCount);
+  } else {
+    Serial.println("⚡ Started (waiting for data)");
+  }
+  gpsConnected = true;
+  Serial.printf("     Geofence: %.4f, %.4f (R=%.0fm)\n", 
+                FACILITY_LAT, FACILITY_LON, GEOFENCE_RADIUS_METERS);
 
-  // --- 2. MPU6050 ---
-  Serial.print("[2/5] MPU6050... ");
+  // === 2. I2C Bus ===
+  Wire.begin(I2C_SDA, I2C_SCL);
+  delay(100);
+
+  // === 3. MPU6050 (I2C) ===
+  Serial.print("[2/5] MPU6050 (I2C)... ");
   if (!mpu.begin()) {
     Serial.println("❌");
     mpuConnected = false;
@@ -119,54 +134,38 @@ void setup() {
     mpuConnected = true;
   }
 
-  // --- 3. Voice Sensor (MUST init before GPS to claim Serial2 first) ---
-  Serial.print("[3/5] Voice Sensor... ");
+  // === 4. Voice Sensor (I2C) ===
+  Serial.print("[3/5] Voice Sensor (I2C)... ");
   delay(200);
   if (!voiceSensor.begin()) {
-    Serial.println("❌");
+    Serial.println("❌ Check C→21, D→22");
     voiceConnected = false;
   } else {
     Serial.println("✅");
-    voiceSensor.settingCMD(DF2301Q_UART_MSG_CMD_SET_VOLUME, 7);
-    voiceSensor.settingCMD(DF2301Q_UART_MSG_CMD_SET_MUTE, 0);
-    voiceSensor.settingCMD(DF2301Q_UART_MSG_CMD_SET_WAKE_TIME, 20);
+    // I2C mode uses different methods - basic settings work by default
+    voiceSensor.setVolume(7);
+    voiceSensor.setMuteMode(0);
+    voiceSensor.setWakeTime(20);
     voiceConnected = true;
   }
 
-  // --- 4. GPS (Using Serial1 with SAFE pin remapping) ---
-  Serial.print("[4/5] GPS NEO-M8N... ");
-  // CRITICAL: Remap Serial1 pins BEFORE begin() is effectively called
-  // Using explicit UART1 with custom pins
-  Serial1.begin(9600, SERIAL_8N1, GPS_RX, GPS_TX);
-  delay(500);  // Give GPS time to initialize
-  
-  // Quick test - check if any data coming in
-  unsigned long testStart = millis();
-  int charCount = 0;
-  while (millis() - testStart < 1000) {
-    if (Serial1.available()) {
-      Serial1.read();  // Just count, don't process yet
-      charCount++;
-    }
-  }
-  
-  if (charCount > 0) {
-    Serial.printf("✅ (%d bytes/sec)\n", charCount);
-    gpsConnected = true;
+  // === 5. DHT ===
+  Serial.print("[4/5] DHT Sensor... ");
+  dht.begin();
+  delay(2000);
+  float testTemp = dht.readTemperature();
+  if (isnan(testTemp)) {
+    Serial.println("❌");
   } else {
-    Serial.println("⚡ Started (no data yet)");
-    gpsConnected = true;  // Still try to use it
+    Serial.printf("✅ %.1f°C\n", testTemp);
   }
-  
-  Serial.printf("     Geofence: %.4f, %.4f (R=%.0fm)\n", 
-                FACILITY_LAT, FACILITY_LON, GEOFENCE_RADIUS_METERS);
 
-  // --- 5. WiFi ---
+  // === 6. WiFi ===
   Serial.print("[5/5] WiFi... ");
   connectToWiFi();
   
   Serial.println("\n✅ Setup complete!");
-  Serial.println("📡 GPS will acquire satellites near window...\n");
+  Serial.println("📡 GPS acquiring satellites...\n");
 }
 
 // ============================================
@@ -187,9 +186,9 @@ void loop() {
     handleGPS();
   }
 
-  // GPS debug every 15 seconds if no fix
+  // GPS debug
   static unsigned long lastDebug = 0;
-  if (millis() - lastDebug > 15000 && !gpsValid && gpsConnected) {
+  if (millis() - lastDebug > 10000 && !gpsValid && gpsConnected) {
     lastDebug = millis();
     Serial.printf("[GPS] chars=%lu, valid=%s\n", 
                  (unsigned long)gps.charsProcessed(), 
@@ -206,16 +205,15 @@ void loop() {
     buzzerActive = false;
   }
 
-  delay(10);  // Shorter delay for better GPS processing
+  delay(10);
 }
 
 // ============================================
-// GPS
+// GPS (Serial2)
 // ============================================
 void handleGPS() {
-  // Read all available GPS data
-  while (Serial1.available() > 0) {
-    char c = Serial1.read();
+  while (Serial2.available() > 0) {
+    char c = Serial2.read();
     gps.encode(c);
   }
 
@@ -293,7 +291,7 @@ void handleTouchSensor() {
 }
 
 // ============================================
-// VOICE RECOGNITION
+// VOICE RECOGNITION (I2C)
 // ============================================
 void handleVoiceRecognition() {
   uint8_t cmdID = voiceSensor.getCMDID();
@@ -379,7 +377,7 @@ void readAndSendSensorData() {
     if (sqrt(ax*ax + ay*ay + az*az) > 25.0) fallDetected = true;
   }
 
-  // Compact status
+  // Status output
   Serial.printf("T:%.1f H:%.1f G:%d ", temp, hum, gasPPM);
   if (gpsValid) {
     Serial.printf("GPS:%.5f,%.5f %s\n", currentLat, currentLon, 
@@ -404,11 +402,11 @@ void readAndSendSensorData() {
   doc["longitude"] = currentLon;
   doc["gps_valid"] = gpsValid;
   doc["geofence_violation"] = !insideGeofence;
+  doc["gps_chars"] = (unsigned long)gps.charsProcessed();
   if (gpsValid) {
     doc["satellites"] = gps.satellites.value();
     doc["gps_speed"] = gps.speed.kmph();
   }
-  doc["gps_chars"] = (unsigned long)gps.charsProcessed();  // Debug: GPS chars received
   doc["battery"] = 85;
   doc["rssi"] = WiFi.RSSI();
 

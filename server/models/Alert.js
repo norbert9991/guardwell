@@ -13,8 +13,10 @@ const Alert = sequelize.define('Alert', {
             'Gas Detection',
             'Fall Detected',
             'Emergency Button',
+            'Voice Alert',
             'Low Battery',
-            'Device Offline'
+            'Device Offline',
+            'Geofence Violation'
         ),
         allowNull: false
     },
@@ -45,7 +47,7 @@ const Alert = sequelize.define('Alert', {
         comment: 'The threshold that was exceeded'
     },
     status: {
-        type: DataTypes.ENUM('Pending', 'Acknowledged', 'Resolved'),
+        type: DataTypes.ENUM('Pending', 'Acknowledged', 'Responding', 'Resolved'),
         defaultValue: 'Pending'
     },
     acknowledgedBy: {
@@ -58,6 +60,35 @@ const Alert = sequelize.define('Alert', {
     },
     resolvedAt: {
         type: DataTypes.DATE,
+        allowNull: true
+    },
+    // New fields for emergency queue workflow
+    assignedTo: {
+        type: DataTypes.STRING(100),
+        allowNull: true,
+        comment: 'Officer/Admin handling this emergency'
+    },
+    priority: {
+        type: DataTypes.INTEGER,
+        defaultValue: 3,
+        comment: 'Priority 1-5 (1=highest)'
+    },
+    responseNotes: {
+        type: DataTypes.TEXT,
+        allowNull: true,
+        comment: 'Notes from responder during handling'
+    },
+    voiceCommand: {
+        type: DataTypes.STRING(50),
+        allowNull: true,
+        comment: 'Voice command that triggered alert (e.g., tulong, aray)'
+    },
+    latitude: {
+        type: DataTypes.DECIMAL(10, 8),
+        allowNull: true
+    },
+    longitude: {
+        type: DataTypes.DECIMAL(11, 8),
         allowNull: true
     },
     notes: {

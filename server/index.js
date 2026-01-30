@@ -103,15 +103,74 @@ const connectMQTT = () => {
             }
 
             if (topic.startsWith('guardwell/emergency/')) {
-                // Handle emergency button press
+                // Handle emergency button press - SAVE TO DATABASE
                 const deviceId = topic.split('/')[2];
-                io.emit('emergency_alert', {
-                    device_id: deviceId,
-                    type: 'Emergency Button',
-                    severity: 'Critical',
-                    timestamp: new Date().toISOString(),
-                    ...payload
-                });
+
+                try {
+                    const { Alert, Device, Worker } = require('./models');
+
+                    // Find device and associated worker
+                    const device = await Device.findOne({
+                        where: { deviceId },
+                        include: [{ model: Worker, as: 'worker' }]
+                    });
+
+                    // Determine alert type
+                    let alertType = 'Emergency Button';
+                    let voiceCommand = null;
+                    if (payload.voice_alert) {
+                        alertType = 'Voice Alert';
+                        voiceCommand = payload.voice_command || null;
+                    }
+
+                    // Create alert in database
+                    const alert = await Alert.create({
+                        type: alertType,
+                        severity: 'Critical',
+                        deviceId: deviceId,
+                        workerId: device?.worker?.id || null,
+                        priority: 1, // Highest priority for emergencies
+                        voiceCommand: voiceCommand,
+                        latitude: payload.latitude || null,
+                        longitude: payload.longitude || null,
+                        triggerValue: voiceCommand || 'Button Pressed'
+                    });
+
+                    // Fetch the complete alert with worker info
+                    const savedAlert = await Alert.findByPk(alert.id, {
+                        include: [{ model: Worker, as: 'worker' }]
+                    });
+
+                    console.log('🚨 Emergency saved to database:', savedAlert.id);
+
+                    // Broadcast to all connected clients with database ID
+                    io.emit('emergency_alert', {
+                        id: savedAlert.id,
+                        device: deviceId,
+                        device_id: deviceId,
+                        type: alertType,
+                        severity: 'Critical',
+                        status: 'Pending',
+                        timestamp: savedAlert.createdAt,
+                        worker_name: device?.worker?.fullName || payload.worker_name || 'Unknown Worker',
+                        workerId: device?.worker?.id || null,
+                        voice_command: voiceCommand,
+                        latitude: payload.latitude,
+                        longitude: payload.longitude,
+                        alert: savedAlert
+                    });
+                } catch (dbError) {
+                    console.error('Error saving emergency to database:', dbError);
+                    // Still broadcast even if DB save fails
+                    io.emit('emergency_alert', {
+                        device: deviceId,
+                        device_id: deviceId,
+                        type: 'Emergency Button',
+                        severity: 'Critical',
+                        timestamp: new Date().toISOString(),
+                        ...payload
+                    });
+                }
             }
         } catch (error) {
             console.error('Error processing MQTT message:', error);

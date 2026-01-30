@@ -7,6 +7,7 @@ import { ProtectedRoute } from './routes/ProtectedRoute';
 import { Navbar } from './components/layout/Navbar';
 import { Sidebar } from './components/layout/Sidebar';
 import { GlobalEmergencyAlert } from './components/GlobalEmergencyAlert';
+import { EmergencyQueuePanel } from './components/EmergencyQueuePanel';
 
 // Pages
 import { Login } from './pages/Login';
@@ -31,10 +32,12 @@ const LayoutWrapper = ({ children }) => {
             <Sidebar />
             <div className="flex-1 flex flex-col overflow-hidden">
                 <Navbar />
-                <main className="flex-1 overflow-y-auto p-6">
+                <main className="flex-1 overflow-y-auto p-6 pr-[400px]">
                     {children}
                 </main>
             </div>
+            {/* Emergency Queue Panel - persistent sidebar */}
+            <EmergencyQueuePanel />
         </div>
     );
 };

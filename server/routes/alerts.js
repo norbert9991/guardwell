@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { Alert, Worker } = require('../models');
+const { Op } = require('sequelize');
 
 // Get all alerts (excluding archived by default)
 router.get('/', async (req, res) => {
@@ -20,6 +21,28 @@ router.get('/', async (req, res) => {
     } catch (error) {
         console.error('Error fetching alerts:', error);
         res.status(500).json({ error: 'Failed to fetch alerts' });
+    }
+});
+
+// Get active emergencies (Pending, Acknowledged, Responding - not Resolved)
+router.get('/active', async (req, res) => {
+    try {
+        const alerts = await Alert.findAll({
+            where: {
+                status: { [Op.in]: ['Pending', 'Acknowledged', 'Responding'] },
+                archived: false
+            },
+            include: [{ model: Worker, as: 'worker' }],
+            order: [
+                ['priority', 'ASC'],           // Priority 1 first
+                ['status', 'ASC'],             // Pending before Acknowledged
+                ['createdAt', 'DESC']          // Newest first
+            ]
+        });
+        res.json(alerts);
+    } catch (error) {
+        console.error('Error fetching active emergencies:', error);
+        res.status(500).json({ error: 'Failed to fetch active emergencies' });
     }
 });
 
@@ -54,18 +77,126 @@ router.post('/:id/acknowledge', async (req, res) => {
         if (!updated) {
             return res.status(404).json({ error: 'Alert not found' });
         }
-        const alert = await Alert.findByPk(req.params.id);
+        const alert = await Alert.findByPk(req.params.id, {
+            include: [{ model: Worker, as: 'worker' }]
+        });
 
         // Broadcast update
-        req.io.emit('alert_updated', {
+        req.io.emit('emergency_status_updated', {
             alertId: req.params.id,
-            status: 'Acknowledged'
+            status: 'Acknowledged',
+            acknowledgedBy: alert.acknowledgedBy,
+            acknowledgedAt: alert.acknowledgedAt,
+            alert
         });
 
         res.json(alert);
     } catch (error) {
         console.error('Error acknowledging alert:', error);
         res.status(500).json({ error: 'Failed to acknowledge alert' });
+    }
+});
+
+// Batch acknowledge multiple alerts
+router.post('/batch-acknowledge', async (req, res) => {
+    try {
+        const { alertIds, acknowledgedBy } = req.body;
+
+        if (!alertIds || !Array.isArray(alertIds) || alertIds.length === 0) {
+            return res.status(400).json({ error: 'alertIds array is required' });
+        }
+
+        await Alert.update(
+            {
+                status: 'Acknowledged',
+                acknowledgedBy: acknowledgedBy || 'System',
+                acknowledgedAt: new Date()
+            },
+            { where: { id: { [Op.in]: alertIds } } }
+        );
+
+        const alerts = await Alert.findAll({
+            where: { id: { [Op.in]: alertIds } },
+            include: [{ model: Worker, as: 'worker' }]
+        });
+
+        // Broadcast updates for each
+        alerts.forEach(alert => {
+            req.io.emit('emergency_status_updated', {
+                alertId: alert.id,
+                status: 'Acknowledged',
+                acknowledgedBy: alert.acknowledgedBy,
+                alert
+            });
+        });
+
+        res.json({ message: `${alerts.length} alerts acknowledged`, alerts });
+    } catch (error) {
+        console.error('Error batch acknowledging alerts:', error);
+        res.status(500).json({ error: 'Failed to batch acknowledge alerts' });
+    }
+});
+
+// Assign alert to officer
+router.post('/:id/assign', async (req, res) => {
+    try {
+        const { assignedTo } = req.body;
+        const [updated] = await Alert.update(
+            { assignedTo },
+            { where: { id: req.params.id } }
+        );
+        if (!updated) {
+            return res.status(404).json({ error: 'Alert not found' });
+        }
+        const alert = await Alert.findByPk(req.params.id, {
+            include: [{ model: Worker, as: 'worker' }]
+        });
+
+        // Broadcast update
+        req.io.emit('emergency_status_updated', {
+            alertId: req.params.id,
+            assignedTo,
+            alert
+        });
+
+        res.json(alert);
+    } catch (error) {
+        console.error('Error assigning alert:', error);
+        res.status(500).json({ error: 'Failed to assign alert' });
+    }
+});
+
+// Mark as responding
+router.post('/:id/respond', async (req, res) => {
+    try {
+        const { respondingBy, responseNotes } = req.body;
+        const [updated] = await Alert.update(
+            {
+                status: 'Responding',
+                assignedTo: respondingBy,
+                responseNotes
+            },
+            { where: { id: req.params.id } }
+        );
+        if (!updated) {
+            return res.status(404).json({ error: 'Alert not found' });
+        }
+        const alert = await Alert.findByPk(req.params.id, {
+            include: [{ model: Worker, as: 'worker' }]
+        });
+
+        // Broadcast update
+        req.io.emit('emergency_status_updated', {
+            alertId: req.params.id,
+            status: 'Responding',
+            assignedTo: alert.assignedTo,
+            alert
+        });
+
+        res.json(alert);
+    } catch (error) {
+        console.error('Error marking alert as responding:', error);
+        res.status(500).json({ error: 'Failed to mark alert as responding' });
     }
 });
 
@@ -84,12 +215,15 @@ router.post('/:id/resolve', async (req, res) => {
         if (!updated) {
             return res.status(404).json({ error: 'Alert not found' });
         }
-        const alert = await Alert.findByPk(req.params.id);
+        const alert = await Alert.findByPk(req.params.id, {
+            include: [{ model: Worker, as: 'worker' }]
+        });
 
         // Broadcast update
-        req.io.emit('alert_updated', {
+        req.io.emit('emergency_resolved', {
             alertId: req.params.id,
-            status: 'Resolved'
+            status: 'Resolved',
+            alert
         });
 
         res.json(alert);

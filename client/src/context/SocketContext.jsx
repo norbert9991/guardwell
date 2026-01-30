@@ -73,10 +73,35 @@ export const SocketProvider = ({ children }) => {
                 const exists = prev.some(e => e.id === emergency.id ||
                     (e.device === emergency.device && Date.now() - new Date(e.timestamp).getTime() < 5000));
                 if (exists) return prev;
-                return [{ ...emergency, acknowledged: false }, ...prev];
+                return [{ ...emergency, acknowledged: false, status: 'Pending' }, ...prev];
             });
 
             setAlerts(prev => [emergency, ...prev]);
+        });
+
+        // Listen for emergency status updates (real-time sync across tabs)
+        newSocket.on('emergency_status_updated', (data) => {
+            console.log('📡 Emergency status updated:', data);
+            setEmergencyAlerts(prev =>
+                prev.map(e => {
+                    if (e.id === data.alertId) {
+                        return {
+                            ...e,
+                            status: data.status || e.status,
+                            assignedTo: data.assignedTo || e.assignedTo,
+                            acknowledgedBy: data.acknowledgedBy || e.acknowledgedBy,
+                            acknowledged: data.status === 'Acknowledged' || data.status === 'Responding' || e.acknowledged
+                        };
+                    }
+                    return e;
+                })
+            );
+        });
+
+        // Listen for resolved emergencies
+        newSocket.on('emergency_resolved', (data) => {
+            console.log('✅ Emergency resolved:', data);
+            setEmergencyAlerts(prev => prev.filter(e => e.id !== data.alertId));
         });
 
         setSocket(newSocket);

@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
-import { AlertTriangle, User, Radio, Clock, CheckCircle, Phone, Shield, Mic } from 'lucide-react';
+import { AlertTriangle, User, Radio, Clock, CheckCircle, Phone, Shield, Mic, Loader2 } from 'lucide-react';
 import { Button } from './ui/Button';
 import { useSocket } from '../context/SocketContext';
+import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { alertsApi } from '../utils/api';
 
 /**
  * Global Emergency Alert Overlay
@@ -11,7 +13,9 @@ import { useNavigate } from 'react-router-dom';
  */
 export const GlobalEmergencyAlert = () => {
     const { emergencyAlerts, hasActiveEmergency, acknowledgeEmergency } = useSocket();
+    const { user } = useAuth();
     const [acknowledgedDevices, setAcknowledgedDevices] = useState({});
+    const [loading, setLoading] = useState({});
     const navigate = useNavigate();
 
     // Don't render anything if no active emergencies
@@ -19,16 +23,30 @@ export const GlobalEmergencyAlert = () => {
 
     const unacknowledgedEmergencies = emergencyAlerts.filter(e => !e.acknowledged);
 
-    const handleAcknowledge = (emergency) => {
-        acknowledgeEmergency(emergency.id);
-        setAcknowledgedDevices(prev => ({
-            ...prev,
-            [emergency.device]: true
-        }));
+    const handleAcknowledge = async (emergency) => {
+        setLoading(prev => ({ ...prev, [emergency.id]: true }));
+        try {
+            // Persist to API first
+            if (emergency.id) {
+                await alertsApi.acknowledge(emergency.id, user?.fullName || 'Officer');
+            }
+            // Update local state
+            acknowledgeEmergency(emergency.id);
+            setAcknowledgedDevices(prev => ({
+                ...prev,
+                [emergency.device]: true
+            }));
+        } catch (error) {
+            console.error('Failed to acknowledge emergency:', error);
+            // Still update local state even if API fails
+            acknowledgeEmergency(emergency.id);
+        } finally {
+            setLoading(prev => ({ ...prev, [emergency.id]: false }));
+        }
     };
 
-    const handleAcknowledgeAndNavigate = (emergency) => {
-        handleAcknowledge(emergency);
+    const handleAcknowledgeAndNavigate = async (emergency) => {
+        await handleAcknowledge(emergency);
         // Navigate to Live Monitoring for more details
         navigate('/live-monitoring');
     };
@@ -99,16 +117,18 @@ export const GlobalEmergencyAlert = () => {
                                 <Button
                                     variant="danger"
                                     className="flex-1 py-3 text-lg font-semibold"
-                                    icon={<CheckCircle size={20} />}
+                                    icon={loading[emergency.id] ? <Loader2 size={20} className="animate-spin" /> : <CheckCircle size={20} />}
                                     onClick={() => handleAcknowledge(emergency)}
+                                    disabled={loading[emergency.id]}
                                 >
-                                    Acknowledge
+                                    {loading[emergency.id] ? 'Saving...' : 'Acknowledge'}
                                 </Button>
                                 <Button
                                     variant="primary"
                                     className="flex-1 py-3 text-lg font-semibold"
-                                    icon={<Shield size={20} />}
+                                    icon={loading[emergency.id] ? <Loader2 size={20} className="animate-spin" /> : <Shield size={20} />}
                                     onClick={() => handleAcknowledgeAndNavigate(emergency)}
+                                    disabled={loading[emergency.id]}
                                 >
                                     Acknowledge & Go to Monitoring
                                 </Button>

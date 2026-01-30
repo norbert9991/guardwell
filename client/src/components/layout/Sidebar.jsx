@@ -13,15 +13,21 @@ import {
     ChevronLeft,
     ChevronRight,
     Shield,
-    ShieldCheck
+    ShieldCheck,
+    Bell
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { useSocket } from '../../context/SocketContext';
 import { cn } from '../../utils/cn';
 
 export const Sidebar = () => {
     const [collapsed, setCollapsed] = useState(false);
     const location = useLocation();
     const { isAdmin, isHeadAdmin, userRole } = useAuth();
+    const { emergencyAlerts } = useSocket();
+
+    // Count pending emergencies
+    const pendingEmergencies = emergencyAlerts.filter(e => !e.acknowledged && e.status !== 'Resolved').length;
 
     // Menu items with minimum role required
     const menuItems = [
@@ -29,7 +35,7 @@ export const Sidebar = () => {
         { name: 'Live Monitoring', icon: Activity, path: '/live-monitoring', minRole: 'Safety Officer' },
         { name: 'Workers', icon: Users, path: '/workers', minRole: 'Safety Officer' },
         { name: 'Devices', icon: Radio, path: '/devices', minRole: 'Safety Officer' },
-        { name: 'Alerts', icon: AlertTriangle, path: '/alerts', minRole: 'Safety Officer' },
+        { name: 'Alerts', icon: AlertTriangle, path: '/alerts', minRole: 'Safety Officer', badge: pendingEmergencies },
         { name: 'Incidents', icon: FileText, path: '/incidents', minRole: 'Safety Officer' },
         { name: 'Reports', icon: BarChart3, path: '/reports', minRole: 'Safety Officer' },
         { name: 'Emergency Contacts', icon: Phone, path: '/emergency-contacts', minRole: 'Admin' },
@@ -106,7 +112,16 @@ export const Sidebar = () => {
                             {!collapsed && (
                                 <span className="font-medium tracking-wide">{item.name}</span>
                             )}
-                            {isActive && !collapsed && (
+                            {/* Emergency badge */}
+                            {item.badge > 0 && (
+                                <span className={cn(
+                                    "ml-auto px-2 py-0.5 text-xs font-bold rounded-full",
+                                    "bg-red-500 text-white animate-pulse"
+                                )}>
+                                    {item.badge}
+                                </span>
+                            )}
+                            {isActive && !collapsed && !item.badge && (
                                 <div className="ml-auto w-1.5 h-1.5 rounded-full bg-[#00BFA5] shadow-[0_0_8px_#00BFA5]" />
                             )}
                         </Link>

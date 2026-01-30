@@ -78,7 +78,11 @@ export const sensorsApi = {
 export const alertsApi = {
     getAll: (params = {}) => api.get('/alerts', { params }),
     getById: (id) => api.get(`/alerts/${id}`),
+    getActive: () => api.get('/alerts/active'),
     acknowledge: (id, acknowledgedBy) => api.post(`/alerts/${id}/acknowledge`, { acknowledgedBy }),
+    batchAcknowledge: (alertIds, acknowledgedBy) => api.post('/alerts/batch-acknowledge', { alertIds, acknowledgedBy }),
+    assign: (id, assignedTo) => api.post(`/alerts/${id}/assign`, { assignedTo }),
+    respond: (id, respondingBy, responseNotes) => api.post(`/alerts/${id}/respond`, { respondingBy, responseNotes }),
     resolve: (id, notes) => api.post(`/alerts/${id}/resolve`, { notes }),
     archive: (id) => api.patch(`/alerts/${id}/archive`)
 };
