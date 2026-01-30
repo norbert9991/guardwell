@@ -8,20 +8,16 @@ const Alert = sequelize.define('Alert', {
         autoIncrement: true
     },
     type: {
-        type: DataTypes.ENUM(
-            'High Temperature',
-            'Gas Detection',
-            'Fall Detected',
-            'Emergency Button',
-            'Voice Alert',
-            'Low Battery',
-            'Device Offline',
-            'Geofence Violation'
-        ),
+        // Changed from ENUM to STRING for PostgreSQL compatibility
+        // Valid values: 'High Temperature', 'Gas Detection', 'Fall Detected', 
+        // 'Emergency Button', 'Voice Alert', 'Low Battery', 'Device Offline', 'Geofence Violation'
+        type: DataTypes.STRING(50),
         allowNull: false
     },
     severity: {
-        type: DataTypes.ENUM('Low', 'Medium', 'High', 'Critical'),
+        // Changed from ENUM to STRING for PostgreSQL compatibility
+        // Valid values: 'Low', 'Medium', 'High', 'Critical'
+        type: DataTypes.STRING(20),
         allowNull: false
     },
     deviceId: {
@@ -47,7 +43,9 @@ const Alert = sequelize.define('Alert', {
         comment: 'The threshold that was exceeded'
     },
     status: {
-        type: DataTypes.ENUM('Pending', 'Acknowledged', 'Responding', 'Resolved'),
+        // Changed from ENUM to STRING for PostgreSQL compatibility
+        // Valid values: 'Pending', 'Acknowledged', 'Responding', 'Resolved'
+        type: DataTypes.STRING(20),
         defaultValue: 'Pending'
     },
     acknowledgedBy: {
