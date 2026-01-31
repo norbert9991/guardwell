@@ -817,7 +817,7 @@ export const SystemAdmin = () => {
                     <div className="bg-[#1a2235] rounded-lg p-3 border border-[#2d3a52]">
                         <div className="flex items-center justify-between text-sm">
                             <span className="text-gray-500">Logged in as:</span>
-                            <span className="text-white font-medium">{user?.email}</span>
+                            <span className="text-[#1F2937] font-medium">{user?.email}</span>
                         </div>
                         <div className="flex items-center justify-between text-sm mt-1">
                             <span className="text-gray-500">Role:</span>

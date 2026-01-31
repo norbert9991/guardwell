@@ -451,9 +451,9 @@ export const DeviceManagement = () => {
                 size="md"
             >
                 <div className="space-y-5">
-                    <div className="bg-[#0d1220] p-4 rounded-lg border border-[#2d3a52]">
-                        <p className="text-gray-400 text-sm">Device: <span className="font-semibold text-white">{selectedDevice?.deviceId}</span></p>
-                        <p className="text-gray-400 text-sm mt-1">Current: <span className="font-semibold text-white">{selectedDevice?.worker?.fullName || 'Unassigned'}</span></p>
+                    <div className="bg-[#EEF1F4] p-4 rounded-lg border border-[#E3E6EB]">
+                        <p className="text-[#4B5563] text-sm">Device: <span className="font-semibold text-[#1F2937]">{selectedDevice?.deviceId}</span></p>
+                        <p className="text-[#4B5563] text-sm mt-1">Current: <span className="font-semibold text-[#1F2937]">{selectedDevice?.worker?.fullName || 'Unassigned'}</span></p>
                     </div>
                     <div>
                         <label className="label-modal">
@@ -472,7 +472,7 @@ export const DeviceManagement = () => {
                             ))}
                         </select>
                     </div>
-                    <div className="flex gap-3 justify-end pt-4 border-t border-[#2d3a52]/50">
+                    <div className="flex gap-3 justify-end pt-4 border-t border-[#E3E6EB]">
                         <Button variant="secondary" onClick={() => setShowAssignModal(false)}>
                             Cancel
                         </Button>
@@ -492,29 +492,29 @@ export const DeviceManagement = () => {
             >
                 {selectedDevice && (
                     <div className="space-y-5">
-                        <div className="grid grid-cols-2 gap-4 text-sm bg-[#0d1220] p-4 rounded-lg border border-[#2d3a52]">
+                        <div className="grid grid-cols-2 gap-4 text-sm bg-[#EEF1F4] p-4 rounded-lg border border-[#E3E6EB]">
                             <div>
-                                <p className="text-gray-400">Device ID:</p>
-                                <p className="font-semibold text-white">{selectedDevice.deviceId}</p>
+                                <p className="text-[#4B5563]">Device ID:</p>
+                                <p className="font-semibold text-[#1F2937]">{selectedDevice.deviceId}</p>
                             </div>
                             <div>
-                                <p className="text-gray-400">Serial Number:</p>
-                                <p className="font-semibold text-white">{selectedDevice.serialNumber}</p>
+                                <p className="text-[#4B5563]">Serial Number:</p>
+                                <p className="font-semibold text-[#1F2937]">{selectedDevice.serialNumber}</p>
                             </div>
                             <div>
-                                <p className="text-gray-400">Type:</p>
-                                <p className="font-semibold text-white">{selectedDevice.type}</p>
+                                <p className="text-[#4B5563]">Type:</p>
+                                <p className="font-semibold text-[#1F2937]">{selectedDevice.type}</p>
                             </div>
                             <div>
-                                <p className="text-gray-400">Battery:</p>
-                                <p className="font-semibold text-white">{selectedDevice.battery}%</p>
+                                <p className="text-[#4B5563]">Battery:</p>
+                                <p className="font-semibold text-[#1F2937]">{selectedDevice.battery}%</p>
                             </div>
                             <div>
-                                <p className="text-gray-400">Firmware:</p>
-                                <p className="font-semibold text-white">{selectedDevice.firmwareVersion || 'Unknown'}</p>
+                                <p className="text-[#4B5563]">Firmware:</p>
+                                <p className="font-semibold text-[#1F2937]">{selectedDevice.firmwareVersion || 'Unknown'}</p>
                             </div>
                             <div>
-                                <p className="text-gray-400">Current Status:</p>
+                                <p className="text-[#4B5563]">Current Status:</p>
                                 <StatusBadge status={selectedDevice.status} />
                             </div>
                         </div>

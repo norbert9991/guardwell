@@ -688,7 +688,7 @@ export const EmergencyContacts = () => {
                                     type="text"
                                     value={selectedContact?.email || ''}
                                     disabled
-                                    className="input-modal bg-dark-lighter"
+                                    className="input-modal"
                                 />
                             </div>
                             <div>
@@ -697,7 +697,7 @@ export const EmergencyContacts = () => {
                                     type="text"
                                     value={selectedContact?.name || ''}
                                     disabled
-                                    className="input-modal bg-dark-lighter"
+                                    className="input-modal"
                                 />
                             </div>
                             <div>
@@ -755,7 +755,7 @@ export const EmergencyContacts = () => {
                                     type="text"
                                     value={selectedContact?.number || ''}
                                     disabled
-                                    className="input-modal bg-dark-lighter"
+                                    className="input-modal"
                                 />
                             </div>
                             <div>
@@ -764,7 +764,7 @@ export const EmergencyContacts = () => {
                                     type="text"
                                     value={selectedContact?.name || ''}
                                     disabled
-                                    className="input-modal bg-dark-lighter"
+                                    className="input-modal"
                                 />
                             </div>
                             <div>

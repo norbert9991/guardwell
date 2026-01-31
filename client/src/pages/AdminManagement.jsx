@@ -220,7 +220,7 @@ export const AdminManagement = () => {
             sortable: true,
             render: (row) => (
                 <div>
-                    <p className="font-medium text-white">{row.fullName}</p>
+                    <p className="font-medium text-[#1F2937]">{row.fullName}</p>
                     <p className="text-xs text-gray-400">{row.email}</p>
                 </div>
             )

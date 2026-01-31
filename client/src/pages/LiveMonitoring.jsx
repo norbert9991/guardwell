@@ -615,14 +615,14 @@ export const LiveMonitoring = () => {
                 {selectedWorker && (
                     <div className="space-y-6">
                         {/* Worker Info */}
-                        <div className="bg-[#0d1220] rounded-lg p-4 border border-[#2d3a52]">
+                        <div className="bg-[#EEF1F4] rounded-lg p-4 border border-[#E3E6EB]">
                             <div className="flex items-center gap-4">
-                                <div className="w-16 h-16 bg-[#00E5FF]/20 rounded-full flex items-center justify-center">
-                                    <User className="h-8 w-8 text-[#00E5FF]" />
+                                <div className="w-16 h-16 bg-[#6FA3D8]/20 rounded-full flex items-center justify-center">
+                                    <User className="h-8 w-8 text-[#6FA3D8]" />
                                 </div>
                                 <div>
-                                    <h3 className="text-xl font-bold text-white">{selectedWorker.name}</h3>
-                                    <p className="text-gray-400">{selectedWorker.department}</p>
+                                    <h3 className="text-xl font-bold text-[#1F2937]">{selectedWorker.name}</h3>
+                                    <p className="text-[#4B5563]">{selectedWorker.department}</p>
                                     <div className="flex items-center gap-2 mt-2">
                                         <Badge variant="info">{selectedWorker.device}</Badge>
                                         <Badge variant={selectedWorker.status === 'normal' ? 'success' : selectedWorker.status === 'warning' ? 'warning' : 'danger'}>
@@ -637,15 +637,15 @@ export const LiveMonitoring = () => {
                         <div>
                             <h4 className="label-modal mb-3">Current Sensor Readings</h4>
                             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                                <div className="bg-[#0d1220] p-4 rounded-lg border border-[#2d3a52]">
-                                    <div className="flex items-center gap-2 text-gray-400 mb-2">
+                                <div className="bg-[#EEF1F4] p-4 rounded-lg border border-[#E3E6EB]">
+                                    <div className="flex items-center gap-2 text-[#4B5563] mb-2">
                                         <Thermometer size={16} />
                                         <span className="text-sm">Temperature</span>
                                     </div>
-                                    <p className="text-2xl font-bold text-white">{selectedWorker.sensors.temperature}°C</p>
+                                    <p className="text-2xl font-bold text-[#1F2937]">{selectedWorker.sensors.temperature}°C</p>
                                 </div>
-                                <div className="bg-[#0d1220] p-4 rounded-lg border border-[#2d3a52]">
-                                    <div className="flex items-center gap-2 text-gray-400 mb-2">
+                                <div className="bg-[#EEF1F4] p-4 rounded-lg border border-[#E3E6EB]">
+                                    <div className="flex items-center gap-2 text-[#4B5563] mb-2">
                                         <Wind size={16} />
                                         <span className="text-sm">Gas Level</span>
                                     </div>
@@ -656,33 +656,33 @@ export const LiveMonitoring = () => {
                                         <p className={`text-xl font-bold ${getGasLevelInfo(selectedWorker.sensors.gas).color}`}>{selectedWorker.sensors.gas} PPM</p>
                                     </div>
                                 </div>
-                                <div className="bg-[#0d1220] p-4 rounded-lg border border-[#2d3a52]">
-                                    <div className="flex items-center gap-2 text-gray-400 mb-2">
+                                <div className="bg-[#EEF1F4] p-4 rounded-lg border border-[#E3E6EB]">
+                                    <div className="flex items-center gap-2 text-[#4B5563] mb-2">
                                         <Droplets size={16} />
                                         <span className="text-sm">Humidity</span>
                                     </div>
-                                    <p className="text-2xl font-bold text-white">{selectedWorker.sensors.humidity}%</p>
+                                    <p className="text-2xl font-bold text-[#1F2937]">{selectedWorker.sensors.humidity}%</p>
                                 </div>
-                                <div className="bg-[#0d1220] p-4 rounded-lg border border-[#2d3a52]">
-                                    <div className="flex items-center gap-2 text-gray-400 mb-2">
+                                <div className="bg-[#EEF1F4] p-4 rounded-lg border border-[#E3E6EB]">
+                                    <div className="flex items-center gap-2 text-[#4B5563] mb-2">
                                         <Battery size={16} />
                                         <span className="text-sm">Battery</span>
                                     </div>
-                                    <p className="text-2xl font-bold text-white">{selectedWorker.sensors.battery}%</p>
+                                    <p className="text-2xl font-bold text-[#1F2937]">{selectedWorker.sensors.battery}%</p>
                                 </div>
-                                <div className="bg-[#0d1220] p-4 rounded-lg border border-[#2d3a52]">
-                                    <div className="flex items-center gap-2 text-gray-400 mb-2">
+                                <div className="bg-[#EEF1F4] p-4 rounded-lg border border-[#E3E6EB]">
+                                    <div className="flex items-center gap-2 text-[#4B5563] mb-2">
                                         <Signal size={16} />
                                         <span className="text-sm">Signal</span>
                                     </div>
-                                    <p className="text-2xl font-bold text-white">{selectedWorker.sensors.signal} dBm</p>
+                                    <p className="text-2xl font-bold text-[#1F2937]">{selectedWorker.sensors.signal} dBm</p>
                                 </div>
-                                <div className="bg-[#0d1220] p-4 rounded-lg border border-[#2d3a52]">
-                                    <div className="flex items-center gap-2 text-gray-400 mb-2">
+                                <div className="bg-[#EEF1F4] p-4 rounded-lg border border-[#E3E6EB]">
+                                    <div className="flex items-center gap-2 text-[#4B5563] mb-2">
                                         <Clock size={16} />
                                         <span className="text-sm">Last Update</span>
                                     </div>
-                                    <p className="text-lg font-bold text-white">{formatTime(selectedWorker.lastUpdate)}</p>
+                                    <p className="text-lg font-bold text-[#1F2937]">{formatTime(selectedWorker.lastUpdate)}</p>
                                 </div>
                             </div>
                         </div>
@@ -691,37 +691,37 @@ export const LiveMonitoring = () => {
                         <div>
                             <h4 className="label-modal mb-3">Motion Data</h4>
                             <div className="grid grid-cols-2 gap-4">
-                                <div className="bg-[#0d1220] p-4 rounded-lg border border-[#2d3a52]">
-                                    <h5 className="text-sm text-gray-400 mb-2">Accelerometer (m/s²)</h5>
+                                <div className="bg-[#EEF1F4] p-4 rounded-lg border border-[#E3E6EB]">
+                                    <h5 className="text-sm text-[#4B5563] mb-2">Accelerometer (m/s²)</h5>
                                     <div className="grid grid-cols-3 gap-2 text-center">
                                         <div>
-                                            <span className="text-xs text-gray-500">X</span>
-                                            <p className="text-lg font-mono text-[#00E5FF]">{selectedWorker.sensors.accel.x.toFixed(2)}</p>
+                                            <span className="text-xs text-[#6B7280]">X</span>
+                                            <p className="text-lg font-mono text-[#6FA3D8]">{selectedWorker.sensors.accel.x.toFixed(2)}</p>
                                         </div>
                                         <div>
-                                            <span className="text-xs text-gray-500">Y</span>
-                                            <p className="text-lg font-mono text-[#00E5FF]">{selectedWorker.sensors.accel.y.toFixed(2)}</p>
+                                            <span className="text-xs text-[#6B7280]">Y</span>
+                                            <p className="text-lg font-mono text-[#6FA3D8]">{selectedWorker.sensors.accel.y.toFixed(2)}</p>
                                         </div>
                                         <div>
-                                            <span className="text-xs text-gray-500">Z</span>
-                                            <p className="text-lg font-mono text-[#00E5FF]">{selectedWorker.sensors.accel.z.toFixed(2)}</p>
+                                            <span className="text-xs text-[#6B7280]">Z</span>
+                                            <p className="text-lg font-mono text-[#6FA3D8]">{selectedWorker.sensors.accel.z.toFixed(2)}</p>
                                         </div>
                                     </div>
                                 </div>
-                                <div className="bg-[#0d1220] p-4 rounded-lg border border-[#2d3a52]">
-                                    <h5 className="text-sm text-gray-400 mb-2">Gyroscope (°/s)</h5>
+                                <div className="bg-[#EEF1F4] p-4 rounded-lg border border-[#E3E6EB]">
+                                    <h5 className="text-sm text-[#4B5563] mb-2">Gyroscope (°/s)</h5>
                                     <div className="grid grid-cols-3 gap-2 text-center">
                                         <div>
-                                            <span className="text-xs text-gray-500">X</span>
-                                            <p className="text-lg font-mono text-[#00E5FF]">{selectedWorker.sensors.gyro.x.toFixed(2)}</p>
+                                            <span className="text-xs text-[#6B7280]">X</span>
+                                            <p className="text-lg font-mono text-[#6FA3D8]">{selectedWorker.sensors.gyro.x.toFixed(2)}</p>
                                         </div>
                                         <div>
-                                            <span className="text-xs text-gray-500">Y</span>
-                                            <p className="text-lg font-mono text-[#00E5FF]">{selectedWorker.sensors.gyro.y.toFixed(2)}</p>
+                                            <span className="text-xs text-[#6B7280]">Y</span>
+                                            <p className="text-lg font-mono text-[#6FA3D8]">{selectedWorker.sensors.gyro.y.toFixed(2)}</p>
                                         </div>
                                         <div>
-                                            <span className="text-xs text-gray-500">Z</span>
-                                            <p className="text-lg font-mono text-[#00E5FF]">{selectedWorker.sensors.gyro.z.toFixed(2)}</p>
+                                            <span className="text-xs text-[#6B7280]">Z</span>
+                                            <p className="text-lg font-mono text-[#6FA3D8]">{selectedWorker.sensors.gyro.z.toFixed(2)}</p>
                                         </div>
                                     </div>
                                 </div>
@@ -729,7 +729,7 @@ export const LiveMonitoring = () => {
                         </div>
 
                         {/* Actions */}
-                        <div className="flex gap-3 pt-4 border-t border-[#2d3a52]/50">
+                        <div className="flex gap-3 pt-4 border-t border-[#E3E6EB]">
                             <Button
                                 variant="secondary"
                                 className="flex-1"

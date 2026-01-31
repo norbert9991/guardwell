@@ -29,25 +29,24 @@ export const Login = () => {
     };
 
     return (
-        <div className="min-h-screen bg-[#0B0F19] flex items-center justify-center p-4 relative overflow-hidden">
+        <div className="min-h-screen bg-gradient-to-br from-[#EEF1F4] via-white to-[#E3E6EB] flex items-center justify-center p-4 relative overflow-hidden">
             {/* Background decoration */}
             <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_50%_0%,#151B2B_0%,#0B0F19_100%)]" />
-                <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] bg-primary-500/20 rounded-full blur-[100px] animate-pulse-slow" />
-                <div className="absolute bottom-[-10%] right-[-10%] w-[500px] h-[500px] bg-secondary-500/20 rounded-full blur-[100px] animate-pulse-slow" style={{ animationDelay: '2s' }} />
-                <div className="absolute top-[20%] right-[20%] w-[300px] h-[300px] bg-primary-500/10 rounded-full blur-[80px] animate-float" />
+                <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] bg-[#6FA3D8]/20 rounded-full blur-[100px] animate-pulse-slow" />
+                <div className="absolute bottom-[-10%] right-[-10%] w-[500px] h-[500px] bg-[#1E3A5F]/10 rounded-full blur-[100px] animate-pulse-slow" style={{ animationDelay: '2s' }} />
+                <div className="absolute top-[20%] right-[20%] w-[300px] h-[300px] bg-[#6FA3D8]/10 rounded-full blur-[80px] animate-float" />
             </div>
 
             {/* Login Card */}
-            <div className="relative glass-card w-full max-w-md overflow-hidden animate-fade-in border-t border-white/10">
+            <div className="relative bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl w-full max-w-md overflow-hidden animate-fade-in border border-[#E3E6EB]">
                 {/* Header */}
                 <div className="px-8 py-8 text-center relative">
-                    <div className="absolute top-0 left-0 w-full h-32 bg-gradient-to-b from-primary-500/10 to-transparent pointer-events-none" />
-                    <div className="inline-flex items-center justify-center w-20 h-20 bg-white/5 rounded-2xl shadow-lg mb-6 backdrop-blur-xl border border-white/10 relative z-10 animate-float">
-                        <Shield className="h-10 w-10 text-primary-500 drop-shadow-[0_0_10px_rgba(0,229,255,0.5)]" />
+                    <div className="absolute top-0 left-0 w-full h-32 bg-gradient-to-b from-[#6FA3D8]/10 to-transparent pointer-events-none" />
+                    <div className="inline-flex items-center justify-center w-20 h-20 bg-[#6FA3D8]/10 rounded-2xl shadow-lg mb-6 backdrop-blur-xl border border-[#E3E6EB] relative z-10 animate-float">
+                        <Shield className="h-10 w-10 text-[#1E3A5F] drop-shadow-[0_0_10px_rgba(111,163,216,0.5)]" />
                     </div>
-                    <h1 className="text-3xl font-bold text-white mb-2 tracking-tight">GuardWell</h1>
-                    <p className="text-gray-400 text-sm font-medium tracking-wide uppercase">Industrial Safety Monitoring System</p>
+                    <h1 className="text-3xl font-bold text-[#1F2937] mb-2 tracking-tight">GuardWell</h1>
+                    <p className="text-[#4B5563] text-sm font-medium tracking-wide uppercase">Industrial Safety Monitoring System</p>
                 </div>
 
                 {/* Form */}
@@ -55,18 +54,18 @@ export const Login = () => {
                     <form onSubmit={handleSubmit} className="space-y-6">
                         {/* Email */}
                         <div className="space-y-2">
-                            <label className="block text-sm font-medium text-gray-300 ml-1">
+                            <label className="block text-sm font-medium text-[#4B5563] ml-1">
                                 Email Address
                             </label>
                             <div className="relative group">
                                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                    <Mail className="h-5 w-5 text-gray-500 group-focus-within:text-primary-500 transition-colors" />
+                                    <Mail className="h-5 w-5 text-[#6B7280] group-focus-within:text-[#6FA3D8] transition-colors" />
                                 </div>
                                 <input
                                     type="email"
                                     value={email}
                                     onChange={(e) => setEmail(e.target.value)}
-                                    className="input-dark pl-10 bg-black/20 border-white/10 focus:border-primary-500/50 focus:bg-black/40"
+                                    className="w-full h-12 pl-10 pr-4 bg-[#EEF1F4] border border-[#E3E6EB] rounded-lg text-[#1F2937] placeholder-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-[#6FA3D8]/50 focus:border-[#6FA3D8] transition-all"
                                     placeholder="Enter your email"
                                     required
                                 />
@@ -75,18 +74,18 @@ export const Login = () => {
 
                         {/* Password */}
                         <div className="space-y-2">
-                            <label className="block text-sm font-medium text-gray-300 ml-1">
+                            <label className="block text-sm font-medium text-[#4B5563] ml-1">
                                 Password
                             </label>
                             <div className="relative group">
                                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                    <Lock className="h-5 w-5 text-gray-500 group-focus-within:text-primary-500 transition-colors" />
+                                    <Lock className="h-5 w-5 text-[#6B7280] group-focus-within:text-[#6FA3D8] transition-colors" />
                                 </div>
                                 <input
                                     type="password"
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
-                                    className="input-dark pl-10 bg-black/20 border-white/10 focus:border-primary-500/50 focus:bg-black/40"
+                                    className="w-full h-12 pl-10 pr-4 bg-[#EEF1F4] border border-[#E3E6EB] rounded-lg text-[#1F2937] placeholder-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-[#6FA3D8]/50 focus:border-[#6FA3D8] transition-all"
                                     placeholder="Enter your password"
                                     required
                                 />
@@ -95,7 +94,7 @@ export const Login = () => {
 
                         {/* Error Message */}
                         {error && (
-                            <div className="bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-3 rounded-lg text-sm flex items-center gap-2 animate-slide-in">
+                            <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg text-sm flex items-center gap-2 animate-slide-in">
                                 <AlertCircle className="h-4 w-4 flex-shrink-0" />
                                 <span>{error}</span>
                             </div>
@@ -104,7 +103,7 @@ export const Login = () => {
                         {/* Submit Button */}
                         <Button
                             type="submit"
-                            className="w-full h-12 text-lg shadow-[0_0_20px_rgba(0,229,255,0.3)] hover:shadow-[0_0_30px_rgba(0,229,255,0.5)] transition-all duration-300"
+                            className="w-full h-12 text-lg bg-[#1E3A5F] hover:bg-[#2C4A6E] shadow-lg hover:shadow-xl transition-all duration-300"
                             size="lg"
                             loading={loading}
                         >
@@ -114,7 +113,7 @@ export const Login = () => {
 
                     {/* Help Text */}
                     <div className="mt-6 text-center">
-                        <p className="text-sm text-gray-500">
+                        <p className="text-sm text-[#6B7280]">
                             Authorized personnel only. Contact your administrator for access.
                         </p>
                     </div>
@@ -122,7 +121,7 @@ export const Login = () => {
             </div>
 
             {/* Footer */}
-            <div className="absolute bottom-6 text-center text-gray-500 text-xs tracking-wider uppercase">
+            <div className="absolute bottom-6 text-center text-[#6B7280] text-xs tracking-wider uppercase">
                 <p>© 2024 Cathay Metal Inc. All rights reserved.</p>
             </div>
         </div>

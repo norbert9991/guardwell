@@ -157,8 +157,8 @@ export const IncidentDetail = () => {
                         Back
                     </Button>
                     <div>
-                        <h1 className="text-2xl font-bold text-white">{incident.title}</h1>
-                        <p className="text-gray-400">Incident #{incident.id}</p>
+                        <h1 className="text-2xl font-bold text-[#1F2937]">{incident.title}</h1>
+                        <p className="text-[#4B5563]">Incident #{incident.id}</p>
                     </div>
                 </div>
                 <div className="flex items-center gap-3">
@@ -172,8 +172,8 @@ export const IncidentDetail = () => {
                 <div className="lg:col-span-2 space-y-6">
                     {/* Incident Details */}
                     <CardDark>
-                        <CardHeader className="px-6 py-4 border-b border-gray-700">
-                            <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+                        <CardHeader className="px-6 py-4 border-b border-[#E3E6EB]">
+                            <h2 className="text-lg font-semibold text-[#1F2937] flex items-center gap-2">
                                 <FileText size={20} />
                                 Incident Details
                             </h2>
@@ -181,52 +181,52 @@ export const IncidentDetail = () => {
                         <CardBody className="p-6 space-y-4">
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="text-sm text-gray-400">Type</label>
-                                    <p className="text-white mt-1">
+                                    <label className="text-sm text-[#4B5563]">Type</label>
+                                    <p className="text-[#1F2937] mt-1">
                                         <Badge variant="secondary">{incident.type}</Badge>
                                     </p>
                                 </div>
                                 <div>
-                                    <label className="text-sm text-gray-400">Date & Time</label>
-                                    <p className="text-white mt-1 flex items-center gap-2">
-                                        <Clock size={16} className="text-gray-500" />
+                                    <label className="text-sm text-[#4B5563]">Date & Time</label>
+                                    <p className="text-[#1F2937] mt-1 flex items-center gap-2">
+                                        <Clock size={16} className="text-[#6B7280]" />
                                         {formatDate(incident.createdAt)}
                                     </p>
                                 </div>
                                 <div>
-                                    <label className="text-sm text-gray-400">Affected Worker</label>
-                                    <p className="text-white mt-1 flex items-center gap-2">
-                                        <User size={16} className="text-gray-500" />
+                                    <label className="text-sm text-[#4B5563]">Affected Worker</label>
+                                    <p className="text-[#1F2937] mt-1 flex items-center gap-2">
+                                        <User size={16} className="text-[#6B7280]" />
                                         {incident.workerName || incident.worker?.fullName || 'Unknown'}
                                     </p>
                                 </div>
                                 <div>
-                                    <label className="text-sm text-gray-400">Location</label>
-                                    <p className="text-white mt-1 flex items-center gap-2">
-                                        <MapPin size={16} className="text-gray-500" />
+                                    <label className="text-sm text-[#4B5563]">Location</label>
+                                    <p className="text-[#1F2937] mt-1 flex items-center gap-2">
+                                        <MapPin size={16} className="text-[#6B7280]" />
                                         {incident.location || 'Not specified'}
                                     </p>
                                 </div>
                             </div>
 
                             <div>
-                                <label className="text-sm text-gray-400">Description</label>
-                                <p className="text-gray-300 mt-2 bg-[#0d1220] p-4 rounded-lg border border-[#2d3a52]">
+                                <label className="text-sm text-[#4B5563]">Description</label>
+                                <p className="text-[#4B5563] mt-2 bg-[#EEF1F4] p-4 rounded-lg border border-[#E3E6EB]">
                                     {incident.description || 'No description provided'}
                                 </p>
                             </div>
 
                             {incident.witnesses && (
                                 <div>
-                                    <label className="text-sm text-gray-400">Witnesses</label>
-                                    <p className="text-gray-300 mt-1">{incident.witnesses}</p>
+                                    <label className="text-sm text-[#4B5563]">Witnesses</label>
+                                    <p className="text-[#4B5563] mt-1">{incident.witnesses}</p>
                                 </div>
                             )}
 
                             {incident.resolution && (
-                                <div className="pt-4 border-t border-gray-700">
-                                    <label className="text-sm text-gray-400">Resolution</label>
-                                    <p className="text-gray-300 mt-2 bg-green-900/20 p-4 rounded-lg border border-green-800">
+                                <div className="pt-4 border-t border-[#E3E6EB]">
+                                    <label className="text-sm text-[#4B5563]">Resolution</label>
+                                    <p className="text-[#4B5563] mt-2 bg-green-50 p-4 rounded-lg border border-green-200">
                                         {incident.resolution}
                                     </p>
                                     {incident.resolvedAt && (
@@ -241,8 +241,8 @@ export const IncidentDetail = () => {
 
                     {/* Actions Taken */}
                     <CardDark>
-                        <CardHeader className="px-6 py-4 border-b border-gray-700 flex items-center justify-between">
-                            <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+                        <CardHeader className="px-6 py-4 border-b border-[#E3E6EB] flex items-center justify-between">
+                            <h2 className="text-lg font-semibold text-[#1F2937] flex items-center gap-2">
                                 <Activity size={20} />
                                 Actions Taken ({actionsTaken.length})
                             </h2>
@@ -252,13 +252,13 @@ export const IncidentDetail = () => {
                         </CardHeader>
                         <CardBody className="p-6">
                             {actionsTaken.length === 0 ? (
-                                <p className="text-gray-500 text-center py-4">No actions recorded yet</p>
+                                <p className="text-[#6B7280] text-center py-4">No actions recorded yet</p>
                             ) : (
                                 <div className="space-y-3">
                                     {actionsTaken.map((action, index) => (
-                                        <div key={action.id || index} className="bg-[#0d1220] p-4 rounded-lg border border-[#2d3a52]">
+                                        <div key={action.id || index} className="bg-[#EEF1F4] p-4 rounded-lg border border-[#E3E6EB]">
                                             <div className="flex items-start justify-between">
-                                                <p className="text-gray-300">{action.action}</p>
+                                                <p className="text-[#4B5563]">{action.action}</p>
                                                 <Badge variant="info" className="text-xs ml-2 shrink-0">
                                                     {action.performedBy}
                                                 </Badge>
@@ -273,8 +273,8 @@ export const IncidentDetail = () => {
 
                     {/* Notes */}
                     <CardDark>
-                        <CardHeader className="px-6 py-4 border-b border-gray-700 flex items-center justify-between">
-                            <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+                        <CardHeader className="px-6 py-4 border-b border-[#E3E6EB] flex items-center justify-between">
+                            <h2 className="text-lg font-semibold text-[#1F2937] flex items-center gap-2">
                                 <MessageSquare size={20} />
                                 Notes ({notes.length})
                             </h2>
@@ -284,13 +284,13 @@ export const IncidentDetail = () => {
                         </CardHeader>
                         <CardBody className="p-6">
                             {notes.length === 0 ? (
-                                <p className="text-gray-500 text-center py-4">No notes added yet</p>
+                                <p className="text-[#6B7280] text-center py-4">No notes added yet</p>
                             ) : (
                                 <div className="space-y-3">
                                     {notes.map((note, index) => (
-                                        <div key={note.id || index} className="bg-[#0d1220] p-4 rounded-lg border border-[#2d3a52]">
+                                        <div key={note.id || index} className="bg-[#EEF1F4] p-4 rounded-lg border border-[#E3E6EB]">
                                             <div className="flex items-start justify-between">
-                                                <p className="text-gray-300">{note.note}</p>
+                                                <p className="text-[#4B5563]">{note.note}</p>
                                                 <Badge variant="secondary" className="text-xs ml-2 shrink-0">
                                                     {note.addedBy}
                                                 </Badge>
@@ -307,8 +307,8 @@ export const IncidentDetail = () => {
                 {/* Sidebar Actions */}
                 <div className="space-y-6">
                     <CardDark>
-                        <CardHeader className="px-6 py-4 border-b border-gray-700">
-                            <h3 className="font-semibold text-white">Quick Actions</h3>
+                        <CardHeader className="px-6 py-4 border-b border-[#E3E6EB]">
+                            <h3 className="font-semibold text-[#1F2937]">Quick Actions</h3>
                         </CardHeader>
                         <CardBody className="p-4 space-y-3">
                             <Button
@@ -351,24 +351,24 @@ export const IncidentDetail = () => {
 
                     {/* Timeline */}
                     <CardDark>
-                        <CardHeader className="px-6 py-4 border-b border-gray-700">
-                            <h3 className="font-semibold text-white">Timeline</h3>
+                        <CardHeader className="px-6 py-4 border-b border-[#E3E6EB]">
+                            <h3 className="font-semibold text-[#1F2937]">Timeline</h3>
                         </CardHeader>
                         <CardBody className="p-4">
                             <div className="space-y-4">
                                 <div className="flex gap-3">
                                     <div className="w-2 h-2 mt-2 rounded-full bg-blue-500" />
                                     <div>
-                                        <p className="text-sm text-white">Incident Created</p>
-                                        <p className="text-xs text-gray-500">{formatDate(incident.createdAt)}</p>
+                                        <p className="text-sm text-[#1F2937]">Incident Created</p>
+                                        <p className="text-xs text-[#6B7280]">{formatDate(incident.createdAt)}</p>
                                     </div>
                                 </div>
                                 {actionsTaken.map((action, index) => (
                                     <div key={index} className="flex gap-3">
                                         <div className="w-2 h-2 mt-2 rounded-full bg-yellow-500" />
                                         <div>
-                                            <p className="text-sm text-white">Action: {action.action.substring(0, 30)}...</p>
-                                            <p className="text-xs text-gray-500">{formatDate(action.timestamp)}</p>
+                                            <p className="text-sm text-[#1F2937]">Action: {action.action.substring(0, 30)}...</p>
+                                            <p className="text-xs text-[#6B7280]">{formatDate(action.timestamp)}</p>
                                         </div>
                                     </div>
                                 ))}
@@ -376,8 +376,8 @@ export const IncidentDetail = () => {
                                     <div className="flex gap-3">
                                         <div className="w-2 h-2 mt-2 rounded-full bg-green-500" />
                                         <div>
-                                            <p className="text-sm text-white">Incident Resolved</p>
-                                            <p className="text-xs text-gray-500">{formatDate(incident.resolvedAt)}</p>
+                                            <p className="text-sm text-[#1F2937]">Incident Resolved</p>
+                                            <p className="text-xs text-[#6B7280]">{formatDate(incident.resolvedAt)}</p>
                                         </div>
                                     </div>
                                 )}
