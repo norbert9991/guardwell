@@ -60,7 +60,7 @@ export const WorkerProfile = () => {
             <div className="flex items-center justify-center h-96">
                 <div className="text-center">
                     <Loader2 className="h-12 w-12 text-primary-500 animate-spin mx-auto mb-4" />
-                    <p className="text-gray-400">Loading worker profile...</p>
+                    <p className="text-[#4B5563]">Loading worker profile...</p>
                 </div>
             </div>
         );
@@ -72,8 +72,8 @@ export const WorkerProfile = () => {
             <div className="flex items-center justify-center h-96">
                 <div className="text-center">
                     <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-                    <h2 className="text-xl font-bold text-white mb-2">Worker Not Found</h2>
-                    <p className="text-gray-400 mb-4">{error || 'The requested worker could not be found.'}</p>
+                    <h2 className="text-xl font-bold text-[#1F2937] mb-2">Worker Not Found</h2>
+                    <p className="text-[#4B5563] mb-4">{error || 'The requested worker could not be found.'}</p>
                     <Button onClick={() => navigate('/workers')}>
                         Back to Workers
                     </Button>
@@ -91,7 +91,7 @@ export const WorkerProfile = () => {
                 </Button>
                 <div>
                     <h1 className="text-3xl font-bold text-[#1F2937] mb-2">Worker Profile</h1>
-                    <p className="text-gray-400">View and manage worker information</p>
+                    <p className="text-[#4B5563]">View and manage worker information</p>
                 </div>
             </div>
 
@@ -100,40 +100,40 @@ export const WorkerProfile = () => {
                 <div className="lg:col-span-1 space-y-6">
                     <CardDark>
                         <CardBody className="p-6 text-center">
-                            <div className="w-24 h-24 bg-primary-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <div className="w-24 h-24 bg-[#6FA3D8] rounded-full flex items-center justify-center mx-auto mb-4">
                                 <User className="h-14 w-14 text-white" />
                             </div>
-                            <h2 className="text-2xl font-bold text-white mb-1">{worker.fullName}</h2>
-                            <p className="text-gray-400 mb-2">{worker.position}</p>
+                            <h2 className="text-2xl font-bold text-[#1F2937] mb-1">{worker.fullName}</h2>
+                            <p className="text-[#4B5563] mb-2">{worker.position}</p>
                             <StatusBadge status={worker.status} />
                         </CardBody>
                     </CardDark>
 
                     <CardDark>
-                        <CardHeader className="px-6 py-4 border-b border-gray-700">
-                            <h3 className="font-semibold text-white">Contact Information</h3>
+                        <CardHeader className="px-6 py-4 border-b border-[#E3E6EB]">
+                            <h3 className="font-semibold text-[#1F2937]">Contact Information</h3>
                         </CardHeader>
                         <CardBody className="p-6 space-y-3 text-sm">
                             <div>
-                                <p className="text-gray-400 mb-1">Employee Number</p>
-                                <p className="text-white font-medium">{worker.employeeNumber}</p>
+                                <p className="text-[#4B5563] mb-1">Employee Number</p>
+                                <p className="text-[#1F2937] font-medium">{worker.employeeNumber}</p>
                             </div>
                             <div>
-                                <p className="text-gray-400 mb-1">Email</p>
-                                <p className="text-white font-medium">{worker.email}</p>
+                                <p className="text-[#4B5563] mb-1">Email</p>
+                                <p className="text-[#1F2937] font-medium">{worker.email}</p>
                             </div>
                             <div>
-                                <p className="text-gray-400 mb-1">Phone</p>
-                                <p className="text-white font-medium">{worker.contactNumber}</p>
+                                <p className="text-[#4B5563] mb-1">Phone</p>
+                                <p className="text-[#1F2937] font-medium">{worker.contactNumber}</p>
                             </div>
                             <div>
-                                <p className="text-gray-400 mb-1">Department</p>
-                                <p className="text-white font-medium">{worker.department}</p>
+                                <p className="text-[#4B5563] mb-1">Department</p>
+                                <p className="text-[#1F2937] font-medium">{worker.department}</p>
                             </div>
                             <div>
-                                <p className="text-gray-400 mb-1">Emergency Contact</p>
-                                <p className="text-white font-medium">{worker.emergencyContactName || 'Not set'}</p>
-                                <p className="text-gray-400 text-xs">{worker.emergencyContactNumber || ''}</p>
+                                <p className="text-[#4B5563] mb-1">Emergency Contact</p>
+                                <p className="text-[#1F2937] font-medium">{worker.emergencyContactName || 'Not set'}</p>
+                                <p className="text-[#6B7280] text-xs">{worker.emergencyContactNumber || ''}</p>
                             </div>
                         </CardBody>
                     </CardDark>
@@ -146,44 +146,44 @@ export const WorkerProfile = () => {
                         <CardDark>
                             <CardBody className="p-6">
                                 <div className="flex items-center gap-3 mb-2">
-                                    <Radio className="h-5 w-5 text-primary-500" />
-                                    <span className="text-sm text-gray-400">Assigned Device</span>
+                                    <Radio className="h-5 w-5 text-[#6FA3D8]" />
+                                    <span className="text-sm text-[#4B5563]">Assigned Device</span>
                                 </div>
-                                <p className="text-2xl font-bold text-white">{worker.assignedDevice || 'None'}</p>
+                                <p className="text-2xl font-bold text-[#1F2937]">{worker.assignedDevice || 'None'}</p>
                             </CardBody>
                         </CardDark>
                         <CardDark>
                             <CardBody className="p-6">
                                 <div className="flex items-center gap-3 mb-2">
-                                    <AlertTriangle className="h-5 w-5 text-warning" />
-                                    <span className="text-sm text-gray-400">Total Alerts</span>
+                                    <AlertTriangle className="h-5 w-5 text-orange-500" />
+                                    <span className="text-sm text-[#4B5563]">Total Alerts</span>
                                 </div>
-                                <p className="text-2xl font-bold text-white">{recentAlerts.length}</p>
+                                <p className="text-2xl font-bold text-[#1F2937]">{recentAlerts.length}</p>
                             </CardBody>
                         </CardDark>
                         <CardDark>
                             <CardBody className="p-6">
                                 <div className="flex items-center gap-3 mb-2">
-                                    <Clock className="h-5 w-5 text-success" />
-                                    <span className="text-sm text-gray-400">PPE Compliance</span>
+                                    <Clock className="h-5 w-5 text-green-500" />
+                                    <span className="text-sm text-[#4B5563]">PPE Compliance</span>
                                 </div>
-                                <p className="text-2xl font-bold text-white">{worker.ppeCompliance}%</p>
+                                <p className="text-2xl font-bold text-[#1F2937]">{worker.ppeCompliance}%</p>
                             </CardBody>
                         </CardDark>
                     </div>
 
                     {/* Recent Alerts */}
                     <CardDark>
-                        <CardHeader className="px-6 py-4 border-b border-gray-700">
-                            <h3 className="font-semibold text-white">Recent Alerts</h3>
+                        <CardHeader className="px-6 py-4 border-b border-[#E3E6EB]">
+                            <h3 className="font-semibold text-[#1F2937]">Recent Alerts</h3>
                         </CardHeader>
                         <CardBody className="p-0">
-                            <div className="divide-y divide-gray-700">
+                            <div className="divide-y divide-[#E3E6EB]">
                                 {recentAlerts.map(alert => (
                                     <div key={alert.id} className="p-4 flex items-center justify-between">
                                         <div>
-                                            <p className="text-white font-medium">{alert.type}</p>
-                                            <p className="text-sm text-gray-400">{alert.date}</p>
+                                            <p className="text-[#1F2937] font-medium">{alert.type}</p>
+                                            <p className="text-sm text-[#4B5563]">{alert.date}</p>
                                         </div>
                                         <StatusBadge status={alert.status} />
                                     </div>
@@ -194,26 +194,26 @@ export const WorkerProfile = () => {
 
                     {/* Attendance */}
                     <CardDark>
-                        <CardHeader className="px-6 py-4 border-b border-gray-700">
-                            <h3 className="font-semibold text-white">Attendance Records</h3>
+                        <CardHeader className="px-6 py-4 border-b border-[#E3E6EB]">
+                            <h3 className="font-semibold text-[#1F2937]">Attendance Records</h3>
                         </CardHeader>
                         <CardBody className="p-0">
-                            <table className="min-w-full divide-y divide-gray-700">
-                                <thead className="bg-dark-lighter">
+                            <table className="min-w-full divide-y divide-[#E3E6EB]">
+                                <thead className="bg-[#EEF1F4]">
                                     <tr>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">Date</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">Time In</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">Time Out</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">Hours</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-[#4B5563] uppercase">Date</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-[#4B5563] uppercase">Time In</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-[#4B5563] uppercase">Time Out</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-[#4B5563] uppercase">Hours</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-gray-700">
+                                <tbody className="divide-y divide-[#E3E6EB]">
                                     {attendance.map((record, idx) => (
                                         <tr key={idx}>
-                                            <td className="px-6 py-4 text-sm text-white">{record.date}</td>
-                                            <td className="px-6 py-4 text-sm text-gray-300">{record.timeIn}</td>
-                                            <td className="px-6 py-4 text-sm text-gray-300">{record.timeOut}</td>
-                                            <td className="px-6 py-4 text-sm text-white font-medium">{record.hours}</td>
+                                            <td className="px-6 py-4 text-sm text-[#1F2937]">{record.date}</td>
+                                            <td className="px-6 py-4 text-sm text-[#4B5563]">{record.timeIn}</td>
+                                            <td className="px-6 py-4 text-sm text-[#4B5563]">{record.timeOut}</td>
+                                            <td className="px-6 py-4 text-sm text-[#1F2937] font-medium">{record.hours}</td>
                                         </tr>
                                     ))}
                                 </tbody>

@@ -261,7 +261,7 @@ export const EmergencyContacts = () => {
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-3xl font-bold text-[#1F2937] mb-2">Emergency Response</h1>
-                    <p className="text-gray-400">Manage emergency protocols and contacts</p>
+                    <p className="text-[#4B5563]">Manage emergency protocols and contacts</p>
                 </div>
                 <Button icon={<Plus size={18} />} onClick={() => setShowAddContactModal(true)}>Add Contact</Button>
             </div>
@@ -317,8 +317,8 @@ export const EmergencyContacts = () => {
                 {/* Contacts Table */}
                 <div className="lg:col-span-2">
                     <CardDark className="h-full">
-                        <CardHeader className="px-6 py-4 border-b border-white/10">
-                            <h3 className="text-lg font-bold text-white">Contact Directory</h3>
+                        <CardHeader className="px-6 py-4 border-b border-[#E3E6EB]">
+                            <h3 className="text-lg font-bold text-[#1F2937]">Contact Directory</h3>
                         </CardHeader>
                         <CardBody className="p-0">
                             <Table columns={columns} data={contacts} />
@@ -328,32 +328,32 @@ export const EmergencyContacts = () => {
 
                 {/* Response Protocols */}
                 <div className="lg:col-span-1">
-                    <CardDark className="h-full bg-gradient-to-b from-gray-800/50 to-transparent">
-                        <CardHeader className="px-6 py-4 border-b border-white/10">
-                            <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                                <Shield className="h-5 w-5 text-primary-500" />
+                    <CardDark className="h-full">
+                        <CardHeader className="px-6 py-4 border-b border-[#E3E6EB]">
+                            <h3 className="text-lg font-bold text-[#1F2937] flex items-center gap-2">
+                                <Shield className="h-5 w-5 text-[#6FA3D8]" />
                                 Response Protocols
                             </h3>
                         </CardHeader>
                         <CardBody className="p-6 space-y-6">
-                            <div className="relative pl-6 border-l-2 border-primary-500">
-                                <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-primary-500 border-4 border-gray-900" />
-                                <h4 className="text-white font-semibold mb-1">Immediate Notification</h4>
-                                <p className="text-sm text-gray-400">
+                            <div className="relative pl-6 border-l-2 border-[#6FA3D8]">
+                                <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-[#6FA3D8] border-4 border-white" />
+                                <h4 className="text-[#1F2937] font-semibold mb-1">Immediate Notification</h4>
+                                <p className="text-sm text-[#4B5563]">
                                     Immediate alerts sent via SMS and automated phone calls to all Priority 1 contacts.
                                 </p>
                             </div>
-                            <div className="relative pl-6 border-l-2 border-primary-500/50">
-                                <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-primary-500/50 border-4 border-gray-900" />
-                                <h4 className="text-white font-semibold mb-1">Secondary Notification</h4>
-                                <p className="text-sm text-gray-400">
+                            <div className="relative pl-6 border-l-2 border-[#6FA3D8]/50">
+                                <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-[#6FA3D8]/50 border-4 border-white" />
+                                <h4 className="text-[#1F2937] font-semibold mb-1">Secondary Notification</h4>
+                                <p className="text-sm text-[#4B5563]">
                                     Priority 2 and 3 contacts notified within 30 seconds if no acknowledgment received.
                                 </p>
                             </div>
-                            <div className="relative pl-6 border-l-2 border-gray-700">
-                                <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-gray-700 border-4 border-gray-900" />
-                                <h4 className="text-white font-semibold mb-1">Incident Logging</h4>
-                                <p className="text-sm text-gray-400">
+                            <div className="relative pl-6 border-l-2 border-[#9CA3AF]">
+                                <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-[#9CA3AF] border-4 border-white" />
+                                <h4 className="text-[#1F2937] font-semibold mb-1">Incident Logging</h4>
+                                <p className="text-sm text-[#4B5563]">
                                     All emergency events are automatically logged with timestamps and sensor data snapshots.
                                 </p>
                             </div>
@@ -373,8 +373,8 @@ export const EmergencyContacts = () => {
                     <div className="w-20 h-20 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
                         <AlertTriangle className="h-10 w-10 text-red-500" />
                     </div>
-                    <h3 className="text-xl font-bold text-white mb-2">Confirm Emergency Activation</h3>
-                    <p className="text-gray-400 mb-8">
+                    <h3 className="text-xl font-bold text-[#1F2937] mb-2">Confirm Emergency Activation</h3>
+                    <p className="text-[#4B5563] mb-8">
                         This action will trigger immediate alerts to all emergency contacts and activate alarms on all connected devices. This action is logged.
                     </p>
                     <div className="flex gap-3 justify-center">
@@ -612,10 +612,10 @@ export const EmergencyContacts = () => {
                             }`} />
                     </div>
 
-                    <h3 className="text-xl font-bold text-white mb-2">
+                    <h3 className="text-xl font-bold text-[#1F2937] mb-2">
                         {selectedContact?.name}
                     </h3>
-                    <p className="text-2xl font-mono text-[#00E5FF] mb-4">
+                    <p className="text-2xl font-mono text-[#6FA3D8] mb-4">
                         {selectedContact?.number}
                     </p>
 
@@ -677,8 +677,8 @@ export const EmergencyContacts = () => {
                             <div className="w-20 h-20 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
                                 <CheckCircle className="h-10 w-10 text-green-500" />
                             </div>
-                            <h3 className="text-xl font-bold text-white mb-2">Email Sent!</h3>
-                            <p className="text-gray-400">Email successfully sent to {selectedContact?.email}</p>
+                            <h3 className="text-xl font-bold text-[#1F2937] mb-2">Email Sent!</h3>
+                            <p className="text-[#4B5563]">Email successfully sent to {selectedContact?.email}</p>
                         </div>
                     ) : (
                         <>
@@ -744,8 +744,8 @@ export const EmergencyContacts = () => {
                             <div className="w-20 h-20 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
                                 <CheckCircle className="h-10 w-10 text-green-500" />
                             </div>
-                            <h3 className="text-xl font-bold text-white mb-2">SMS Sent!</h3>
-                            <p className="text-gray-400">SMS successfully sent to {selectedContact?.number}</p>
+                            <h3 className="text-xl font-bold text-[#1F2937] mb-2">SMS Sent!</h3>
+                            <p className="text-[#4B5563]">SMS successfully sent to {selectedContact?.number}</p>
                         </div>
                     ) : (
                         <>

@@ -368,13 +368,13 @@ export const LiveMonitoring = () => {
                         >
                             <CardBody className="p-6">
                                 {/* Worker Info */}
-                                <div className="flex items-start gap-4 mb-4 pb-4 border-b border-gray-700">
-                                    <div className="w-12 h-12 bg-primary-500 rounded-full flex items-center justify-center flex-shrink-0">
+                                <div className="flex items-start gap-4 mb-4 pb-4 border-b border-[#E3E6EB]">
+                                    <div className="w-12 h-12 bg-[#6FA3D8] rounded-full flex items-center justify-center flex-shrink-0">
                                         <User className="h-7 w-7 text-white" />
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                        <h3 className="font-semibold text-white truncate">{worker.name}</h3>
-                                        <p className="text-sm text-gray-400">{worker.department}</p>
+                                        <h3 className="font-semibold text-[#1F2937] truncate">{worker.name}</h3>
+                                        <p className="text-sm text-[#4B5563]">{worker.department}</p>
                                         <div className="flex items-center gap-2 mt-1">
                                             <Badge variant="info" className="text-xs">{worker.device}</Badge>
                                             <Badge
@@ -500,29 +500,29 @@ export const LiveMonitoring = () => {
 
                                     {/* Signal */}
                                     <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-2 text-gray-400">
+                                        <div className="flex items-center gap-2 text-[#4B5563]">
                                             <Signal size={16} />
                                             <span className="text-sm">Signal</span>
                                         </div>
-                                        <span className="font-semibold text-gray-300">{worker.sensors.signal} dBm</span>
+                                        <span className="font-semibold text-[#4B5563]">{worker.sensors.signal} dBm</span>
                                     </div>
 
                                     {/* Motion Data */}
-                                    <div className="mt-3 pt-3 border-t border-gray-700/50">
-                                        <div className="flex items-center gap-2 text-gray-400 mb-2">
+                                    <div className="mt-3 pt-3 border-t border-[#E3E6EB]">
+                                        <div className="flex items-center gap-2 text-[#4B5563] mb-2">
                                             <Activity size={16} />
                                             <span className="text-sm font-medium">Motion (X, Y, Z)</span>
                                         </div>
                                         <div className="grid grid-cols-2 gap-2 text-xs">
-                                            <div className="bg-black/20 p-2 rounded">
-                                                <span className="text-gray-500 block">Accel (m/s²)</span>
-                                                <span className="text-gray-300 font-mono">
+                                            <div className="bg-[#EEF1F4] p-2 rounded">
+                                                <span className="text-[#6B7280] block">Accel (m/s²)</span>
+                                                <span className="text-[#1F2937] font-mono">
                                                     {worker.sensors.accel.x.toFixed(1)}, {worker.sensors.accel.y.toFixed(1)}, {worker.sensors.accel.z.toFixed(1)}
                                                 </span>
                                             </div>
-                                            <div className="bg-black/20 p-2 rounded">
-                                                <span className="text-gray-500 block">Gyro (°/s)</span>
-                                                <span className="text-gray-300 font-mono">
+                                            <div className="bg-[#EEF1F4] p-2 rounded">
+                                                <span className="text-[#6B7280] block">Gyro (°/s)</span>
+                                                <span className="text-[#1F2937] font-mono">
                                                     {worker.sensors.gyro.x.toFixed(1)}, {worker.sensors.gyro.y.toFixed(1)}, {worker.sensors.gyro.z.toFixed(1)}
                                                 </span>
                                             </div>
@@ -530,32 +530,32 @@ export const LiveMonitoring = () => {
                                     </div>
 
                                     {/* GPS Debug Section */}
-                                    <div className="mt-3 pt-3 border-t border-gray-700/50">
-                                        <div className="flex items-center gap-2 text-gray-400 mb-2">
+                                    <div className="mt-3 pt-3 border-t border-[#E3E6EB]">
+                                        <div className="flex items-center gap-2 text-[#4B5563] mb-2">
                                             <MapPin size={16} />
                                             <span className="text-sm font-medium">GPS Status</span>
-                                            <span className={`ml-auto text-xs px-2 py-0.5 rounded ${worker.sensors.gpsValid ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400'}`}>
+                                            <span className={`ml-auto text-xs px-2 py-0.5 rounded ${worker.sensors.gpsValid ? 'bg-green-500/20 text-green-600' : 'bg-yellow-500/20 text-yellow-600'}`}>
                                                 {worker.sensors.gpsValid ? '✓ Fix' : '⏳ Acquiring'}
                                             </span>
                                         </div>
                                         <div className="grid grid-cols-2 gap-2 text-xs">
-                                            <div className="bg-black/20 p-2 rounded">
-                                                <span className="text-gray-500 block">Chars Received</span>
-                                                <span className={`font-mono ${worker.sensors.gpsChars > 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                            <div className="bg-[#EEF1F4] p-2 rounded">
+                                                <span className="text-[#6B7280] block">Chars Received</span>
+                                                <span className={`font-mono ${worker.sensors.gpsChars > 0 ? 'text-green-600' : 'text-red-500'}`}>
                                                     {worker.sensors.gpsChars?.toLocaleString() || 0}
                                                 </span>
                                             </div>
-                                            <div className="bg-black/20 p-2 rounded">
-                                                <span className="text-gray-500 block">Geofence</span>
-                                                <span className={`font-semibold ${worker.sensors.geofenceViolation ? 'text-red-400' : 'text-green-400'}`}>
+                                            <div className="bg-[#EEF1F4] p-2 rounded">
+                                                <span className="text-[#6B7280] block">Geofence</span>
+                                                <span className={`font-semibold ${worker.sensors.geofenceViolation ? 'text-red-500' : 'text-green-600'}`}>
                                                     {worker.sensors.geofenceViolation ? '⚠ Outside' : '✓ Inside'}
                                                 </span>
                                             </div>
                                         </div>
                                         {worker.sensors.gpsValid && worker.sensors.latitude && (
-                                            <div className="mt-2 bg-black/20 p-2 rounded text-xs">
-                                                <span className="text-gray-500 block">Coordinates</span>
-                                                <span className="text-cyan-400 font-mono">
+                                            <div className="mt-2 bg-[#EEF1F4] p-2 rounded text-xs">
+                                                <span className="text-[#6B7280] block">Coordinates</span>
+                                                <span className="text-cyan-600 font-mono">
                                                     {worker.sensors.latitude?.toFixed(6)}, {worker.sensors.longitude?.toFixed(6)}
                                                 </span>
                                             </div>
@@ -564,7 +564,7 @@ export const LiveMonitoring = () => {
                                 </div>
 
                                 {/* Actions */}
-                                <div className="mt-4 pt-4 border-t border-gray-700">
+                                <div className="mt-4 pt-4 border-t border-[#E3E6EB]">
                                     <div className="flex gap-2">
                                         <Button
                                             size="sm"

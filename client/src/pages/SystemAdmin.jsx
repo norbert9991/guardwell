@@ -258,8 +258,8 @@ export const SystemAdmin = () => {
             {/* Quick Stats */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <CardDark className="border-t-4 border-t-[#3B82F6]">
-                    <CardHeader className="px-6 py-4 border-b border-white/10">
-                        <h3 className="font-bold text-white flex items-center gap-2">
+                    <CardHeader className="px-6 py-4 border-b border-[#E3E6EB]">
+                        <h3 className="font-bold text-[#1F2937] flex items-center gap-2">
                             <Database className="h-5 w-5 text-[#3B82F6]" />
                             Database Statistics
                         </h3>
@@ -267,32 +267,32 @@ export const SystemAdmin = () => {
                     <CardBody className="p-6">
                         <div className="space-y-5">
                             <div className="flex justify-between">
-                                <span className="text-gray-400">Total Workers</span>
-                                <span className="text-white font-semibold">{systemStats.totalWorkers}</span>
+                                <span className="text-[#4B5563]">Total Workers</span>
+                                <span className="text-[#1F2937] font-semibold">{systemStats.totalWorkers}</span>
                             </div>
                             <div className="flex justify-between">
-                                <span className="text-gray-400">Total Devices</span>
-                                <span className="text-white font-semibold">{systemStats.totalDevices}</span>
+                                <span className="text-[#4B5563]">Total Devices</span>
+                                <span className="text-[#1F2937] font-semibold">{systemStats.totalDevices}</span>
                             </div>
                             <div className="flex justify-between">
-                                <span className="text-gray-400">Active Devices</span>
-                                <span className="text-white font-semibold">{systemStats.activeDevices}</span>
+                                <span className="text-[#4B5563]">Active Devices</span>
+                                <span className="text-[#1F2937] font-semibold">{systemStats.activeDevices}</span>
                             </div>
                             <div className="flex justify-between">
-                                <span className="text-gray-400">Total Alerts</span>
-                                <span className="text-white font-semibold">{systemStats.totalAlerts}</span>
+                                <span className="text-[#4B5563]">Total Alerts</span>
+                                <span className="text-[#1F2937] font-semibold">{systemStats.totalAlerts}</span>
                             </div>
                             <div className="flex justify-between">
-                                <span className="text-gray-400">Total Incidents</span>
-                                <span className="text-white font-semibold">{systemStats.totalIncidents}</span>
+                                <span className="text-[#4B5563]">Total Incidents</span>
+                                <span className="text-[#1F2937] font-semibold">{systemStats.totalIncidents}</span>
                             </div>
                         </div>
                     </CardBody>
                 </CardDark>
 
                 <CardDark className="border-t-4 border-t-[#10B981]">
-                    <CardHeader className="px-6 py-4 border-b border-white/10">
-                        <h3 className="font-bold text-white flex items-center gap-2">
+                    <CardHeader className="px-6 py-4 border-b border-[#E3E6EB]">
+                        <h3 className="font-bold text-[#1F2937] flex items-center gap-2">
                             <Bell className="h-5 w-5 text-[#10B981]" />
                             Current Alert Thresholds
                         </h3>
@@ -300,23 +300,23 @@ export const SystemAdmin = () => {
                     <CardBody className="p-6">
                         <div className="space-y-5">
                             <div className="flex justify-between items-center">
-                                <span className="text-gray-400">Temperature Warning</span>
+                                <span className="text-[#4B5563]">Temperature Warning</span>
                                 <Badge variant="warning">{settings.alertThresholds.temperatureWarning}°C</Badge>
                             </div>
                             <div className="flex justify-between items-center">
-                                <span className="text-gray-400">Temperature Critical</span>
+                                <span className="text-[#4B5563]">Temperature Critical</span>
                                 <Badge variant="danger">{settings.alertThresholds.temperatureCritical}°C</Badge>
                             </div>
                             <div className="flex justify-between items-center">
-                                <span className="text-gray-400">Gas Warning</span>
+                                <span className="text-[#4B5563]">Gas Warning</span>
                                 <Badge variant="warning">{settings.alertThresholds.gasWarning} PPM</Badge>
                             </div>
                             <div className="flex justify-between items-center">
-                                <span className="text-gray-400">Gas Critical</span>
+                                <span className="text-[#4B5563]">Gas Critical</span>
                                 <Badge variant="danger">{settings.alertThresholds.gasCritical} PPM</Badge>
                             </div>
                             <div className="flex justify-between items-center">
-                                <span className="text-gray-400">Low Battery</span>
+                                <span className="text-[#4B5563]">Low Battery</span>
                                 <Badge variant="warning">{settings.alertThresholds.batteryLow}%</Badge>
                             </div>
                         </div>
@@ -334,15 +334,15 @@ export const SystemAdmin = () => {
                     </CardBody>
                 </CardDark>
             </div>
-        </div>
+        </div >
     );
 
     const renderThresholds = () => (
         <div className="space-y-6">
             <CardDark>
-                <CardHeader className="px-6 py-4 border-b border-white/10">
+                <CardHeader className="px-6 py-4 border-b border-[#E3E6EB]">
                     <div className="flex items-center justify-between">
-                        <h3 className="font-bold text-white flex items-center gap-2">
+                        <h3 className="font-bold text-[#1F2937] flex items-center gap-2">
                             <Bell className="h-5 w-5 text-[#F59E0B]" />
                             Alert Threshold Configuration
                         </h3>
@@ -360,47 +360,47 @@ export const SystemAdmin = () => {
                 <CardBody className="p-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {/* Temperature Thresholds */}
-                        <div className="p-4 bg-dark-lighter rounded-lg">
-                            <h4 className="font-semibold text-white mb-4 flex items-center gap-2">
+                        <div className="p-4 bg-[#EEF1F4] rounded-lg">
+                            <h4 className="font-semibold text-[#1F2937] mb-4 flex items-center gap-2">
                                 🌡️ Temperature
                             </h4>
                             <div className="space-y-3">
                                 <div className="flex justify-between">
-                                    <span className="text-gray-400">Warning Level</span>
+                                    <span className="text-[#4B5563]">Warning Level</span>
                                     <span className="text-warning font-semibold">{settings.alertThresholds.temperatureWarning}°C</span>
                                 </div>
                                 <div className="flex justify-between">
-                                    <span className="text-gray-400">Critical Level</span>
+                                    <span className="text-[#4B5563]">Critical Level</span>
                                     <span className="text-danger font-semibold">{settings.alertThresholds.temperatureCritical}°C</span>
                                 </div>
                             </div>
                         </div>
 
                         {/* Gas Thresholds */}
-                        <div className="p-4 bg-dark-lighter rounded-lg">
-                            <h4 className="font-semibold text-white mb-4 flex items-center gap-2">
+                        <div className="p-4 bg-[#EEF1F4] rounded-lg">
+                            <h4 className="font-semibold text-[#1F2937] mb-4 flex items-center gap-2">
                                 💨 Gas Level
                             </h4>
                             <div className="space-y-3">
                                 <div className="flex justify-between">
-                                    <span className="text-gray-400">Warning Level</span>
+                                    <span className="text-[#4B5563]">Warning Level</span>
                                     <span className="text-warning font-semibold">{settings.alertThresholds.gasWarning} PPM</span>
                                 </div>
                                 <div className="flex justify-between">
-                                    <span className="text-gray-400">Critical Level</span>
+                                    <span className="text-[#4B5563]">Critical Level</span>
                                     <span className="text-danger font-semibold">{settings.alertThresholds.gasCritical} PPM</span>
                                 </div>
                             </div>
                         </div>
 
                         {/* Battery Threshold */}
-                        <div className="p-4 bg-dark-lighter rounded-lg">
-                            <h4 className="font-semibold text-white mb-4 flex items-center gap-2">
+                        <div className="p-4 bg-[#EEF1F4] rounded-lg">
+                            <h4 className="font-semibold text-[#1F2937] mb-4 flex items-center gap-2">
                                 🔋 Battery
                             </h4>
                             <div className="space-y-3">
                                 <div className="flex justify-between">
-                                    <span className="text-gray-400">Low Battery Warning</span>
+                                    <span className="text-[#4B5563]">Low Battery Warning</span>
                                     <span className="text-warning font-semibold">{settings.alertThresholds.batteryLow}%</span>
                                 </div>
                             </div>
@@ -416,18 +416,18 @@ export const SystemAdmin = () => {
     const renderSystemSettings = () => (
         <div className="space-y-6">
             <CardDark>
-                <CardHeader className="px-6 py-4 border-b border-white/10">
-                    <h3 className="font-bold text-white flex items-center gap-2">
+                <CardHeader className="px-6 py-4 border-b border-[#E3E6EB]">
+                    <h3 className="font-bold text-[#1F2937] flex items-center gap-2">
                         <Settings className="h-5 w-5 text-[#3B82F6]" />
                         Notification Settings
                     </h3>
                 </CardHeader>
                 <CardBody className="p-6">
                     <div className="space-y-5">
-                        <div className="flex items-center justify-between p-4 bg-dark-lighter rounded-lg">
+                        <div className="flex items-center justify-between p-4 bg-[#EEF1F4] rounded-lg">
                             <div>
-                                <h4 className="font-medium text-white">Email Alerts</h4>
-                                <p className="text-sm text-gray-400">Send critical alerts via email</p>
+                                <h4 className="font-medium text-[#1F2937]">Email Alerts</h4>
+                                <p className="text-sm text-[#4B5563]">Send critical alerts via email</p>
                             </div>
                             <label className="relative inline-flex items-center cursor-pointer">
                                 <input
@@ -443,10 +443,10 @@ export const SystemAdmin = () => {
                             </label>
                         </div>
 
-                        <div className="flex items-center justify-between p-4 bg-dark-lighter rounded-lg">
+                        <div className="flex items-center justify-between p-4 bg-[#EEF1F4] rounded-lg">
                             <div>
-                                <h4 className="font-medium text-white">SMS Alerts</h4>
-                                <p className="text-sm text-gray-400">Send emergency alerts via SMS</p>
+                                <h4 className="font-medium text-[#1F2937]">SMS Alerts</h4>
+                                <p className="text-sm text-[#4B5563]">Send emergency alerts via SMS</p>
                             </div>
                             <label className="relative inline-flex items-center cursor-pointer">
                                 <input
@@ -462,10 +462,10 @@ export const SystemAdmin = () => {
                             </label>
                         </div>
 
-                        <div className="flex items-center justify-between p-4 bg-dark-lighter rounded-lg">
+                        <div className="flex items-center justify-between p-4 bg-[#EEF1F4] rounded-lg">
                             <div>
-                                <h4 className="font-medium text-white">Push Notifications</h4>
-                                <p className="text-sm text-gray-400">Browser push notifications for alerts</p>
+                                <h4 className="font-medium text-[#1F2937]">Push Notifications</h4>
+                                <p className="text-sm text-[#4B5563]">Browser push notifications for alerts</p>
                             </div>
                             <label className="relative inline-flex items-center cursor-pointer">
                                 <input
@@ -485,28 +485,28 @@ export const SystemAdmin = () => {
             </CardDark>
 
             <CardDark>
-                <CardHeader className="px-6 py-4 border-b border-white/10">
-                    <h3 className="font-bold text-white flex items-center gap-2">
+                <CardHeader className="px-6 py-4 border-b border-[#E3E6EB]">
+                    <h3 className="font-bold text-[#1F2937] flex items-center gap-2">
                         <Database className="h-5 w-5 text-[#10B981]" />
                         Data Retention
                     </h3>
                 </CardHeader>
                 <CardBody className="p-6">
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <div className="p-4 bg-dark-lighter rounded-lg">
-                            <h4 className="font-medium text-white mb-2">Sensor Data</h4>
-                            <p className="text-2xl font-bold text-primary-500">{settings.dataRetention.sensorDataDays} days</p>
-                            <p className="text-sm text-gray-400">Raw sensor readings</p>
+                        <div className="p-4 bg-[#EEF1F4] rounded-lg">
+                            <h4 className="font-medium text-[#1F2937] mb-2">Sensor Data</h4>
+                            <p className="text-2xl font-bold text-[#6FA3D8]">{settings.dataRetention.sensorDataDays} days</p>
+                            <p className="text-sm text-[#4B5563]">Raw sensor readings</p>
                         </div>
-                        <div className="p-4 bg-dark-lighter rounded-lg">
-                            <h4 className="font-medium text-white mb-2">Alert History</h4>
-                            <p className="text-2xl font-bold text-warning">{settings.dataRetention.alertDataDays} days</p>
-                            <p className="text-sm text-gray-400">Alert records</p>
+                        <div className="p-4 bg-[#EEF1F4] rounded-lg">
+                            <h4 className="font-medium text-[#1F2937] mb-2">Alert History</h4>
+                            <p className="text-2xl font-bold text-orange-500">{settings.dataRetention.alertDataDays} days</p>
+                            <p className="text-sm text-[#4B5563]">Alert records</p>
                         </div>
-                        <div className="p-4 bg-dark-lighter rounded-lg">
-                            <h4 className="font-medium text-white mb-2">Incident Reports</h4>
-                            <p className="text-2xl font-bold text-danger">{settings.dataRetention.incidentDataDays} days</p>
-                            <p className="text-sm text-gray-400">Incident documentation</p>
+                        <div className="p-4 bg-[#EEF1F4] rounded-lg">
+                            <h4 className="font-medium text-[#1F2937] mb-2">Incident Reports</h4>
+                            <p className="text-2xl font-bold text-red-500">{settings.dataRetention.incidentDataDays} days</p>
+                            <p className="text-sm text-[#4B5563]">Incident documentation</p>
                         </div>
                     </div>
                 </CardBody>
@@ -517,9 +517,9 @@ export const SystemAdmin = () => {
     const renderDatabase = () => (
         <div className="space-y-6">
             <CardDark>
-                <CardHeader className="px-6 py-4 border-b border-white/10">
+                <CardHeader className="px-6 py-4 border-b border-[#E3E6EB]">
                     <div className="flex items-center justify-between">
-                        <h3 className="font-bold text-white flex items-center gap-2">
+                        <h3 className="font-bold text-[#1F2937] flex items-center gap-2">
                             <Database className="h-5 w-5 text-[#3B82F6]" />
                             Database Status
                         </h3>
@@ -531,52 +531,52 @@ export const SystemAdmin = () => {
                 </CardHeader>
                 <CardBody className="p-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="p-4 bg-dark-lighter rounded-lg">
+                        <div className="p-4 bg-[#EEF1F4] rounded-lg">
                             <div className="flex items-center gap-3 mb-4">
                                 <div className="w-3 h-3 rounded-full bg-green-500 animate-pulse"></div>
-                                <h4 className="font-medium text-white">MySQL Database</h4>
+                                <h4 className="font-medium text-[#1F2937]">MySQL Database</h4>
                             </div>
                             <div className="space-y-2 text-sm">
                                 <div className="flex justify-between">
-                                    <span className="text-gray-400">Status</span>
+                                    <span className="text-[#4B5563]">Status</span>
                                     <StatusBadge status="Active" />
                                 </div>
                                 <div className="flex justify-between">
-                                    <span className="text-gray-400">Host</span>
-                                    <span className="text-white">Railway (MySQL)</span>
+                                    <span className="text-[#4B5563]">Host</span>
+                                    <span className="text-[#1F2937]">Railway (MySQL)</span>
                                 </div>
                                 <div className="flex justify-between">
-                                    <span className="text-gray-400">Tables</span>
-                                    <span className="text-white">6</span>
+                                    <span className="text-[#4B5563]">Tables</span>
+                                    <span className="text-[#1F2937]">6</span>
                                 </div>
                             </div>
                         </div>
 
-                        <div className="p-4 bg-dark-lighter rounded-lg">
+                        <div className="p-4 bg-[#EEF1F4] rounded-lg">
                             <div className="flex items-center gap-3 mb-4">
                                 <div className={`w-3 h-3 rounded-full ${connected ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></div>
-                                <h4 className="font-medium text-white">Socket.io Server</h4>
+                                <h4 className="font-medium text-[#1F2937]">Socket.io Server</h4>
                             </div>
                             <div className="space-y-2 text-sm">
                                 <div className="flex justify-between">
-                                    <span className="text-gray-400">Status</span>
+                                    <span className="text-[#4B5563]">Status</span>
                                     <StatusBadge status={connected ? "Active" : "Offline"} />
                                 </div>
                                 <div className="flex justify-between">
-                                    <span className="text-gray-400">Connected Clients</span>
-                                    <span className="text-white">{connected ? '1' : '0'}</span>
+                                    <span className="text-[#4B5563]">Connected Clients</span>
+                                    <span className="text-[#1F2937]">{connected ? '1' : '0'}</span>
                                 </div>
                                 <div className="flex justify-between">
-                                    <span className="text-gray-400">Active Devices</span>
-                                    <span className="text-white">{Object.keys(sensorData).length}</span>
+                                    <span className="text-[#4B5563]">Active Devices</span>
+                                    <span className="text-[#1F2937]">{Object.keys(sensorData).length}</span>
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    <div className="mt-6 p-4 bg-dark-lighter rounded-lg border border-[#2d3a52]">
+                    <div className="mt-6 p-4 bg-[#EEF1F4] rounded-lg border border-[#E3E6EB]">
                         <div className="flex items-center justify-between mb-4">
-                            <h4 className="font-medium text-white flex items-center gap-2">
+                            <h4 className="font-medium text-[#1F2937] flex items-center gap-2">
                                 <Lock size={16} className="text-red-400" />
                                 Quick Actions
                             </h4>
@@ -638,7 +638,7 @@ export const SystemAdmin = () => {
             {/* Header */}
             <div>
                 <h1 className="text-3xl font-bold text-[#1F2937] mb-2">System Administration</h1>
-                <p className="text-gray-400">Manage system settings, thresholds, and configurations</p>
+                <p className="text-[#4B5563]">Manage system settings, thresholds, and configurations</p>
             </div>
 
             {/* Tabs */}
