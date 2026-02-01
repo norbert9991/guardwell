@@ -29,37 +29,38 @@ export const ConfirmationModal = ({
 }) => {
     if (!isOpen) return null;
 
+    // Light theme variants
     const variants = {
         info: {
             icon: Info,
-            bgColor: 'bg-blue-500/20',
-            iconColor: 'text-blue-400',
-            borderColor: 'border-blue-500/50',
-            glowColor: 'shadow-blue-500/30',
+            bgColor: 'bg-blue-100',
+            iconColor: 'text-blue-600',
+            borderColor: 'border-blue-300',
+            accentColor: 'bg-blue-500',
             buttonVariant: 'primary'
         },
         warning: {
             icon: HelpCircle,
-            bgColor: 'bg-yellow-500/20',
-            iconColor: 'text-yellow-400',
-            borderColor: 'border-yellow-500/50',
-            glowColor: 'shadow-yellow-500/30',
+            bgColor: 'bg-yellow-100',
+            iconColor: 'text-yellow-600',
+            borderColor: 'border-yellow-300',
+            accentColor: 'bg-yellow-500',
             buttonVariant: 'primary'
         },
         danger: {
             icon: AlertTriangle,
-            bgColor: 'bg-red-500/20',
-            iconColor: 'text-red-400',
-            borderColor: 'border-red-500/50',
-            glowColor: 'shadow-red-500/30',
+            bgColor: 'bg-red-100',
+            iconColor: 'text-red-600',
+            borderColor: 'border-red-300',
+            accentColor: 'bg-red-500',
             buttonVariant: 'danger'
         },
         success: {
             icon: CheckCircle,
-            bgColor: 'bg-green-500/20',
-            iconColor: 'text-green-400',
-            borderColor: 'border-green-500/50',
-            glowColor: 'shadow-green-500/30',
+            bgColor: 'bg-green-100',
+            iconColor: 'text-green-600',
+            borderColor: 'border-green-300',
+            accentColor: 'bg-green-500',
             buttonVariant: 'primary'
         }
     };
@@ -75,53 +76,52 @@ export const ConfirmationModal = ({
 
     return (
         <div
-            className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md"
+            className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
             onClick={handleBackdropClick}
             style={{ animation: 'fadeIn 0.2s ease-out' }}
         >
             <div
-                className={`bg-[#0a0f1a] border-2 ${config.borderColor} rounded-2xl shadow-2xl ${config.glowColor} w-full max-w-md relative overflow-hidden`}
+                className={`bg-white border ${config.borderColor} rounded-2xl shadow-2xl w-full max-w-md relative overflow-hidden`}
                 style={{
                     animation: 'scaleIn 0.25s ease-out',
-                    boxShadow: `0 0 40px 0 ${config.glowColor.replace('shadow-', 'rgba(').replace('/30', ', 0.3)')}, 0 25px 50px -12px rgba(0, 0, 0, 0.5)`
+                    boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)'
                 }}
             >
                 {/* Gradient Header Bar */}
-                <div className={`h-1 w-full ${config.bgColor.replace('/20', '')}`} style={{ opacity: 0.8 }} />
+                <div className={`h-1 w-full ${config.accentColor}`} />
 
                 {/* Close button */}
                 <button
                     onClick={onClose}
                     disabled={loading}
-                    className="absolute top-4 right-4 p-2 text-gray-400 hover:text-white transition-colors rounded-lg hover:bg-white/10 disabled:opacity-50 z-10"
+                    className="absolute top-4 right-4 p-2 text-[#6B7280] hover:text-[#1F2937] transition-colors rounded-lg hover:bg-[#EEF1F4] disabled:opacity-50 z-10"
                 >
                     <X size={20} />
                 </button>
 
                 <div className="p-8 text-center">
-                    {/* Icon with Glow Effect */}
-                    <div className={`w-24 h-24 ${config.bgColor} rounded-full flex items-center justify-center mx-auto mb-6 relative`}>
-                        <div className={`absolute inset-0 ${config.bgColor} rounded-full blur-xl opacity-50`} />
-                        <Icon className={`h-12 w-12 ${config.iconColor} relative z-10`} />
+                    {/* Icon with subtle background */}
+                    <div className={`w-24 h-24 ${config.bgColor} rounded-full flex items-center justify-center mx-auto mb-6`}>
+                        <Icon className={`h-12 w-12 ${config.iconColor}`} />
                     </div>
 
                     {/* Title */}
-                    <h3 className="text-2xl font-bold text-white mb-3">{title}</h3>
+                    <h3 className="text-2xl font-bold text-[#1F2937] mb-3">{title}</h3>
 
                     {/* Message */}
-                    <p className="text-gray-300 mb-6 text-lg">{message}</p>
+                    <p className="text-[#4B5563] mb-6 text-lg">{message}</p>
 
                     {/* Data Preview */}
                     {data && (
-                        <div className="bg-[#0d1220] rounded-xl p-4 mb-6 text-left border border-white/10">
-                            <h4 className="text-sm font-semibold text-gray-400 mb-3 uppercase tracking-wider">Review Details</h4>
+                        <div className="bg-[#EEF1F4] rounded-xl p-4 mb-6 text-left border border-[#E3E6EB]">
+                            <h4 className="text-sm font-semibold text-[#6B7280] mb-3 uppercase tracking-wider">Review Details</h4>
                             <div className="space-y-2">
                                 {Array.isArray(data) ? (
                                     data.map((item, index) => (
                                         item.value && (
                                             <div key={index} className="flex justify-between text-sm py-1">
-                                                <span className="text-gray-500">{item.label}:</span>
-                                                <span className="text-white font-medium">{item.value}</span>
+                                                <span className="text-[#6B7280]">{item.label}:</span>
+                                                <span className="text-[#1F2937] font-medium">{item.value}</span>
                                             </div>
                                         )
                                     ))
@@ -129,8 +129,8 @@ export const ConfirmationModal = ({
                                     Object.entries(data).map(([key, value]) => (
                                         value && (
                                             <div key={key} className="flex justify-between text-sm py-1">
-                                                <span className="text-gray-500 capitalize">{key.replace(/([A-Z])/g, ' $1').trim()}:</span>
-                                                <span className="text-white font-medium">{value}</span>
+                                                <span className="text-[#6B7280] capitalize">{key.replace(/([A-Z])/g, ' $1').trim()}:</span>
+                                                <span className="text-[#1F2937] font-medium">{value}</span>
                                             </div>
                                         )
                                     ))
@@ -146,7 +146,7 @@ export const ConfirmationModal = ({
                             onClick={onClose}
                             disabled={loading}
                             size="lg"
-                            className="min-w-[130px] bg-gray-700 hover:bg-gray-600 border-gray-600"
+                            className="min-w-[130px]"
                         >
                             {cancelText}
                         </Button>
@@ -184,4 +184,3 @@ export const ConfirmationModal = ({
         </div>
     );
 };
-

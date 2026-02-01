@@ -4,35 +4,39 @@ import { CheckCircle, AlertTriangle, Info, X, XCircle } from 'lucide-react';
 // Toast context
 const ToastContext = createContext(null);
 
-// Toast types with styling
+// Toast types with styling - Light theme
 const toastTypes = {
     success: {
         icon: CheckCircle,
-        bgColor: 'bg-green-500/20',
-        borderColor: 'border-green-500/50',
-        iconColor: 'text-green-500',
-        textColor: 'text-green-400'
+        bgColor: 'bg-white',
+        borderColor: 'border-green-500',
+        iconColor: 'text-green-600',
+        textColor: 'text-green-700',
+        accentColor: 'bg-green-500'
     },
     error: {
         icon: XCircle,
-        bgColor: 'bg-red-500/20',
-        borderColor: 'border-red-500/50',
-        iconColor: 'text-red-500',
-        textColor: 'text-red-400'
+        bgColor: 'bg-white',
+        borderColor: 'border-red-500',
+        iconColor: 'text-red-600',
+        textColor: 'text-red-700',
+        accentColor: 'bg-red-500'
     },
     warning: {
         icon: AlertTriangle,
-        bgColor: 'bg-yellow-500/20',
-        borderColor: 'border-yellow-500/50',
-        iconColor: 'text-yellow-500',
-        textColor: 'text-yellow-400'
+        bgColor: 'bg-white',
+        borderColor: 'border-yellow-500',
+        iconColor: 'text-yellow-600',
+        textColor: 'text-yellow-700',
+        accentColor: 'bg-yellow-500'
     },
     info: {
         icon: Info,
-        bgColor: 'bg-blue-500/20',
-        borderColor: 'border-blue-500/50',
-        iconColor: 'text-blue-500',
-        textColor: 'text-blue-400'
+        bgColor: 'bg-white',
+        borderColor: 'border-blue-500',
+        iconColor: 'text-blue-600',
+        textColor: 'text-blue-700',
+        accentColor: 'bg-blue-500'
     }
 };
 
@@ -43,17 +47,18 @@ const Toast = ({ id, type, title, message, onClose }) => {
 
     return (
         <div
-            className={`flex items-start gap-3 p-4 rounded-lg border ${config.bgColor} ${config.borderColor} backdrop-blur-sm shadow-xl animate-slide-in-right min-w-[320px] max-w-[420px]`}
+            className={`flex items-start gap-3 p-4 rounded-lg border-l-4 ${config.bgColor} ${config.borderColor} shadow-lg animate-slide-in-right min-w-[320px] max-w-[420px]`}
             role="alert"
+            style={{ boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)' }}
         >
             <Icon className={`h-5 w-5 ${config.iconColor} flex-shrink-0 mt-0.5`} />
             <div className="flex-1 min-w-0">
                 {title && <p className={`font-semibold ${config.textColor}`}>{title}</p>}
-                <p className="text-gray-300 text-sm">{message}</p>
+                <p className="text-[#4B5563] text-sm">{message}</p>
             </div>
             <button
                 onClick={() => onClose(id)}
-                className="text-gray-500 hover:text-white transition-colors flex-shrink-0"
+                className="text-[#9CA3AF] hover:text-[#4B5563] transition-colors flex-shrink-0"
             >
                 <X size={18} />
             </button>
