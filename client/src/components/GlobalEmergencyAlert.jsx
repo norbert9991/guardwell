@@ -1,0 +1,161 @@
+import React, { useState } from 'react';
+import { AlertTriangle, User, Radio, Clock, CheckCircle, Phone, Shield, Mic, Loader2 } from 'lucide-react';
+import { Button } from './ui/Button';
+import { useSocket } from '../context/SocketContext';
+import { useAuth } from '../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
+import { alertsApi } from '../utils/api';
+
+/**
+ * Global Emergency Alert Overlay
+ * Displays system-wide when any emergency button is triggered.
+ * Blocks all user interaction until emergencies are acknowledged.
+ */
+export const GlobalEmergencyAlert = () => {
+    const { emergencyAlerts, hasActiveEmergency, acknowledgeEmergency } = useSocket();
+    const { user } = useAuth();
+    const [acknowledgedDevices, setAcknowledgedDevices] = useState({});
+    const [loading, setLoading] = useState({});
+    const navigate = useNavigate();
+
+    // Don't render anything if no active emergencies
+    if (!hasActiveEmergency) return null;
+
+    const unacknowledgedEmergencies = emergencyAlerts.filter(e => !e.acknowledged);
+
+    const handleAcknowledge = async (emergency) => {
+        setLoading(prev => ({ ...prev, [emergency.id]: true }));
+        try {
+            // Persist to API first
+            if (emergency.id) {
+                await alertsApi.acknowledge(emergency.id, user?.fullName || 'Officer');
+            }
+            // Update local state
+            acknowledgeEmergency(emergency.id);
+            setAcknowledgedDevices(prev => ({
+                ...prev,
+                [emergency.device]: true
+            }));
+        } catch (error) {
+            console.error('Failed to acknowledge emergency:', error);
+            // Still update local state even if API fails
+            acknowledgeEmergency(emergency.id);
+        } finally {
+            setLoading(prev => ({ ...prev, [emergency.id]: false }));
+        }
+    };
+
+    const handleAcknowledgeAndNavigate = async (emergency) => {
+        await handleAcknowledge(emergency);
+        // Navigate to Live Monitoring for more details
+        navigate('/live-monitoring');
+    };
+
+    return (
+        <div className="fixed inset-0 z-[9999] bg-black/95 flex items-center justify-center p-4 overflow-y-auto">
+            <div className="max-w-3xl w-full space-y-6">
+                {/* Emergency Header */}
+                <div className="text-center">
+                    <div className="inline-flex items-center justify-center w-28 h-28 bg-red-500/20 rounded-full mb-6 border-4 border-red-500 animate-pulse">
+                        <AlertTriangle className="h-14 w-14 text-red-500" />
+                    </div>
+                    <h1 className="text-5xl font-bold text-red-500 tracking-wider mb-3">
+                        🚨 EMERGENCY ALERT 🚨
+                    </h1>
+                    <p className="text-xl text-gray-300">
+                        {unacknowledgedEmergencies.length} emergency {unacknowledgedEmergencies.length === 1 ? 'alert' : 'alerts'} require immediate attention
+                    </p>
+                </div>
+
+                {/* Emergency Cards */}
+                <div className="space-y-4 max-h-[50vh] overflow-y-auto">
+                    {unacknowledgedEmergencies.map((emergency) => (
+                        <div
+                            key={emergency.id || `${emergency.device}-${emergency.timestamp}`}
+                            className="bg-gradient-to-r from-red-900/40 to-red-800/20 border-2 border-red-500 rounded-xl p-6 shadow-lg shadow-red-500/20"
+                        >
+                            <div className="flex items-start justify-between gap-4">
+                                <div className="flex items-center gap-4">
+                                    <div className={`w-16 h-16 ${emergency.type?.includes('Voice Alert') ? 'bg-purple-500/30' : 'bg-red-500/30'} rounded-full flex items-center justify-center animate-pulse`}>
+                                        {emergency.type?.includes('Voice Alert')
+                                            ? <Mic className="h-9 w-9 text-purple-400" />
+                                            : <User className="h-9 w-9 text-red-400" />
+                                        }
+                                    </div>
+                                    <div>
+                                        <h3 className="text-2xl font-bold text-white">
+                                            {emergency.worker_name || 'Unknown Worker'}
+                                        </h3>
+                                        <p className={`${emergency.type?.includes('Voice Alert') ? 'text-purple-400' : 'text-red-400'} font-semibold text-lg`}>
+                                            {emergency.type || 'Emergency Button Pressed'}
+                                        </p>
+                                        {/* Voice Command Badge */}
+                                        {emergency.voice_command && (
+                                            <div className="mt-2 inline-flex items-center gap-2 bg-purple-500/20 border border-purple-500 px-3 py-1.5 rounded-lg">
+                                                <Mic size={14} className="text-purple-400" />
+                                                <span className="text-purple-300 font-semibold">
+                                                    🎤 Voice: "{emergency.voice_command?.split('_')[0]?.toUpperCase()}"
+                                                </span>
+                                            </div>
+                                        )}
+                                        <div className="flex flex-wrap items-center gap-4 mt-2 text-sm text-gray-400">
+                                            <span className="flex items-center gap-1.5 bg-black/30 px-2 py-1 rounded">
+                                                <Radio size={14} />
+                                                Device: {emergency.device}
+                                            </span>
+                                            <span className="flex items-center gap-1.5 bg-black/30 px-2 py-1 rounded">
+                                                <Clock size={14} />
+                                                {new Date(emergency.timestamp).toLocaleTimeString()}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Action Buttons */}
+                            <div className="mt-5 flex gap-3">
+                                <Button
+                                    variant="danger"
+                                    className="flex-1 py-3 text-lg font-semibold"
+                                    icon={loading[emergency.id] ? <Loader2 size={20} className="animate-spin" /> : <CheckCircle size={20} />}
+                                    onClick={() => handleAcknowledge(emergency)}
+                                    disabled={loading[emergency.id]}
+                                >
+                                    {loading[emergency.id] ? 'Saving...' : 'Acknowledge'}
+                                </Button>
+                                <Button
+                                    variant="primary"
+                                    className="flex-1 py-3 text-lg font-semibold"
+                                    icon={loading[emergency.id] ? <Loader2 size={20} className="animate-spin" /> : <Shield size={20} />}
+                                    onClick={() => handleAcknowledgeAndNavigate(emergency)}
+                                    disabled={loading[emergency.id]}
+                                >
+                                    Acknowledge & Go to Monitoring
+                                </Button>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+
+                {/* Emergency Instructions */}
+                <div className="bg-gray-900/80 rounded-lg p-4 border border-gray-700">
+                    <h4 className="text-white font-semibold mb-2 flex items-center gap-2">
+                        <Phone size={16} className="text-[#00E5FF]" />
+                        Emergency Response Protocol
+                    </h4>
+                    <ul className="text-gray-400 text-sm space-y-1">
+                        <li>• Acknowledge all alerts to dismiss this screen</li>
+                        <li>• Contact emergency services if required</li>
+                        <li>• Check worker status in Live Monitoring</li>
+                        <li>• Document the incident after resolution</li>
+                    </ul>
+                </div>
+
+                {/* Footer */}
+                <p className="text-center text-gray-500 text-sm">
+                    This overlay will remain until all emergencies are acknowledged.
+                </p>
+            </div>
+        </div>
+    );
+};
