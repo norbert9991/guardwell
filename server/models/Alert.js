@@ -43,8 +43,8 @@ const Alert = sequelize.define('Alert', {
         comment: 'The threshold that was exceeded'
     },
     status: {
-        // Changed from ENUM to STRING for PostgreSQL compatibility
-        // Valid values: 'Pending', 'Acknowledged', 'Responding', 'Resolved'
+        // Simplified workflow: Pending → Acknowledged → Resolved
+        // Valid values: 'Pending', 'Acknowledged', 'Resolved'
         type: DataTypes.STRING(20),
         defaultValue: 'Pending'
     },
@@ -60,7 +60,24 @@ const Alert = sequelize.define('Alert', {
         type: DataTypes.DATE,
         allowNull: true
     },
-    // New fields for emergency queue workflow
+    // Response time tracking
+    responseTimeMs: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+        comment: 'Time in milliseconds from alert creation to acknowledgment'
+    },
+    // Auto-escalation fields
+    escalated: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: false,
+        comment: 'Whether this alert was auto-escalated due to no response'
+    },
+    escalatedAt: {
+        type: DataTypes.DATE,
+        allowNull: true,
+        comment: 'When the alert was escalated'
+    },
+    // Emergency queue workflow fields
     assignedTo: {
         type: DataTypes.STRING(100),
         allowNull: true,
@@ -70,11 +87,6 @@ const Alert = sequelize.define('Alert', {
         type: DataTypes.INTEGER,
         defaultValue: 3,
         comment: 'Priority 1-5 (1=highest)'
-    },
-    responseNotes: {
-        type: DataTypes.TEXT,
-        allowNull: true,
-        comment: 'Notes from responder during handling'
     },
     voiceCommand: {
         type: DataTypes.STRING(50),
@@ -91,7 +103,8 @@ const Alert = sequelize.define('Alert', {
     },
     notes: {
         type: DataTypes.TEXT,
-        allowNull: true
+        allowNull: true,
+        comment: 'Notes added when acknowledging or resolving'
     },
     archived: {
         type: DataTypes.BOOLEAN,

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
     AlertTriangle, User, Clock, CheckCircle, X, ChevronRight, ChevronLeft,
-    Bell, Radio, Shield, Mic, MapPin, UserCheck, Play, CheckSquare, Square,
+    Bell, Radio, Shield, Mic, MapPin, UserCheck, CheckSquare, Square,
     ArrowUpDown, Filter, ChevronDown
 } from 'lucide-react';
 import { Button } from './ui/Button';
@@ -26,10 +26,12 @@ export const EmergencyQueuePanel = () => {
     const [activeEmergencies, setActiveEmergencies] = useState([]);
     const [selectedIds, setSelectedIds] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
+    const [quickNote, setQuickNote] = useState(''); // Note to add when acknowledging
+    const [showNoteInput, setShowNoteInput] = useState(null); // Alert ID showing note input
 
     // Sorting and filtering state
     const [sortBy, setSortBy] = useState('time-desc'); // time-desc, time-asc, status, priority
-    const [filterStatus, setFilterStatus] = useState('all'); // all, pending, acknowledged, responding
+    const [filterStatus, setFilterStatus] = useState('all'); // all, pending, acknowledged
     const [showSortMenu, setShowSortMenu] = useState(false);
     const [showFilterMenu, setShowFilterMenu] = useState(false);
 
@@ -62,34 +64,24 @@ export const EmergencyQueuePanel = () => {
         }
     };
 
-    // Handle acknowledge single
-    const handleAcknowledge = async (alertId) => {
+    // Handle acknowledge single (with optional note)
+    const handleAcknowledge = async (alertId, note = null) => {
         setIsLoading(true);
         try {
-            await alertsApi.acknowledge(alertId, user?.fullName || 'Officer');
+            await alertsApi.acknowledge(alertId, user?.fullName || 'Officer', note || quickNote || null);
             setActiveEmergencies(prev =>
-                prev.map(e => e.id === alertId ? { ...e, status: 'Acknowledged', acknowledgedBy: user?.fullName } : e)
+                prev.map(e => e.id === alertId ? {
+                    ...e,
+                    status: 'Acknowledged',
+                    acknowledgedBy: user?.fullName,
+                    notes: note || quickNote || e.notes
+                } : e)
             );
             toast.success('Emergency acknowledged');
+            setQuickNote('');
+            setShowNoteInput(null);
         } catch (error) {
             toast.error('Failed to acknowledge emergency');
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    // Handle mark as responding
-    const handleRespond = async (alertId) => {
-        setIsLoading(true);
-        try {
-            await alertsApi.respond(alertId, user?.fullName || 'Officer', '');
-            setActiveEmergencies(prev =>
-                prev.map(e => e.id === alertId ? { ...e, status: 'Responding', assignedTo: user?.fullName } : e)
-            );
-            toast.success('Marked as responding');
-        } catch (error) {
-            console.error('Respond error:', error);
-            toast.error('Failed to update status');
         } finally {
             setIsLoading(false);
         }
@@ -127,27 +119,6 @@ export const EmergencyQueuePanel = () => {
         }
     };
 
-    // Handle batch respond
-    const handleBatchRespond = async () => {
-        if (selectedIds.length === 0) return;
-        setIsLoading(true);
-        let successCount = 0;
-        for (const id of selectedIds) {
-            try {
-                await alertsApi.respond(id, user?.fullName || 'Officer', '');
-                successCount++;
-            } catch (error) {
-                console.error(`Failed to respond to alert ${id}:`, error);
-            }
-        }
-        setActiveEmergencies(prev =>
-            prev.map(e => selectedIds.includes(e.id) ? { ...e, status: 'Responding', assignedTo: user?.fullName } : e)
-        );
-        setSelectedIds([]);
-        toast.success(`${successCount} emergencies marked as responding`);
-        setIsLoading(false);
-    };
-
     // Toggle selection
     const toggleSelect = (id) => {
         setSelectedIds(prev =>
@@ -161,12 +132,11 @@ export const EmergencyQueuePanel = () => {
         setSelectedIds(pendingIds);
     };
 
-    // Get status badge variant
+    // Get status badge variant (simplified: only Pending and Acknowledged)
     const getStatusBadge = (status) => {
         switch (status) {
             case 'Pending': return 'danger';
-            case 'Acknowledged': return 'warning';
-            case 'Responding': return 'info';
+            case 'Acknowledged': return 'success';
             default: return 'secondary';
         }
     };
@@ -188,10 +158,12 @@ export const EmergencyQueuePanel = () => {
                 case 'time-asc':
                     return new Date(a.createdAt || a.timestamp) - new Date(b.createdAt || b.timestamp);
                 case 'status':
-                    const statusOrder = { 'Pending': 0, 'Acknowledged': 1, 'Responding': 2 };
-                    return (statusOrder[a.status] || 3) - (statusOrder[b.status] || 3);
+                    const statusOrder = { 'Pending': 0, 'Acknowledged': 1 };
+                    return (statusOrder[a.status] ?? 2) - (statusOrder[b.status] ?? 2);
                 case 'priority':
                     return (a.priority || 3) - (b.priority || 3);
+                case 'escalated':
+                    return (b.escalated ? 1 : 0) - (a.escalated ? 1 : 0);
                 default:
                     return 0;
             }
@@ -200,10 +172,10 @@ export const EmergencyQueuePanel = () => {
         return filtered;
     }, [activeEmergencies, sortBy, filterStatus]);
 
-    // Count by status
+    // Count by status (simplified: no Responding)
     const pendingCount = activeEmergencies.filter(e => e.status === 'Pending').length;
     const acknowledgedCount = activeEmergencies.filter(e => e.status === 'Acknowledged').length;
-    const respondingCount = activeEmergencies.filter(e => e.status === 'Responding').length;
+    const escalatedCount = activeEmergencies.filter(e => e.escalated).length;
     const totalActive = activeEmergencies.length;
 
     // Format elapsed time
@@ -215,18 +187,27 @@ export const EmergencyQueuePanel = () => {
         return `${seconds}s ago`;
     };
 
+    // Format response time
+    const formatResponseTime = (ms) => {
+        if (!ms) return null;
+        const seconds = Math.floor(ms / 1000);
+        const minutes = Math.floor(seconds / 60);
+        if (minutes > 0) return `${minutes}m ${seconds % 60}s`;
+        return `${seconds}s`;
+    };
+
     const sortOptions = [
         { value: 'time-desc', label: 'Newest First' },
         { value: 'time-asc', label: 'Oldest First' },
         { value: 'status', label: 'Status (Pending First)' },
         { value: 'priority', label: 'Priority (Highest)' },
+        { value: 'escalated', label: 'Escalated First' },
     ];
 
     const filterOptions = [
         { value: 'all', label: 'All Active', count: totalActive },
         { value: 'pending', label: 'Pending', count: pendingCount },
         { value: 'acknowledged', label: 'Acknowledged', count: acknowledgedCount },
-        { value: 'responding', label: 'Responding', count: respondingCount },
     ];
 
     return (
@@ -351,16 +332,7 @@ export const EmergencyQueuePanel = () => {
                                     disabled={selectedIds.length === 0 || isLoading}
                                     className="flex-1 text-xs"
                                 >
-                                    Ack ({selectedIds.length})
-                                </Button>
-                                <Button
-                                    size="sm"
-                                    variant="primary"
-                                    onClick={handleBatchRespond}
-                                    disabled={selectedIds.length === 0 || isLoading}
-                                    className="flex-1 text-xs"
-                                >
-                                    Respond ({selectedIds.length})
+                                    Acknowledge ({selectedIds.length})
                                 </Button>
                             </div>
                         )}
@@ -423,6 +395,11 @@ export const EmergencyQueuePanel = () => {
                                                     <Badge variant={getStatusBadge(emergency.status)} className="text-xs">
                                                         {emergency.status}
                                                     </Badge>
+                                                    {emergency.escalated && (
+                                                        <Badge variant="danger" className="text-xs animate-pulse">
+                                                            ⚠ ESCALATED
+                                                        </Badge>
+                                                    )}
                                                 </div>
                                                 <p className="text-xs text-[#6B7280] truncate">
                                                     {emergency.type}
@@ -437,72 +414,80 @@ export const EmergencyQueuePanel = () => {
                                                         <Clock size={10} />
                                                         {getElapsedTime(emergency.createdAt || emergency.timestamp)}
                                                     </span>
+                                                    {emergency.responseTimeMs && (
+                                                        <span className="flex items-center gap-1 text-[#22c55e]">
+                                                            ⏱ {formatResponseTime(emergency.responseTimeMs)}
+                                                        </span>
+                                                    )}
                                                 </div>
-                                                {emergency.assignedTo && (
+                                                {emergency.acknowledgedBy && (
                                                     <div className="flex items-center gap-1 mt-1 text-xs text-[#6FA3D8]">
                                                         <UserCheck size={10} />
-                                                        Assigned: {emergency.assignedTo}
+                                                        Handled by: {emergency.acknowledgedBy}
+                                                    </div>
+                                                )}
+                                                {emergency.notes && (
+                                                    <div className="mt-1 text-xs text-[#4B5563] bg-[#EEF1F4] px-2 py-1 rounded italic">
+                                                        "{emergency.notes}"
                                                     </div>
                                                 )}
                                             </div>
                                         </div>
                                     </div>
 
-                                    {/* Card Actions */}
-                                    <div className="px-3 pb-3 flex gap-2">
+                                    {/* Card Actions - Simplified Workflow */}
+                                    <div className="px-3 pb-3">
                                         {emergency.status === 'Pending' && (
-                                            <>
-                                                <Button
-                                                    size="sm"
-                                                    variant="warning"
-                                                    className="flex-1 text-xs py-1.5"
-                                                    onClick={() => handleAcknowledge(emergency.id)}
-                                                    disabled={isLoading}
-                                                >
-                                                    <CheckCircle size={12} className="mr-1" />
-                                                    Acknowledge
-                                                </Button>
-                                                <Button
-                                                    size="sm"
-                                                    variant="primary"
-                                                    className="flex-1 text-xs py-1.5"
-                                                    onClick={() => handleRespond(emergency.id)}
-                                                    disabled={isLoading}
-                                                >
-                                                    <Play size={12} className="mr-1" />
-                                                    Respond
-                                                </Button>
-                                            </>
+                                            <div className="space-y-2">
+                                                {/* Quick note input (expandable) */}
+                                                {showNoteInput === emergency.id ? (
+                                                    <div className="flex gap-2">
+                                                        <input
+                                                            type="text"
+                                                            value={quickNote}
+                                                            onChange={(e) => setQuickNote(e.target.value)}
+                                                            placeholder="Quick note (optional)..."
+                                                            className="flex-1 text-xs px-2 py-1.5 border border-[#E3E6EB] rounded focus:outline-none focus:border-[#6FA3D8]"
+                                                            onKeyDown={(e) => e.key === 'Enter' && handleAcknowledge(emergency.id)}
+                                                        />
+                                                        <Button
+                                                            size="sm"
+                                                            variant="secondary"
+                                                            className="text-xs py-1.5 px-2"
+                                                            onClick={() => { setShowNoteInput(null); setQuickNote(''); }}
+                                                        >
+                                                            <X size={12} />
+                                                        </Button>
+                                                    </div>
+                                                ) : null}
+                                                <div className="flex gap-2">
+                                                    <Button
+                                                        size="sm"
+                                                        variant="success"
+                                                        className="flex-1 text-xs py-1.5"
+                                                        onClick={() => handleAcknowledge(emergency.id)}
+                                                        disabled={isLoading}
+                                                    >
+                                                        <CheckCircle size={12} className="mr-1" />
+                                                        Acknowledge
+                                                    </Button>
+                                                    <Button
+                                                        size="sm"
+                                                        variant="outline"
+                                                        className="text-xs py-1.5 px-2"
+                                                        onClick={() => setShowNoteInput(showNoteInput === emergency.id ? null : emergency.id)}
+                                                        title="Add note"
+                                                    >
+                                                        +📝
+                                                    </Button>
+                                                </div>
+                                            </div>
                                         )}
                                         {emergency.status === 'Acknowledged' && (
-                                            <>
-                                                <Button
-                                                    size="sm"
-                                                    variant="primary"
-                                                    className="flex-1 text-xs py-1.5"
-                                                    onClick={() => handleRespond(emergency.id)}
-                                                    disabled={isLoading}
-                                                >
-                                                    <Play size={12} className="mr-1" />
-                                                    Respond
-                                                </Button>
-                                                <Button
-                                                    size="sm"
-                                                    variant="success"
-                                                    className="flex-1 text-xs py-1.5"
-                                                    onClick={() => handleResolve(emergency.id)}
-                                                    disabled={isLoading}
-                                                >
-                                                    <CheckCircle size={12} className="mr-1" />
-                                                    Resolve
-                                                </Button>
-                                            </>
-                                        )}
-                                        {emergency.status === 'Responding' && (
                                             <Button
                                                 size="sm"
                                                 variant="success"
-                                                className="flex-1 text-xs py-1.5"
+                                                className="w-full text-xs py-1.5"
                                                 onClick={() => handleResolve(emergency.id)}
                                                 disabled={isLoading}
                                             >

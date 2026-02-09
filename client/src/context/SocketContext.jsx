@@ -90,7 +90,34 @@ export const SocketProvider = ({ children }) => {
                             status: data.status || e.status,
                             assignedTo: data.assignedTo || e.assignedTo,
                             acknowledgedBy: data.acknowledgedBy || e.acknowledgedBy,
-                            acknowledged: data.status === 'Acknowledged' || data.status === 'Responding' || e.acknowledged
+                            responseTimeMs: data.responseTimeMs || e.responseTimeMs,
+                            acknowledged: data.status === 'Acknowledged' || e.acknowledged
+                        };
+                    }
+                    return e;
+                })
+            );
+        });
+
+        // Listen for escalated alerts
+        newSocket.on('emergency_escalated', (data) => {
+            console.log('⚠️ Emergency escalated:', data);
+            // Show browser notification for escalation
+            if (Notification.permission === 'granted') {
+                new Notification('⚠️ ALERT ESCALATED', {
+                    body: `Alert for ${data.worker} has been escalated due to no response!`,
+                    icon: '/favicon.ico',
+                    requireInteraction: true,
+                });
+            }
+
+            setEmergencyAlerts(prev =>
+                prev.map(e => {
+                    if (e.id === data.alertId) {
+                        return {
+                            ...e,
+                            escalated: true,
+                            escalatedAt: data.escalatedAt
                         };
                     }
                     return e;

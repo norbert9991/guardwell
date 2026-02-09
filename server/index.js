@@ -8,6 +8,7 @@ const mqtt = require('mqtt');
 const { testConnection } = require('./config/database');
 const { syncDatabase } = require('./models');
 const emailService = require('./services/emailService');
+const escalationService = require('./services/escalationService');
 
 // Import routes
 const workersRouter = require('./routes/workers');
@@ -275,6 +276,9 @@ const startServer = async () => {
 
     // Initialize SendGrid email service
     emailService.initSendGrid();
+
+    // Start alert escalation monitoring service
+    escalationService.startEscalationService(io);
 
     // Connect to MQTT if broker is configured
     if (process.env.MQTT_BROKER) {

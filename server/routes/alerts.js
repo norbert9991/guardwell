@@ -63,21 +63,32 @@ router.get('/:id', async (req, res) => {
     }
 });
 
-// Acknowledge alert
+// Acknowledge alert (with response time tracking and optional notes)
 router.post('/:id/acknowledge', async (req, res) => {
     try {
-        const { acknowledgedBy } = req.body;
-        const [updated] = await Alert.update(
+        const { acknowledgedBy, notes } = req.body;
+
+        // First get the alert to calculate response time
+        const existingAlert = await Alert.findByPk(req.params.id);
+        if (!existingAlert) {
+            return res.status(404).json({ error: 'Alert not found' });
+        }
+
+        // Calculate response time in milliseconds
+        const acknowledgedAt = new Date();
+        const responseTimeMs = acknowledgedAt - new Date(existingAlert.createdAt);
+
+        await Alert.update(
             {
                 status: 'Acknowledged',
                 acknowledgedBy: acknowledgedBy || 'System',
-                acknowledgedAt: new Date()
+                acknowledgedAt,
+                responseTimeMs,
+                notes: notes || existingAlert.notes // Keep existing notes if none provided
             },
             { where: { id: req.params.id } }
         );
-        if (!updated) {
-            return res.status(404).json({ error: 'Alert not found' });
-        }
+
         const alert = await Alert.findByPk(req.params.id, {
             include: [{ model: Worker, as: 'worker' }]
         });
@@ -88,6 +99,7 @@ router.post('/:id/acknowledge', async (req, res) => {
             status: 'Acknowledged',
             acknowledgedBy: alert.acknowledgedBy,
             acknowledgedAt: alert.acknowledgedAt,
+            responseTimeMs: alert.responseTimeMs,
             alert
         });
 
@@ -98,23 +110,36 @@ router.post('/:id/acknowledge', async (req, res) => {
     }
 });
 
-// Batch acknowledge multiple alerts
+// Batch acknowledge multiple alerts (with response time tracking)
 router.post('/batch-acknowledge', async (req, res) => {
     try {
-        const { alertIds, acknowledgedBy } = req.body;
+        const { alertIds, acknowledgedBy, notes } = req.body;
 
         if (!alertIds || !Array.isArray(alertIds) || alertIds.length === 0) {
             return res.status(400).json({ error: 'alertIds array is required' });
         }
 
-        await Alert.update(
-            {
-                status: 'Acknowledged',
-                acknowledgedBy: acknowledgedBy || 'System',
-                acknowledgedAt: new Date()
-            },
-            { where: { id: { [Op.in]: alertIds } } }
-        );
+        const acknowledgedAt = new Date();
+
+        // Get all alerts to calculate response times individually
+        const existingAlerts = await Alert.findAll({
+            where: { id: { [Op.in]: alertIds } }
+        });
+
+        // Update each alert with its own response time
+        for (const existingAlert of existingAlerts) {
+            const responseTimeMs = acknowledgedAt - new Date(existingAlert.createdAt);
+            await Alert.update(
+                {
+                    status: 'Acknowledged',
+                    acknowledgedBy: acknowledgedBy || 'System',
+                    acknowledgedAt,
+                    responseTimeMs,
+                    notes: notes || undefined
+                },
+                { where: { id: existingAlert.id } }
+            );
+        }
 
         const alerts = await Alert.findAll({
             where: { id: { [Op.in]: alertIds } },
@@ -127,6 +152,7 @@ router.post('/batch-acknowledge', async (req, res) => {
                 alertId: alert.id,
                 status: 'Acknowledged',
                 acknowledgedBy: alert.acknowledgedBy,
+                responseTimeMs: alert.responseTimeMs,
                 alert
             });
         });
@@ -167,61 +193,24 @@ router.post('/:id/assign', async (req, res) => {
     }
 });
 
-// Mark as responding
-router.post('/:id/respond', async (req, res) => {
+// Update alert notes
+router.patch('/:id/notes', async (req, res) => {
     try {
-        const { respondingBy, responseNotes } = req.body;
-        const alertId = req.params.id;
-
-        // First check if alert exists
-        const existingAlert = await Alert.findByPk(alertId);
-        if (!existingAlert) {
+        const { notes } = req.body;
+        const [updated] = await Alert.update(
+            { notes },
+            { where: { id: req.params.id } }
+        );
+        if (!updated) {
             return res.status(404).json({ error: 'Alert not found' });
         }
-
-        // Build update object - only include status and assignedTo (guaranteed fields)
-        const updateData = {
-            status: 'Responding'
-        };
-
-        // Only add assignedTo if provided
-        if (respondingBy) {
-            updateData.assignedTo = respondingBy;
-        }
-
-        // Try to add responseNotes - this might fail if column doesn't exist
-        // We'll handle that gracefully
-        if (responseNotes) {
-            try {
-                // Check if responseNotes column exists
-                const tableDesc = await sequelize.getQueryInterface().describeTable('alerts');
-                if (tableDesc.responseNotes) {
-                    updateData.responseNotes = responseNotes;
-                }
-            } catch (descErr) {
-                // Column check failed, skip responseNotes
-                console.log('Note: responseNotes column check failed, skipping field');
-            }
-        }
-
-        await Alert.update(updateData, { where: { id: alertId } });
-
-        const alert = await Alert.findByPk(alertId, {
+        const alert = await Alert.findByPk(req.params.id, {
             include: [{ model: Worker, as: 'worker' }]
         });
-
-        // Broadcast update
-        req.io.emit('emergency_status_updated', {
-            alertId: alertId,
-            status: 'Responding',
-            assignedTo: alert.assignedTo || respondingBy,
-            alert
-        });
-
         res.json(alert);
     } catch (error) {
-        console.error('Error marking alert as responding:', error.message, error.stack);
-        res.status(500).json({ error: 'Failed to mark alert as responding', details: error.message });
+        console.error('Error updating alert notes:', error);
+        res.status(500).json({ error: 'Failed to update notes' });
     }
 });
 

@@ -79,11 +79,12 @@ export const alertsApi = {
     getAll: (params = {}) => api.get('/alerts', { params }),
     getById: (id) => api.get(`/alerts/${id}`),
     getActive: () => api.get('/alerts/active'),
-    acknowledge: (id, acknowledgedBy) => api.post(`/alerts/${id}/acknowledge`, { acknowledgedBy }),
-    batchAcknowledge: (alertIds, acknowledgedBy) => api.post('/alerts/batch-acknowledge', { alertIds, acknowledgedBy }),
+    // Acknowledge now accepts optional notes for quick notes feature
+    acknowledge: (id, acknowledgedBy, notes = null) => api.post(`/alerts/${id}/acknowledge`, { acknowledgedBy, notes }),
+    batchAcknowledge: (alertIds, acknowledgedBy, notes = null) => api.post('/alerts/batch-acknowledge', { alertIds, acknowledgedBy, notes }),
     assign: (id, assignedTo) => api.post(`/alerts/${id}/assign`, { assignedTo }),
-    respond: (id, respondingBy, responseNotes) => api.post(`/alerts/${id}/respond`, { respondingBy, responseNotes }),
     resolve: (id, notes) => api.post(`/alerts/${id}/resolve`, { notes }),
+    updateNotes: (id, notes) => api.patch(`/alerts/${id}/notes`, { notes }),
     archive: (id) => api.patch(`/alerts/${id}/archive`)
 };
 
