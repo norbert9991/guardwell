@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { Alert, Worker } = require('../models');
+const { sequelize } = require('../config/database');
 const { Op } = require('sequelize');
 
 // Get all alerts (excluding archived by default)
@@ -170,36 +171,48 @@ router.post('/:id/assign', async (req, res) => {
 router.post('/:id/respond', async (req, res) => {
     try {
         const { respondingBy, responseNotes } = req.body;
+        const alertId = req.params.id;
 
-        // Build update object - only include fields that are provided
+        // First check if alert exists
+        const existingAlert = await Alert.findByPk(alertId);
+        if (!existingAlert) {
+            return res.status(404).json({ error: 'Alert not found' });
+        }
+
+        // Build update object - only include status and assignedTo (guaranteed fields)
         const updateData = {
             status: 'Responding'
         };
 
-        // Only add optional fields if they're provided and columns exist
+        // Only add assignedTo if provided
         if (respondingBy) {
             updateData.assignedTo = respondingBy;
         }
+
+        // Try to add responseNotes - this might fail if column doesn't exist
+        // We'll handle that gracefully
         if (responseNotes) {
-            updateData.responseNotes = responseNotes;
+            try {
+                // Check if responseNotes column exists
+                const tableDesc = await sequelize.getQueryInterface().describeTable('alerts');
+                if (tableDesc.responseNotes) {
+                    updateData.responseNotes = responseNotes;
+                }
+            } catch (descErr) {
+                // Column check failed, skip responseNotes
+                console.log('Note: responseNotes column check failed, skipping field');
+            }
         }
 
-        const [updated] = await Alert.update(
-            updateData,
-            { where: { id: req.params.id } }
-        );
+        await Alert.update(updateData, { where: { id: alertId } });
 
-        if (!updated) {
-            return res.status(404).json({ error: 'Alert not found' });
-        }
-
-        const alert = await Alert.findByPk(req.params.id, {
+        const alert = await Alert.findByPk(alertId, {
             include: [{ model: Worker, as: 'worker' }]
         });
 
         // Broadcast update
         req.io.emit('emergency_status_updated', {
-            alertId: req.params.id,
+            alertId: alertId,
             status: 'Responding',
             assignedTo: alert.assignedTo || respondingBy,
             alert
@@ -207,7 +220,7 @@ router.post('/:id/respond', async (req, res) => {
 
         res.json(alert);
     } catch (error) {
-        console.error('Error marking alert as responding:', error.message, error);
+        console.error('Error marking alert as responding:', error.message, error.stack);
         res.status(500).json({ error: 'Failed to mark alert as responding', details: error.message });
     }
 });

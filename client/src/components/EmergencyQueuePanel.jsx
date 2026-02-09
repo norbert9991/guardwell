@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
     AlertTriangle, User, Clock, CheckCircle, X, ChevronRight, ChevronLeft,
-    Bell, Radio, Shield, Mic, MapPin, UserCheck, Play, CheckSquare, Square
+    Bell, Radio, Shield, Mic, MapPin, UserCheck, Play, CheckSquare, Square,
+    ArrowUpDown, Filter, ChevronDown
 } from 'lucide-react';
 import { Button } from './ui/Button';
 import { Badge } from './ui/Badge';
@@ -25,6 +26,12 @@ export const EmergencyQueuePanel = () => {
     const [activeEmergencies, setActiveEmergencies] = useState([]);
     const [selectedIds, setSelectedIds] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
+
+    // Sorting and filtering state
+    const [sortBy, setSortBy] = useState('time-desc'); // time-desc, time-asc, status, priority
+    const [filterStatus, setFilterStatus] = useState('all'); // all, pending, acknowledged, responding
+    const [showSortMenu, setShowSortMenu] = useState(false);
+    const [showFilterMenu, setShowFilterMenu] = useState(false);
 
     // Fetch active emergencies from API on mount
     useEffect(() => {
@@ -81,6 +88,7 @@ export const EmergencyQueuePanel = () => {
             );
             toast.success('Marked as responding');
         } catch (error) {
+            console.error('Respond error:', error);
             toast.error('Failed to update status');
         } finally {
             setIsLoading(false);
@@ -119,6 +127,27 @@ export const EmergencyQueuePanel = () => {
         }
     };
 
+    // Handle batch respond
+    const handleBatchRespond = async () => {
+        if (selectedIds.length === 0) return;
+        setIsLoading(true);
+        let successCount = 0;
+        for (const id of selectedIds) {
+            try {
+                await alertsApi.respond(id, user?.fullName || 'Officer', '');
+                successCount++;
+            } catch (error) {
+                console.error(`Failed to respond to alert ${id}:`, error);
+            }
+        }
+        setActiveEmergencies(prev =>
+            prev.map(e => selectedIds.includes(e.id) ? { ...e, status: 'Responding', assignedTo: user?.fullName } : e)
+        );
+        setSelectedIds([]);
+        toast.success(`${successCount} emergencies marked as responding`);
+        setIsLoading(false);
+    };
+
     // Toggle selection
     const toggleSelect = (id) => {
         setSelectedIds(prev =>
@@ -142,8 +171,39 @@ export const EmergencyQueuePanel = () => {
         }
     };
 
+    // Sorted and filtered emergencies
+    const sortedEmergencies = useMemo(() => {
+        let filtered = [...activeEmergencies];
+
+        // Apply filter
+        if (filterStatus !== 'all') {
+            filtered = filtered.filter(e => e.status.toLowerCase() === filterStatus);
+        }
+
+        // Apply sort
+        filtered.sort((a, b) => {
+            switch (sortBy) {
+                case 'time-desc':
+                    return new Date(b.createdAt || b.timestamp) - new Date(a.createdAt || a.timestamp);
+                case 'time-asc':
+                    return new Date(a.createdAt || a.timestamp) - new Date(b.createdAt || b.timestamp);
+                case 'status':
+                    const statusOrder = { 'Pending': 0, 'Acknowledged': 1, 'Responding': 2 };
+                    return (statusOrder[a.status] || 3) - (statusOrder[b.status] || 3);
+                case 'priority':
+                    return (a.priority || 3) - (b.priority || 3);
+                default:
+                    return 0;
+            }
+        });
+
+        return filtered;
+    }, [activeEmergencies, sortBy, filterStatus]);
+
     // Count by status
     const pendingCount = activeEmergencies.filter(e => e.status === 'Pending').length;
+    const acknowledgedCount = activeEmergencies.filter(e => e.status === 'Acknowledged').length;
+    const respondingCount = activeEmergencies.filter(e => e.status === 'Responding').length;
     const totalActive = activeEmergencies.length;
 
     // Format elapsed time
@@ -154,6 +214,20 @@ export const EmergencyQueuePanel = () => {
         if (minutes > 0) return `${minutes}m ${seconds}s ago`;
         return `${seconds}s ago`;
     };
+
+    const sortOptions = [
+        { value: 'time-desc', label: 'Newest First' },
+        { value: 'time-asc', label: 'Oldest First' },
+        { value: 'status', label: 'Status (Pending First)' },
+        { value: 'priority', label: 'Priority (Highest)' },
+    ];
+
+    const filterOptions = [
+        { value: 'all', label: 'All Active', count: totalActive },
+        { value: 'pending', label: 'Pending', count: pendingCount },
+        { value: 'acknowledged', label: 'Acknowledged', count: acknowledgedCount },
+        { value: 'responding', label: 'Responding', count: respondingCount },
+    ];
 
     return (
         <>
@@ -201,6 +275,64 @@ export const EmergencyQueuePanel = () => {
                             </button>
                         </div>
 
+                        {/* Sort and Filter Controls */}
+                        <div className="flex gap-2 mb-3">
+                            {/* Sort Dropdown */}
+                            <div className="relative flex-1">
+                                <button
+                                    onClick={() => { setShowSortMenu(!showSortMenu); setShowFilterMenu(false); }}
+                                    className="w-full flex items-center justify-between gap-2 px-3 py-2 bg-white border border-[#E3E6EB] rounded-lg text-xs font-medium text-[#4B5563] hover:border-[#6FA3D8] transition-colors"
+                                >
+                                    <div className="flex items-center gap-2">
+                                        <ArrowUpDown size={14} />
+                                        <span>{sortOptions.find(o => o.value === sortBy)?.label}</span>
+                                    </div>
+                                    <ChevronDown size={14} className={`transition-transform ${showSortMenu ? 'rotate-180' : ''}`} />
+                                </button>
+                                {showSortMenu && (
+                                    <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-[#E3E6EB] rounded-lg shadow-lg z-10 overflow-hidden">
+                                        {sortOptions.map(opt => (
+                                            <button
+                                                key={opt.value}
+                                                onClick={() => { setSortBy(opt.value); setShowSortMenu(false); }}
+                                                className={`w-full px-3 py-2 text-left text-xs hover:bg-[#EEF1F4] transition-colors ${sortBy === opt.value ? 'bg-[#6FA3D8]/10 text-[#2F4A6D] font-medium' : 'text-[#4B5563]'}`}
+                                            >
+                                                {opt.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Filter Dropdown */}
+                            <div className="relative flex-1">
+                                <button
+                                    onClick={() => { setShowFilterMenu(!showFilterMenu); setShowSortMenu(false); }}
+                                    className="w-full flex items-center justify-between gap-2 px-3 py-2 bg-white border border-[#E3E6EB] rounded-lg text-xs font-medium text-[#4B5563] hover:border-[#6FA3D8] transition-colors"
+                                >
+                                    <div className="flex items-center gap-2">
+                                        <Filter size={14} />
+                                        <span>{filterOptions.find(o => o.value === filterStatus)?.label}</span>
+                                    </div>
+                                    <ChevronDown size={14} className={`transition-transform ${showFilterMenu ? 'rotate-180' : ''}`} />
+                                </button>
+                                {showFilterMenu && (
+                                    <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-[#E3E6EB] rounded-lg shadow-lg z-10 overflow-hidden">
+                                        {filterOptions.map(opt => (
+                                            <button
+                                                key={opt.value}
+                                                onClick={() => { setFilterStatus(opt.value); setShowFilterMenu(false); }}
+                                                className={`w-full px-3 py-2 text-left text-xs hover:bg-[#EEF1F4] transition-colors flex items-center justify-between ${filterStatus === opt.value ? 'bg-[#6FA3D8]/10 text-[#2F4A6D] font-medium' : 'text-[#4B5563]'}`}
+                                            >
+                                                <span>{opt.label}</span>
+                                                <span className="text-[#9CA3AF]">{opt.count}</span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
                         {/* Batch Actions */}
                         {totalActive > 0 && (
                             <div className="flex gap-2">
@@ -210,7 +342,7 @@ export const EmergencyQueuePanel = () => {
                                     onClick={selectAllPending}
                                     className="flex-1 text-xs"
                                 >
-                                    Select All Pending ({pendingCount})
+                                    Select Pending ({pendingCount})
                                 </Button>
                                 <Button
                                     size="sm"
@@ -219,7 +351,16 @@ export const EmergencyQueuePanel = () => {
                                     disabled={selectedIds.length === 0 || isLoading}
                                     className="flex-1 text-xs"
                                 >
-                                    Batch Ack ({selectedIds.length})
+                                    Ack ({selectedIds.length})
+                                </Button>
+                                <Button
+                                    size="sm"
+                                    variant="primary"
+                                    onClick={handleBatchRespond}
+                                    disabled={selectedIds.length === 0 || isLoading}
+                                    className="flex-1 text-xs"
+                                >
+                                    Respond ({selectedIds.length})
                                 </Button>
                             </div>
                         )}
@@ -227,14 +368,18 @@ export const EmergencyQueuePanel = () => {
 
                     {/* Emergency List */}
                     <div className="flex-1 overflow-y-auto p-3 space-y-3 bg-[#EEF1F4]">
-                        {activeEmergencies.length === 0 ? (
+                        {sortedEmergencies.length === 0 ? (
                             <div className="flex flex-col items-center justify-center h-full text-center">
                                 <Shield size={48} className="text-[#22c55e] mb-4" />
-                                <p className="text-[#1F2937] font-medium">No Active Emergencies</p>
-                                <p className="text-[#6B7280] text-sm">All clear!</p>
+                                <p className="text-[#1F2937] font-medium">
+                                    {activeEmergencies.length === 0 ? 'No Active Emergencies' : 'No Matching Emergencies'}
+                                </p>
+                                <p className="text-[#6B7280] text-sm">
+                                    {activeEmergencies.length === 0 ? 'All clear!' : 'Try adjusting your filters'}
+                                </p>
                             </div>
                         ) : (
-                            activeEmergencies.map((emergency) => (
+                            sortedEmergencies.map((emergency) => (
                                 <div
                                     key={emergency.id}
                                     className={`rounded-lg border transition-all bg-white ${emergency.status === 'Pending'
