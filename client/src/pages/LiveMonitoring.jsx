@@ -6,6 +6,7 @@ import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
 import { LocationMap } from '../components/ui/LocationMap';
+import { DeviceLedIndicator } from '../components/ui/DeviceLedIndicator';
 import { useSocket } from '../context/SocketContext';
 import { devicesApi, alertsApi } from '../utils/api';
 import { useToast } from '../context/ToastContext';
@@ -384,6 +385,10 @@ export const LiveMonitoring = () => {
                                                 {worker.status === 'offline' ? 'Offline' : worker.sensors.movement}
                                             </Badge>
                                         </div>
+                                        {/* RGB LED Indicator - mirrors ESP32 hardware LED */}
+                                        <div className="mt-1.5">
+                                            <DeviceLedIndicator sensors={worker.sensors} status={worker.status} size="sm" />
+                                        </div>
                                     </div>
                                 </div>
 
@@ -628,6 +633,10 @@ export const LiveMonitoring = () => {
                                         <Badge variant={selectedWorker.status === 'normal' ? 'success' : selectedWorker.status === 'warning' ? 'warning' : 'danger'}>
                                             {selectedWorker.status.toUpperCase()}
                                         </Badge>
+                                    </div>
+                                    {/* RGB LED Indicator in Modal */}
+                                    <div className="mt-2">
+                                        <DeviceLedIndicator sensors={selectedWorker.sensors} status={selectedWorker.status} size="md" />
                                     </div>
                                 </div>
                             </div>

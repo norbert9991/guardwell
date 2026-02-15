@@ -226,6 +226,48 @@
         animation: emergency-flash 1.5s ease-in-out infinite;
     }
 
+    /* ========================================
+       Device LED Indicator Animations
+       Mirrors ESP32 RGB LED state machine
+       ======================================== */
+
+    /* Emergency — rapid red flash (matches ESP32 80ms toggle) */
+    @keyframes led-emergency-flash {
+        0%, 100% { opacity: 1; box-shadow: 0 0 8px #EF4444, 0 0 16px #EF444440; }
+        50% { opacity: 0.2; box-shadow: 0 0 2px #EF4444; }
+    }
+    .led-emergency {
+        animation: led-emergency-flash 0.4s ease-in-out infinite;
+    }
+
+    /* Geofence — purple pulse (matches ESP32 500ms toggle) */
+    @keyframes led-geofence-pulse {
+        0%, 100% { opacity: 1; box-shadow: 0 0 8px #A855F7, 0 0 16px #A855F740; }
+        50% { opacity: 0.3; box-shadow: 0 0 2px #A855F7; }
+    }
+    .led-geofence {
+        animation: led-geofence-pulse 1s ease-in-out infinite;
+    }
+
+    /* GPS Wait — yellow slow pulse (matches ESP32 1000ms toggle) */
+    @keyframes led-gps-pulse {
+        0%, 100% { opacity: 1; box-shadow: 0 0 8px #EAB308, 0 0 16px #EAB30840; }
+        50% { opacity: 0.3; box-shadow: 0 0 2px #EAB308; }
+    }
+    .led-gps-wait {
+        animation: led-gps-pulse 2s ease-in-out infinite;
+    }
+
+    /* Idle — green steady glow */
+    .led-idle {
+        box-shadow: 0 0 8px #22C55E, 0 0 16px #22C55E40;
+    }
+
+    /* Offline — no glow */
+    .led-offline {
+        box-shadow: none;
+    }
+
     /* Sidebar styles - Light theme */
     .sidebar {
         @apply bg-white border-r border-[#E3E6EB];
