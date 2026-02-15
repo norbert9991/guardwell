@@ -33,8 +33,13 @@ async function checkForEscalation() {
         const { Alert, Worker } = require('../models');
         const now = new Date();
 
-        // Get all pending, non-escalated alerts
+        // Only select columns we actually need — avoids crash if
+        // newer columns (responseTimeMs, etc.) haven't been migrated yet
         const pendingAlerts = await Alert.findAll({
+            attributes: [
+                'id', 'type', 'severity', 'deviceId', 'workerId',
+                'status', 'escalated', 'escalatedAt', 'createdAt'
+            ],
             where: {
                 status: 'Pending',
                 escalated: { [Op.or]: [false, null] }
@@ -105,8 +110,10 @@ function startEscalationService(io) {
         Low: '15 min'
     });
 
-    // Run initial check
-    checkForEscalation();
+    // Delay initial check to let DB migrations finish
+    setTimeout(() => {
+        checkForEscalation();
+    }, 10000);
 
     // Set up periodic checks
     escalationInterval = setInterval(checkForEscalation, CHECK_INTERVAL);
