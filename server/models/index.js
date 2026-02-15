@@ -81,6 +81,48 @@ const syncDatabase = async (force = false) => {
                     });
                     console.log('✅ Added longitude column to alerts');
                 }
+                if (!alertColumns.responseTimeMs) {
+                    await queryInterface.addColumn('alerts', 'responseTimeMs', {
+                        type: require('sequelize').DataTypes.BIGINT,
+                        allowNull: true
+                    });
+                    console.log('✅ Added responseTimeMs column to alerts');
+                }
+                if (!alertColumns.escalated) {
+                    await queryInterface.addColumn('alerts', 'escalated', {
+                        type: require('sequelize').DataTypes.BOOLEAN,
+                        defaultValue: false
+                    });
+                    console.log('✅ Added escalated column to alerts');
+                }
+                if (!alertColumns.escalatedAt) {
+                    await queryInterface.addColumn('alerts', 'escalatedAt', {
+                        type: require('sequelize').DataTypes.DATE,
+                        allowNull: true
+                    });
+                    console.log('✅ Added escalatedAt column to alerts');
+                }
+                if (!alertColumns.resolvedAt) {
+                    await queryInterface.addColumn('alerts', 'resolvedAt', {
+                        type: require('sequelize').DataTypes.DATE,
+                        allowNull: true
+                    });
+                    console.log('✅ Added resolvedAt column to alerts');
+                }
+                if (!alertColumns.notes) {
+                    await queryInterface.addColumn('alerts', 'notes', {
+                        type: require('sequelize').DataTypes.TEXT,
+                        allowNull: true
+                    });
+                    console.log('✅ Added notes column to alerts');
+                }
+                if (!alertColumns.archived) {
+                    await queryInterface.addColumn('alerts', 'archived', {
+                        type: require('sequelize').DataTypes.BOOLEAN,
+                        defaultValue: false
+                    });
+                    console.log('✅ Added archived column to alerts');
+                }
 
                 // IMPORTANT: Change status/type/severity from ENUM to VARCHAR if needed
                 // This allows new status values like 'Responding' to work
