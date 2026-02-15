@@ -36,6 +36,12 @@ const LED_STATES = {
         color: '#22C55E',
         shadow: '#22C55E',
     },
+    nudge: {
+        label: 'Nudge Sent',
+        className: 'led-nudge',
+        color: '#3B82F6',
+        shadow: '#3B82F6',
+    },
     offline: {
         label: 'Offline',
         className: 'led-offline',
@@ -44,7 +50,7 @@ const LED_STATES = {
     },
 };
 
-function deriveLedState(sensors, status) {
+function deriveLedState(sensors, status, nudgeActive) {
     if (status === 'offline') return LED_STATES.offline;
 
     // Priority 1 — Emergency (button or voice alert)
@@ -57,17 +63,22 @@ function deriveLedState(sensors, status) {
         return LED_STATES.geofence;
     }
 
-    // Priority 3 — GPS acquiring (device is online but no fix)
+    // Priority 3 — Nudge active (blue blink from safety officer)
+    if (nudgeActive) {
+        return LED_STATES.nudge;
+    }
+
+    // Priority 4 — GPS acquiring (device is online but no fix)
     if (sensors?.gpsValid === false && status !== 'offline') {
         return LED_STATES.gpsWait;
     }
 
-    // Priority 4 — Normal / Idle
+    // Priority 5 — Normal / Idle
     return LED_STATES.idle;
 }
 
-export const DeviceLedIndicator = ({ sensors, status, size = 'md', showLabel = true }) => {
-    const state = deriveLedState(sensors, status);
+export const DeviceLedIndicator = ({ sensors, status, size = 'md', showLabel = true, nudgeActive = false }) => {
+    const state = deriveLedState(sensors, status, nudgeActive);
 
     const sizeClasses = {
         sm: 'w-3 h-3',

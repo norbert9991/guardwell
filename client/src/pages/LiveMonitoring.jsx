@@ -8,7 +8,7 @@ import { Modal } from '../components/ui/Modal';
 import { LocationMap } from '../components/ui/LocationMap';
 import { DeviceLedIndicator } from '../components/ui/DeviceLedIndicator';
 import { useSocket } from '../context/SocketContext';
-import { devicesApi, alertsApi } from '../utils/api';
+import { devicesApi, alertsApi, sensorsApi } from '../utils/api';
 import { useToast } from '../context/ToastContext';
 
 export const LiveMonitoring = () => {
@@ -20,6 +20,7 @@ export const LiveMonitoring = () => {
     const [showDetailsModal, setShowDetailsModal] = useState(false);
     const [markedSafe, setMarkedSafe] = useState({});
     const [sosActive, setSosActive] = useState({});
+    const [nudgedDevices, setNudgedDevices] = useState({});
     const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'map'
     const toast = useToast();
 
@@ -229,6 +230,32 @@ export const LiveMonitoring = () => {
         }, 5000);
     };
 
+    // Handle nudge — send check-in alert to ESP32 device
+    const handleNudge = async (deviceId, workerName) => {
+        try {
+            setNudgedDevices(prev => ({ ...prev, [deviceId]: true }));
+            await sensorsApi.sendNudge(deviceId, `Check-in requested for ${workerName}`);
+            toast.success(`Nudge sent to ${workerName}'s device — buzzer and blue LED will activate`);
+
+            // Clear nudge visual after 10 seconds (matches ESP32 NUDGE_BLINK_CYCLES)
+            setTimeout(() => {
+                setNudgedDevices(prev => {
+                    const updated = { ...prev };
+                    delete updated[deviceId];
+                    return updated;
+                });
+            }, 10000);
+        } catch (error) {
+            console.error('Failed to send nudge:', error);
+            toast.error('Failed to send nudge. Please try again.');
+            setNudgedDevices(prev => {
+                const updated = { ...prev };
+                delete updated[deviceId];
+                return updated;
+            });
+        }
+    };
+
     // Format time
     const formatTime = (timestamp) => {
         if (!timestamp || timestamp === 'No data') return 'No data';
@@ -387,7 +414,7 @@ export const LiveMonitoring = () => {
                                         </div>
                                         {/* RGB LED Indicator - mirrors ESP32 hardware LED */}
                                         <div className="mt-1.5">
-                                            <DeviceLedIndicator sensors={worker.sensors} status={worker.status} size="sm" />
+                                            <DeviceLedIndicator sensors={worker.sensors} status={worker.status} size="sm" nudgeActive={!!nudgedDevices[worker.device]} />
                                         </div>
                                     </div>
                                 </div>
@@ -580,6 +607,19 @@ export const LiveMonitoring = () => {
                                             <Eye size={14} className="mr-1" />
                                             View Details
                                         </Button>
+                                        {/* Nudge button — triggers ESP32 buzzer + blue LED */}
+                                        {worker.status !== 'offline' && (
+                                            <Button
+                                                size="sm"
+                                                variant={nudgedDevices[worker.device] ? 'secondary' : 'primary'}
+                                                className={`flex-1 ${nudgedDevices[worker.device] ? '' : 'bg-[#6FA3D8] hover:bg-[#5A8EC3]'}`}
+                                                onClick={() => handleNudge(worker.device, worker.name)}
+                                                disabled={!!nudgedDevices[worker.device]}
+                                            >
+                                                <Bell size={14} className="mr-1" />
+                                                {nudgedDevices[worker.device] ? 'Nudged ✓' : 'Nudge'}
+                                            </Button>
+                                        )}
                                         {/* Show Mark Safe button for devices with active SOS but not yet marked */}
                                         {(worker.sensors.sosActive || worker.sensors.emergency) && !markedSafe[worker.id] && (
                                             <Button

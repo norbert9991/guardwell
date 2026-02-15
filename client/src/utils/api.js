@@ -69,7 +69,8 @@ export const devicesApi = {
 // ======================
 export const sensorsApi = {
     getLatest: (deviceId) => api.get(`/sensors/latest/${deviceId}`),
-    getHistory: (deviceId, limit = 100) => api.get(`/sensors/history/${deviceId}`, { params: { limit } })
+    getHistory: (deviceId, limit = 100) => api.get(`/sensors/history/${deviceId}`, { params: { limit } }),
+    sendNudge: (deviceId, message = '', sentBy = 'Safety Officer') => api.post(`/sensors/nudge/${deviceId}`, { message, sentBy })
 };
 
 // ======================

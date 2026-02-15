@@ -325,6 +325,78 @@ router.get('/history/:deviceId', async (req, res) => {
     }
 });
 
+// ============================================
+// NUDGE SYSTEM (Server ↔ ESP32)
+// In-memory store — nudges are ephemeral
+// ============================================
+const pendingNudges = {};  // { deviceId: { nudge: true, message: "...", timestamp } }
+
+// POST /api/sensors/nudge/:deviceId — Safety officer sends a nudge from web dashboard
+router.post('/nudge/:deviceId', async (req, res) => {
+    try {
+        const { deviceId } = req.params;
+        const { message } = req.body;
+
+        pendingNudges[deviceId] = {
+            nudge: true,
+            message: message || 'Check-in requested by safety officer',
+            timestamp: new Date().toISOString(),
+            sentBy: req.body.sentBy || 'Safety Officer'
+        };
+
+        console.log(`📢 Nudge queued for ${deviceId}: ${pendingNudges[deviceId].message}`);
+
+        // Also emit via Socket.io so other dashboard tabs see it
+        if (req.io) {
+            req.io.emit('nudge_sent', {
+                deviceId,
+                message: pendingNudges[deviceId].message,
+                timestamp: pendingNudges[deviceId].timestamp,
+                sentBy: pendingNudges[deviceId].sentBy
+            });
+        }
+
+        res.json({ success: true, message: `Nudge queued for ${deviceId}` });
+    } catch (error) {
+        console.error('Error sending nudge:', error);
+        res.status(500).json({ error: 'Failed to send nudge' });
+    }
+});
+
+// GET /api/sensors/nudge/:deviceId — ESP32 polls for pending nudges
+router.get('/nudge/:deviceId', (req, res) => {
+    const { deviceId } = req.params;
+    const nudge = pendingNudges[deviceId];
+
+    if (nudge && nudge.nudge) {
+        res.json(nudge);
+    } else {
+        res.json({ nudge: false });
+    }
+});
+
+// POST /api/sensors/nudge/:deviceId/ack — ESP32 acknowledges the nudge
+router.post('/nudge/:deviceId/ack', (req, res) => {
+    const { deviceId } = req.params;
+
+    if (pendingNudges[deviceId]) {
+        console.log(`✅ Nudge acknowledged by ${deviceId}`);
+
+        // Emit acknowledgement to dashboard
+        if (req.io) {
+            req.io.emit('nudge_acknowledged', {
+                deviceId,
+                timestamp: new Date().toISOString()
+            });
+        }
+
+        delete pendingNudges[deviceId];
+    }
+
+    res.json({ success: true });
+});
+
 module.exports = router;
 module.exports.processSensorData = processSensorData;
 module.exports.THRESHOLDS = THRESHOLDS;
+
