@@ -12,14 +12,17 @@ const initEmail = () => {
         return false;
     }
 
+    const port = parseInt(process.env.SMTP_PORT) || 465;
     transporter = nodemailer.createTransport({
         host: process.env.SMTP_HOST || 'smtp.gmail.com',
-        port: parseInt(process.env.SMTP_PORT) || 587,
-        secure: false, // true for 465, false for other ports (STARTTLS)
+        port: port,
+        secure: port === 465, // true for 465 (SSL), false for 587 (STARTTLS)
         auth: {
             user: user,
             pass: pass,
         },
+        connectionTimeout: 10000, // 10 seconds
+        greetingTimeout: 10000,
     });
 
     // Verify connection
