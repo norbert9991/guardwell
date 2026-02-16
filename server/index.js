@@ -274,8 +274,8 @@ const startServer = async () => {
     await testConnection();
     await syncDatabase();
 
-    // Initialize SendGrid email service
-    emailService.initSendGrid();
+    // Initialize email service (Gmail SMTP via Nodemailer)
+    emailService.initEmail();
 
     // Start alert escalation monitoring service
     escalationService.startEscalationService(io);

@@ -1,48 +1,64 @@
-const sgMail = require('@sendgrid/mail');
+const nodemailer = require('nodemailer');
 
-// Initialize SendGrid with API key
-const initSendGrid = () => {
-    const apiKey = process.env.SENDGRID_API_KEY;
-    if (apiKey && apiKey !== 'SG.your-sendgrid-api-key-here') {
-        sgMail.setApiKey(apiKey);
-        console.log('✅ SendGrid initialized');
-        return true;
-    } else {
-        console.warn('⚠️ SendGrid API key not configured - email notifications disabled');
+// Create reusable transporter using Gmail SMTP
+let transporter = null;
+
+const initEmail = () => {
+    const user = process.env.SMTP_USER;
+    const pass = process.env.SMTP_PASS;
+
+    if (!user || !pass) {
+        console.warn('⚠️ SMTP credentials not configured - email notifications disabled');
         return false;
     }
+
+    transporter = nodemailer.createTransport({
+        host: process.env.SMTP_HOST || 'smtp.gmail.com',
+        port: parseInt(process.env.SMTP_PORT) || 587,
+        secure: false, // true for 465, false for other ports (STARTTLS)
+        auth: {
+            user: user,
+            pass: pass,
+        },
+    });
+
+    // Verify connection
+    transporter.verify()
+        .then(() => console.log('✅ SMTP Email service initialized (Gmail)'))
+        .catch((err) => console.error('❌ SMTP connection failed:', err.message));
+
+    return true;
 };
 
-// Check if SendGrid is properly configured
+// Check if email is properly configured
 const isConfigured = () => {
-    const apiKey = process.env.SENDGRID_API_KEY;
-    return apiKey && apiKey !== 'SG.your-sendgrid-api-key-here';
+    return transporter !== null;
 };
 
 // Send a single email
 const sendEmail = async ({ to, subject, text, html }) => {
     if (!isConfigured()) {
-        console.warn('SendGrid not configured, skipping email to:', to);
-        return { success: false, error: 'SendGrid not configured' };
+        console.warn('SMTP not configured, skipping email to:', to);
+        return { success: false, error: 'SMTP not configured' };
     }
 
-    const msg = {
-        to,
+    const mailOptions = {
         from: {
-            email: process.env.SENDGRID_FROM_EMAIL || 'alerts@guardwell.com',
-            name: process.env.SENDGRID_FROM_NAME || 'GuardWell Alerts'
+            name: process.env.SMTP_FROM_NAME || 'GuardWell Alerts',
+            address: process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER,
         },
+        to,
         subject,
         text,
-        html: html || text
+        html: html || text,
     };
 
     try {
-        await sgMail.send(msg);
-        console.log(`📧 Email sent to: ${to}`);
-        return { success: true };
+        const info = await transporter.sendMail(mailOptions);
+        console.log(`📧 Email sent to: ${to} (Message ID: ${info.messageId})`);
+        return { success: true, messageId: info.messageId };
     } catch (error) {
-        console.error('❌ Email send error:', error.response?.body || error.message);
+        console.error('❌ Email send error:', error.message);
         return { success: false, error: error.message };
     }
 };
@@ -50,27 +66,27 @@ const sendEmail = async ({ to, subject, text, html }) => {
 // Send email to multiple recipients
 const sendBulkEmail = async ({ recipients, subject, text, html }) => {
     if (!isConfigured()) {
-        console.warn('SendGrid not configured, skipping bulk email');
-        return { success: false, error: 'SendGrid not configured' };
+        console.warn('SMTP not configured, skipping bulk email');
+        return { success: false, error: 'SMTP not configured' };
     }
 
-    const msg = {
-        to: recipients,
+    const mailOptions = {
         from: {
-            email: process.env.SENDGRID_FROM_EMAIL || 'alerts@guardwell.com',
-            name: process.env.SENDGRID_FROM_NAME || 'GuardWell Alerts'
+            name: process.env.SMTP_FROM_NAME || 'GuardWell Alerts',
+            address: process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER,
         },
+        to: recipients.join(', '),
         subject,
         text,
-        html: html || text
+        html: html || text,
     };
 
     try {
-        await sgMail.sendMultiple(msg);
-        console.log(`📧 Bulk email sent to ${recipients.length} recipients`);
-        return { success: true };
+        const info = await transporter.sendMail(mailOptions);
+        console.log(`📧 Bulk email sent to ${recipients.length} recipients (Message ID: ${info.messageId})`);
+        return { success: true, messageId: info.messageId };
     } catch (error) {
-        console.error('❌ Bulk email error:', error.response?.body || error.message);
+        console.error('❌ Bulk email error:', error.message);
         return { success: false, error: error.message };
     }
 };
@@ -196,7 +212,7 @@ This is an automated alert from GuardWell Safety Monitoring System.
 };
 
 module.exports = {
-    initSendGrid,
+    initEmail,
     isConfigured,
     sendEmail,
     sendBulkEmail,
