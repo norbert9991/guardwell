@@ -5,6 +5,130 @@ import { Button } from '../components/ui/Button';
 import { MetricCard } from '../components/ui/MetricCard';
 import { reportsApi } from '../utils/api';
 import { useAuth, PERMISSIONS } from '../context/AuthContext';
+import {
+    Chart as ChartJS,
+    CategoryScale,
+    LinearScale,
+    BarElement,
+    LineElement,
+    PointElement,
+    ArcElement,
+    Title,
+    Tooltip,
+    Legend,
+    Filler
+} from 'chart.js';
+import { Bar, Line, Doughnut, Pie } from 'react-chartjs-2';
+
+// Register Chart.js components
+ChartJS.register(
+    CategoryScale,
+    LinearScale,
+    BarElement,
+    LineElement,
+    PointElement,
+    ArcElement,
+    Title,
+    Tooltip,
+    Legend,
+    Filler
+);
+
+// Curated color palette
+const CHART_COLORS = {
+    red: 'rgba(239, 68, 68, 0.85)',
+    orange: 'rgba(245, 158, 11, 0.85)',
+    yellow: 'rgba(234, 179, 8, 0.85)',
+    green: 'rgba(16, 185, 129, 0.85)',
+    blue: 'rgba(59, 130, 246, 0.85)',
+    indigo: 'rgba(99, 102, 241, 0.85)',
+    purple: 'rgba(139, 92, 246, 0.85)',
+    pink: 'rgba(236, 72, 153, 0.85)',
+    teal: 'rgba(20, 184, 166, 0.85)',
+    cyan: 'rgba(6, 182, 212, 0.85)',
+};
+const CHART_COLORS_LIGHT = {
+    red: 'rgba(239, 68, 68, 0.15)',
+    orange: 'rgba(245, 158, 11, 0.15)',
+    yellow: 'rgba(234, 179, 8, 0.15)',
+    green: 'rgba(16, 185, 129, 0.15)',
+    blue: 'rgba(59, 130, 246, 0.15)',
+    indigo: 'rgba(99, 102, 241, 0.15)',
+    purple: 'rgba(139, 92, 246, 0.15)',
+    pink: 'rgba(236, 72, 153, 0.15)',
+    teal: 'rgba(20, 184, 166, 0.15)',
+    cyan: 'rgba(6, 182, 212, 0.15)',
+};
+const SEVERITY_COLORS = {
+    Critical: CHART_COLORS.red,
+    High: CHART_COLORS.orange,
+    Medium: CHART_COLORS.yellow,
+    Low: CHART_COLORS.green,
+};
+const SEVERITY_BORDERS = {
+    Critical: 'rgba(239, 68, 68, 1)',
+    High: 'rgba(245, 158, 11, 1)',
+    Medium: 'rgba(234, 179, 8, 1)',
+    Low: 'rgba(16, 185, 129, 1)',
+};
+
+// Shared chart options
+const defaultDoughnutOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+        legend: { position: 'bottom', labels: { padding: 16, usePointStyle: true, pointStyle: 'circle', font: { size: 12 } } },
+        tooltip: {
+            backgroundColor: 'rgba(31, 41, 55, 0.95)',
+            titleFont: { size: 13 },
+            bodyFont: { size: 12 },
+            padding: 12,
+            cornerRadius: 8,
+        }
+    },
+    cutout: '60%',
+};
+
+const defaultBarOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+        legend: { display: false },
+        tooltip: {
+            backgroundColor: 'rgba(31, 41, 55, 0.95)',
+            titleFont: { size: 13 },
+            bodyFont: { size: 12 },
+            padding: 12,
+            cornerRadius: 8,
+        }
+    },
+    scales: {
+        x: { grid: { display: false }, ticks: { font: { size: 11 }, color: '#6B7280' } },
+        y: { grid: { color: 'rgba(0,0,0,0.05)' }, ticks: { font: { size: 11 }, color: '#6B7280', precision: 0 }, beginAtZero: true }
+    }
+};
+
+const defaultLineOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+        legend: { position: 'top', labels: { usePointStyle: true, pointStyle: 'circle', font: { size: 12 }, padding: 16 } },
+        tooltip: {
+            backgroundColor: 'rgba(31, 41, 55, 0.95)',
+            titleFont: { size: 13 },
+            bodyFont: { size: 12 },
+            padding: 12,
+            cornerRadius: 8,
+            mode: 'index',
+            intersect: false,
+        }
+    },
+    scales: {
+        x: { grid: { display: false }, ticks: { font: { size: 10 }, color: '#6B7280', maxRotation: 45 } },
+        y: { grid: { color: 'rgba(0,0,0,0.05)' }, ticks: { font: { size: 11 }, color: '#6B7280', precision: 0 }, beginAtZero: true }
+    },
+    interaction: { mode: 'nearest', axis: 'x', intersect: false },
+};
 
 export const Reports = () => {
     const [reportType, setReportType] = useState('worker-safety');
@@ -238,227 +362,663 @@ export const Reports = () => {
         }
     };
 
-    // Render charts/details - LIGHT THEME
-    const renderDetails = () => {
+    // ===================== CHART RENDERERS =====================
+
+    const renderWorkerSafetyCharts = () => {
         if (!reportData) return null;
 
-        switch (reportType) {
-            case 'worker-safety':
-                return (
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        {/* Incidents by Severity */}
-                        <CardDark>
-                            <CardHeader className="px-6 py-4 border-b border-[#E3E6EB]">
-                                <h3 className="font-semibold text-[#1F2937] flex items-center gap-2">
-                                    <BarChart3 size={18} className="text-[#6FA3D8]" />
-                                    Incidents by Severity
-                                </h3>
-                            </CardHeader>
-                            <CardBody className="p-6">
-                                <div className="space-y-3">
-                                    {Object.entries(reportData.incidentsBySeverity || {}).map(([severity, count]) => {
-                                        const colors = {
-                                            Critical: 'bg-red-500',
-                                            High: 'bg-orange-500',
-                                            Medium: 'bg-yellow-500',
-                                            Low: 'bg-green-500'
-                                        };
-                                        const maxCount = Math.max(...Object.values(reportData.incidentsBySeverity || {}), 1);
-                                        return (
-                                            <div key={severity} className="flex items-center gap-3">
-                                                <span className="w-20 text-sm text-[#4B5563] font-medium">{severity}</span>
-                                                <div className="flex-1 h-6 bg-[#EEF1F4] rounded overflow-hidden">
-                                                    <div
-                                                        className={`h-full ${colors[severity]} transition-all`}
-                                                        style={{ width: `${(count / maxCount) * 100}%` }}
-                                                    />
-                                                </div>
-                                                <span className="w-8 text-right text-[#1F2937] font-semibold">{count}</span>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            </CardBody>
-                        </CardDark>
+        const severityData = reportData.incidentsBySeverity || {};
+        const typeData = reportData.incidentsByType || {};
+        const statusData = reportData.incidentsByStatus || {};
+        const dailyData = reportData.dailyIncidents || [];
 
-                        {/* Incidents by Type */}
-                        <CardDark>
-                            <CardHeader className="px-6 py-4 border-b border-[#E3E6EB]">
-                                <h3 className="font-semibold text-[#1F2937] flex items-center gap-2">
-                                    <PieChart size={18} className="text-[#E85D2A]" />
-                                    Incidents by Type
-                                </h3>
-                            </CardHeader>
-                            <CardBody className="p-6">
-                                <div className="space-y-2">
-                                    {Object.entries(reportData.incidentsByType || {}).map(([type, count]) => (
-                                        <div key={type} className="flex justify-between items-center py-2 border-b border-[#E3E6EB]">
-                                            <span className="text-[#4B5563]">{type}</span>
-                                            <span className="text-[#1F2937] font-semibold">{count}</span>
-                                        </div>
-                                    ))}
-                                    {Object.keys(reportData.incidentsByType || {}).length === 0 && (
-                                        <p className="text-[#6B7280] text-center py-4">No incidents in this period</p>
-                                    )}
-                                </div>
-                            </CardBody>
-                        </CardDark>
-                    </div>
-                );
+        // Doughnut — Incidents by Severity
+        const severityChartData = {
+            labels: Object.keys(severityData),
+            datasets: [{
+                data: Object.values(severityData),
+                backgroundColor: Object.keys(severityData).map(k => SEVERITY_COLORS[k] || CHART_COLORS.blue),
+                borderColor: Object.keys(severityData).map(k => SEVERITY_BORDERS[k] || 'rgba(59,130,246,1)'),
+                borderWidth: 2,
+            }]
+        };
 
-            case 'device-performance':
-                return (
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        {/* Devices by Status */}
-                        <CardDark>
-                            <CardHeader className="px-6 py-4 border-b border-[#E3E6EB]">
-                                <h3 className="font-semibold text-[#1F2937] flex items-center gap-2">
-                                    <BarChart3 size={18} className="text-[#6FA3D8]" />
-                                    Devices by Status
-                                </h3>
-                            </CardHeader>
-                            <CardBody className="p-6">
-                                <div className="space-y-3">
-                                    {Object.entries(reportData.devicesByStatus || {}).map(([status, count]) => {
-                                        const colors = {
-                                            Active: 'bg-green-500',
-                                            Available: 'bg-blue-500',
-                                            Maintenance: 'bg-yellow-500',
-                                            Offline: 'bg-red-500'
-                                        };
-                                        const maxCount = Math.max(...Object.values(reportData.devicesByStatus || {}), 1);
-                                        return (
-                                            <div key={status} className="flex items-center gap-3">
-                                                <span className="w-24 text-sm text-[#4B5563] font-medium">{status}</span>
-                                                <div className="flex-1 h-6 bg-[#EEF1F4] rounded overflow-hidden">
-                                                    <div
-                                                        className={`h-full ${colors[status]} transition-all`}
-                                                        style={{ width: `${(count / maxCount) * 100}%` }}
-                                                    />
-                                                </div>
-                                                <span className="w-8 text-right text-[#1F2937] font-semibold">{count}</span>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            </CardBody>
-                        </CardDark>
+        // Bar — Incidents by Type
+        const typeLabels = Object.keys(typeData);
+        const palette = [CHART_COLORS.blue, CHART_COLORS.indigo, CHART_COLORS.purple, CHART_COLORS.teal, CHART_COLORS.cyan, CHART_COLORS.pink, CHART_COLORS.orange];
+        const typeChartData = {
+            labels: typeLabels,
+            datasets: [{
+                label: 'Count',
+                data: Object.values(typeData),
+                backgroundColor: typeLabels.map((_, i) => palette[i % palette.length]),
+                borderColor: typeLabels.map((_, i) => palette[i % palette.length].replace('0.85', '1')),
+                borderWidth: 1,
+                borderRadius: 6,
+            }]
+        };
 
-                        {/* Sensor Averages */}
-                        <CardDark>
-                            <CardHeader className="px-6 py-4 border-b border-[#E3E6EB]">
-                                <h3 className="font-semibold text-[#1F2937] flex items-center gap-2">
-                                    <TrendingUp size={18} className="text-[#10B981]" />
-                                    Average Sensor Readings
-                                </h3>
-                            </CardHeader>
-                            <CardBody className="p-6">
-                                <div className="grid grid-cols-3 gap-4 text-center">
-                                    <div className="bg-[#EEF1F4] p-4 rounded-lg border border-[#E3E6EB]">
-                                        <p className="text-2xl font-bold text-[#1F2937]">{reportData.avgReadings?.temperature || 0}°C</p>
-                                        <p className="text-sm text-[#4B5563]">Temperature</p>
-                                    </div>
-                                    <div className="bg-[#EEF1F4] p-4 rounded-lg border border-[#E3E6EB]">
-                                        <p className="text-2xl font-bold text-[#1F2937]">{reportData.avgReadings?.humidity || 0}%</p>
-                                        <p className="text-sm text-[#4B5563]">Humidity</p>
-                                    </div>
-                                    <div className="bg-[#EEF1F4] p-4 rounded-lg border border-[#E3E6EB]">
-                                        <p className="text-2xl font-bold text-[#1F2937]">{reportData.avgReadings?.gasLevel || 0}</p>
-                                        <p className="text-sm text-[#4B5563]">Gas (PPM)</p>
-                                    </div>
-                                </div>
-                            </CardBody>
-                        </CardDark>
-                    </div>
-                );
+        // Pie — Incidents by Status
+        const statusLabels = Object.keys(statusData);
+        const statusColors = [CHART_COLORS.red, CHART_COLORS.orange, CHART_COLORS.green, CHART_COLORS.blue];
+        const statusChartData = {
+            labels: statusLabels,
+            datasets: [{
+                data: Object.values(statusData),
+                backgroundColor: statusLabels.map((_, i) => statusColors[i % statusColors.length]),
+                borderColor: '#ffffff',
+                borderWidth: 2,
+            }]
+        };
 
-            case 'alert-analytics':
-                return (
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        {/* Alerts by Type */}
-                        <CardDark>
-                            <CardHeader className="px-6 py-4 border-b border-[#E3E6EB]">
-                                <h3 className="font-semibold text-[#1F2937] flex items-center gap-2">
-                                    <PieChart size={18} className="text-[#E85D2A]" />
-                                    Alerts by Type
-                                </h3>
-                            </CardHeader>
-                            <CardBody className="p-6">
-                                <div className="space-y-2">
-                                    {Object.entries(reportData.alertsByType || {}).map(([type, count]) => (
-                                        <div key={type} className="flex justify-between items-center py-2 border-b border-[#E3E6EB]">
-                                            <span className="text-[#4B5563]">{type}</span>
-                                            <span className="text-[#1F2937] font-semibold">{count}</span>
-                                        </div>
-                                    ))}
-                                    {Object.keys(reportData.alertsByType || {}).length === 0 && (
-                                        <p className="text-[#6B7280] text-center py-4">No alerts in this period</p>
-                                    )}
-                                </div>
-                            </CardBody>
-                        </CardDark>
+        // Line — Daily Incident Trend
+        const trendChartData = {
+            labels: dailyData.map(d => d.date.slice(5)), // MM-DD format
+            datasets: [{
+                label: 'Incidents',
+                data: dailyData.map(d => d.count),
+                borderColor: CHART_COLORS.red,
+                backgroundColor: CHART_COLORS_LIGHT.red,
+                fill: true,
+                tension: 0.4,
+                pointRadius: 3,
+                pointHoverRadius: 6,
+                pointBackgroundColor: CHART_COLORS.red,
+            }]
+        };
 
-                        {/* Alerts by Severity */}
-                        <CardDark>
-                            <CardHeader className="px-6 py-4 border-b border-[#E3E6EB]">
-                                <h3 className="font-semibold text-[#1F2937] flex items-center gap-2">
-                                    <BarChart3 size={18} className="text-[#6FA3D8]" />
-                                    Alerts by Severity
-                                </h3>
-                            </CardHeader>
-                            <CardBody className="p-6">
-                                <div className="space-y-3">
-                                    {Object.entries(reportData.alertsBySeverity || {}).map(([severity, count]) => {
-                                        const colors = {
-                                            Critical: 'bg-red-500',
-                                            High: 'bg-orange-500',
-                                            Medium: 'bg-yellow-500',
-                                            Low: 'bg-green-500'
-                                        };
-                                        const maxCount = Math.max(...Object.values(reportData.alertsBySeverity || {}), 1);
-                                        return (
-                                            <div key={severity} className="flex items-center gap-3">
-                                                <span className="w-20 text-sm text-[#4B5563] font-medium">{severity}</span>
-                                                <div className="flex-1 h-6 bg-[#EEF1F4] rounded overflow-hidden">
-                                                    <div
-                                                        className={`h-full ${colors[severity]} transition-all`}
-                                                        style={{ width: `${(count / maxCount) * 100}%` }}
-                                                    />
-                                                </div>
-                                                <span className="w-8 text-right text-[#1F2937] font-semibold">{count}</span>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            </CardBody>
-                        </CardDark>
-                    </div>
-                );
+        const hasSeverity = Object.values(severityData).some(v => v > 0);
+        const hasType = typeLabels.length > 0;
+        const hasStatus = Object.values(statusData).some(v => v > 0);
+        const hasTrend = dailyData.length > 0;
 
-            case 'compliance':
-                return (
+        return (
+            <div className="space-y-6">
+                {/* Row 1: Doughnut + Pie */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     <CardDark>
                         <CardHeader className="px-6 py-4 border-b border-[#E3E6EB]">
                             <h3 className="font-semibold text-[#1F2937] flex items-center gap-2">
-                                <FileText size={18} className="text-[#6FA3D8]" />
-                                Detailed Metrics
+                                <PieChart size={18} className="text-[#EF4444]" />
+                                Incidents by Severity
                             </h3>
                         </CardHeader>
                         <CardBody className="p-6">
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                {reportData.metrics && Object.entries(reportData.metrics).map(([key, value]) => (
-                                    <div key={key} className="bg-[#EEF1F4] p-4 rounded-lg border border-[#E3E6EB] text-center">
-                                        <p className="text-2xl font-bold text-[#1F2937]">{value}</p>
-                                        <p className="text-sm text-[#4B5563]">{key.replace(/([A-Z])/g, ' $1').trim()}</p>
-                                    </div>
-                                ))}
+                            <div className="h-64 flex items-center justify-center">
+                                {hasSeverity ? (
+                                    <Doughnut data={severityChartData} options={defaultDoughnutOptions} />
+                                ) : (
+                                    <p className="text-[#6B7280] text-center">No incident data for this period</p>
+                                )}
                             </div>
                         </CardBody>
                     </CardDark>
-                );
 
-            default:
-                return null;
+                    <CardDark>
+                        <CardHeader className="px-6 py-4 border-b border-[#E3E6EB]">
+                            <h3 className="font-semibold text-[#1F2937] flex items-center gap-2">
+                                <PieChart size={18} className="text-[#3B82F6]" />
+                                Incidents by Status
+                            </h3>
+                        </CardHeader>
+                        <CardBody className="p-6">
+                            <div className="h-64 flex items-center justify-center">
+                                {hasStatus ? (
+                                    <Pie data={statusChartData} options={{
+                                        ...defaultDoughnutOptions,
+                                        cutout: 0,
+                                    }} />
+                                ) : (
+                                    <p className="text-[#6B7280] text-center">No incident data for this period</p>
+                                )}
+                            </div>
+                        </CardBody>
+                    </CardDark>
+                </div>
+
+                {/* Row 2: Bar chart */}
+                <CardDark>
+                    <CardHeader className="px-6 py-4 border-b border-[#E3E6EB]">
+                        <h3 className="font-semibold text-[#1F2937] flex items-center gap-2">
+                            <BarChart3 size={18} className="text-[#6366F1]" />
+                            Incidents by Type
+                        </h3>
+                    </CardHeader>
+                    <CardBody className="p-6">
+                        <div className="h-72">
+                            {hasType ? (
+                                <Bar data={typeChartData} options={defaultBarOptions} />
+                            ) : (
+                                <div className="h-full flex items-center justify-center">
+                                    <p className="text-[#6B7280]">No incident types recorded in this period</p>
+                                </div>
+                            )}
+                        </div>
+                    </CardBody>
+                </CardDark>
+
+                {/* Row 3: Trend line chart */}
+                <CardDark>
+                    <CardHeader className="px-6 py-4 border-b border-[#E3E6EB]">
+                        <h3 className="font-semibold text-[#1F2937] flex items-center gap-2">
+                            <TrendingUp size={18} className="text-[#EF4444]" />
+                            Daily Incident Trend
+                        </h3>
+                    </CardHeader>
+                    <CardBody className="p-6">
+                        <div className="h-72">
+                            {hasTrend ? (
+                                <Line data={trendChartData} options={defaultLineOptions} />
+                            ) : (
+                                <div className="h-full flex items-center justify-center">
+                                    <p className="text-[#6B7280]">No daily trend data available for this period</p>
+                                </div>
+                            )}
+                        </div>
+                    </CardBody>
+                </CardDark>
+            </div>
+        );
+    };
+
+    const renderDevicePerformanceCharts = () => {
+        if (!reportData) return null;
+
+        const statusData = reportData.devicesByStatus || {};
+        const typeData = reportData.devicesByType || {};
+        const battery = reportData.batteryStats || {};
+        const avgReadings = reportData.avgReadings || {};
+        const dailySensor = reportData.dailySensorReadings || [];
+
+        // Doughnut — Devices by Status
+        const statusColors = { Active: CHART_COLORS.green, Available: CHART_COLORS.blue, Maintenance: CHART_COLORS.yellow, Offline: CHART_COLORS.red };
+        const statusBorders = { Active: 'rgba(16,185,129,1)', Available: 'rgba(59,130,246,1)', Maintenance: 'rgba(234,179,8,1)', Offline: 'rgba(239,68,68,1)' };
+        const statusChartData = {
+            labels: Object.keys(statusData),
+            datasets: [{
+                data: Object.values(statusData),
+                backgroundColor: Object.keys(statusData).map(k => statusColors[k] || CHART_COLORS.blue),
+                borderColor: Object.keys(statusData).map(k => statusBorders[k] || 'rgba(59,130,246,1)'),
+                borderWidth: 2,
+            }]
+        };
+
+        // Bar — Battery Distribution
+        const batteryChartData = {
+            labels: ['Low (< 20%)', 'Medium (20-50%)', 'Good (> 50%)'],
+            datasets: [{
+                label: 'Devices',
+                data: [battery.low || 0, battery.medium || 0, battery.good || 0],
+                backgroundColor: [CHART_COLORS.red, CHART_COLORS.yellow, CHART_COLORS.green],
+                borderColor: ['rgba(239,68,68,1)', 'rgba(234,179,8,1)', 'rgba(16,185,129,1)'],
+                borderWidth: 1,
+                borderRadius: 6,
+            }]
+        };
+
+        // Bar — Device Types
+        const typeLabels = Object.keys(typeData);
+        const typePalette = [CHART_COLORS.blue, CHART_COLORS.indigo, CHART_COLORS.teal, CHART_COLORS.purple, CHART_COLORS.cyan];
+        const typeChartData = {
+            labels: typeLabels,
+            datasets: [{
+                label: 'Count',
+                data: Object.values(typeData),
+                backgroundColor: typeLabels.map((_, i) => typePalette[i % typePalette.length]),
+                borderRadius: 6,
+                borderWidth: 1,
+                borderColor: typeLabels.map((_, i) => typePalette[i % typePalette.length].replace('0.85', '1')),
+            }]
+        };
+
+        // Line — Daily Sensor Trends
+        const sensorTrendData = {
+            labels: dailySensor.map(d => d.date.slice(5)),
+            datasets: [
+                {
+                    label: 'Temperature (°C)',
+                    data: dailySensor.map(d => d.avgTemperature),
+                    borderColor: CHART_COLORS.red,
+                    backgroundColor: CHART_COLORS_LIGHT.red,
+                    fill: true,
+                    tension: 0.4,
+                    pointRadius: 2,
+                    pointHoverRadius: 5,
+                },
+                {
+                    label: 'Humidity (%)',
+                    data: dailySensor.map(d => d.avgHumidity),
+                    borderColor: CHART_COLORS.blue,
+                    backgroundColor: CHART_COLORS_LIGHT.blue,
+                    fill: true,
+                    tension: 0.4,
+                    pointRadius: 2,
+                    pointHoverRadius: 5,
+                },
+                {
+                    label: 'Gas (PPM)',
+                    data: dailySensor.map(d => d.avgGas),
+                    borderColor: CHART_COLORS.orange,
+                    backgroundColor: CHART_COLORS_LIGHT.orange,
+                    fill: true,
+                    tension: 0.4,
+                    pointRadius: 2,
+                    pointHoverRadius: 5,
+                },
+            ]
+        };
+
+        const hasStatus = Object.values(statusData).some(v => v > 0);
+        const hasType = typeLabels.length > 0;
+        const hasSensor = dailySensor.length > 0;
+
+        return (
+            <div className="space-y-6">
+                {/* Row 1: Doughnut + Battery Bar */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <CardDark>
+                        <CardHeader className="px-6 py-4 border-b border-[#E3E6EB]">
+                            <h3 className="font-semibold text-[#1F2937] flex items-center gap-2">
+                                <PieChart size={18} className="text-[#10B981]" />
+                                Devices by Status
+                            </h3>
+                        </CardHeader>
+                        <CardBody className="p-6">
+                            <div className="h-64 flex items-center justify-center">
+                                {hasStatus ? (
+                                    <Doughnut data={statusChartData} options={defaultDoughnutOptions} />
+                                ) : (
+                                    <p className="text-[#6B7280]">No device data available</p>
+                                )}
+                            </div>
+                        </CardBody>
+                    </CardDark>
+
+                    <CardDark>
+                        <CardHeader className="px-6 py-4 border-b border-[#E3E6EB]">
+                            <h3 className="font-semibold text-[#1F2937] flex items-center gap-2">
+                                <BarChart3 size={18} className="text-[#F59E0B]" />
+                                Battery Distribution
+                            </h3>
+                        </CardHeader>
+                        <CardBody className="p-6">
+                            <div className="h-64">
+                                <Bar data={batteryChartData} options={defaultBarOptions} />
+                            </div>
+                        </CardBody>
+                    </CardDark>
+                </div>
+
+                {/* Row 2: Device Types + Sensor Averages */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <CardDark>
+                        <CardHeader className="px-6 py-4 border-b border-[#E3E6EB]">
+                            <h3 className="font-semibold text-[#1F2937] flex items-center gap-2">
+                                <BarChart3 size={18} className="text-[#6366F1]" />
+                                Devices by Type
+                            </h3>
+                        </CardHeader>
+                        <CardBody className="p-6">
+                            <div className="h-64">
+                                {hasType ? (
+                                    <Bar data={typeChartData} options={defaultBarOptions} />
+                                ) : (
+                                    <div className="h-full flex items-center justify-center">
+                                        <p className="text-[#6B7280]">No device type data</p>
+                                    </div>
+                                )}
+                            </div>
+                        </CardBody>
+                    </CardDark>
+
+                    <CardDark>
+                        <CardHeader className="px-6 py-4 border-b border-[#E3E6EB]">
+                            <h3 className="font-semibold text-[#1F2937] flex items-center gap-2">
+                                <TrendingUp size={18} className="text-[#10B981]" />
+                                Average Sensor Readings
+                            </h3>
+                        </CardHeader>
+                        <CardBody className="p-6">
+                            <div className="grid grid-cols-3 gap-4 text-center">
+                                <div className="bg-[#EEF1F4] p-4 rounded-lg border border-[#E3E6EB]">
+                                    <p className="text-2xl font-bold text-[#1F2937]">{avgReadings.temperature || 0}°C</p>
+                                    <p className="text-sm text-[#4B5563]">Temperature</p>
+                                </div>
+                                <div className="bg-[#EEF1F4] p-4 rounded-lg border border-[#E3E6EB]">
+                                    <p className="text-2xl font-bold text-[#1F2937]">{avgReadings.humidity || 0}%</p>
+                                    <p className="text-sm text-[#4B5563]">Humidity</p>
+                                </div>
+                                <div className="bg-[#EEF1F4] p-4 rounded-lg border border-[#E3E6EB]">
+                                    <p className="text-2xl font-bold text-[#1F2937]">{avgReadings.gasLevel || 0}</p>
+                                    <p className="text-sm text-[#4B5563]">Gas (PPM)</p>
+                                </div>
+                            </div>
+                        </CardBody>
+                    </CardDark>
+                </div>
+
+                {/* Row 3: Sensor Trend Line Chart */}
+                <CardDark>
+                    <CardHeader className="px-6 py-4 border-b border-[#E3E6EB]">
+                        <h3 className="font-semibold text-[#1F2937] flex items-center gap-2">
+                            <TrendingUp size={18} className="text-[#3B82F6]" />
+                            Daily Sensor Trends
+                        </h3>
+                    </CardHeader>
+                    <CardBody className="p-6">
+                        <div className="h-80">
+                            {hasSensor ? (
+                                <Line data={sensorTrendData} options={defaultLineOptions} />
+                            ) : (
+                                <div className="h-full flex items-center justify-center">
+                                    <p className="text-[#6B7280]">No sensor trend data available for this period</p>
+                                </div>
+                            )}
+                        </div>
+                    </CardBody>
+                </CardDark>
+            </div>
+        );
+    };
+
+    const renderAlertAnalyticsCharts = () => {
+        if (!reportData) return null;
+
+        const typeData = reportData.alertsByType || {};
+        const severityData = reportData.alertsBySeverity || {};
+        const statusData = reportData.alertsByStatus || {};
+        const dailyData = reportData.dailyAlerts || [];
+
+        // Doughnut — Alerts by Severity
+        const severityChartData = {
+            labels: Object.keys(severityData),
+            datasets: [{
+                data: Object.values(severityData),
+                backgroundColor: Object.keys(severityData).map(k => SEVERITY_COLORS[k] || CHART_COLORS.blue),
+                borderColor: Object.keys(severityData).map(k => SEVERITY_BORDERS[k] || 'rgba(59,130,246,1)'),
+                borderWidth: 2,
+            }]
+        };
+
+        // Bar — Alerts by Type
+        const typeLabels = Object.keys(typeData);
+        const typePalette = [CHART_COLORS.blue, CHART_COLORS.indigo, CHART_COLORS.purple, CHART_COLORS.teal, CHART_COLORS.cyan, CHART_COLORS.pink, CHART_COLORS.orange];
+        const typeChartData = {
+            labels: typeLabels,
+            datasets: [{
+                label: 'Count',
+                data: Object.values(typeData),
+                backgroundColor: typeLabels.map((_, i) => typePalette[i % typePalette.length]),
+                borderRadius: 6,
+                borderWidth: 1,
+                borderColor: typeLabels.map((_, i) => typePalette[i % typePalette.length].replace('0.85', '1')),
+            }]
+        };
+
+        // Pie — Alerts by Status
+        const statusLabels = Object.keys(statusData);
+        const statusColors = [CHART_COLORS.orange, CHART_COLORS.blue, CHART_COLORS.green];
+        const statusChartData = {
+            labels: statusLabels,
+            datasets: [{
+                data: Object.values(statusData),
+                backgroundColor: statusLabels.map((_, i) => statusColors[i % statusColors.length]),
+                borderColor: '#ffffff',
+                borderWidth: 2,
+            }]
+        };
+
+        // Line — Daily Alert Trend
+        const trendData = Array.isArray(dailyData) ? dailyData : [];
+        const trendChartData = {
+            labels: trendData.map(d => d.date.slice(5)),
+            datasets: [{
+                label: 'Alerts',
+                data: trendData.map(d => d.count),
+                borderColor: CHART_COLORS.blue,
+                backgroundColor: CHART_COLORS_LIGHT.blue,
+                fill: true,
+                tension: 0.4,
+                pointRadius: 3,
+                pointHoverRadius: 6,
+                pointBackgroundColor: CHART_COLORS.blue,
+            }]
+        };
+
+        const hasSeverity = Object.values(severityData).some(v => v > 0);
+        const hasType = typeLabels.length > 0;
+        const hasStatus = Object.values(statusData).some(v => v > 0);
+        const hasTrend = trendData.length > 0;
+
+        return (
+            <div className="space-y-6">
+                {/* Row 1: Severity Doughnut + Status Pie */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <CardDark>
+                        <CardHeader className="px-6 py-4 border-b border-[#E3E6EB]">
+                            <h3 className="font-semibold text-[#1F2937] flex items-center gap-2">
+                                <PieChart size={18} className="text-[#EF4444]" />
+                                Alerts by Severity
+                            </h3>
+                        </CardHeader>
+                        <CardBody className="p-6">
+                            <div className="h-64 flex items-center justify-center">
+                                {hasSeverity ? (
+                                    <Doughnut data={severityChartData} options={defaultDoughnutOptions} />
+                                ) : (
+                                    <p className="text-[#6B7280]">No alert data for this period</p>
+                                )}
+                            </div>
+                        </CardBody>
+                    </CardDark>
+
+                    <CardDark>
+                        <CardHeader className="px-6 py-4 border-b border-[#E3E6EB]">
+                            <h3 className="font-semibold text-[#1F2937] flex items-center gap-2">
+                                <PieChart size={18} className="text-[#3B82F6]" />
+                                Alerts by Status
+                            </h3>
+                        </CardHeader>
+                        <CardBody className="p-6">
+                            <div className="h-64 flex items-center justify-center">
+                                {hasStatus ? (
+                                    <Pie data={statusChartData} options={{
+                                        ...defaultDoughnutOptions,
+                                        cutout: 0,
+                                    }} />
+                                ) : (
+                                    <p className="text-[#6B7280]">No alert status data for this period</p>
+                                )}
+                            </div>
+                        </CardBody>
+                    </CardDark>
+                </div>
+
+                {/* Row 2: Alert types bar */}
+                <CardDark>
+                    <CardHeader className="px-6 py-4 border-b border-[#E3E6EB]">
+                        <h3 className="font-semibold text-[#1F2937] flex items-center gap-2">
+                            <BarChart3 size={18} className="text-[#6366F1]" />
+                            Alerts by Type
+                        </h3>
+                    </CardHeader>
+                    <CardBody className="p-6">
+                        <div className="h-72">
+                            {hasType ? (
+                                <Bar data={typeChartData} options={defaultBarOptions} />
+                            ) : (
+                                <div className="h-full flex items-center justify-center">
+                                    <p className="text-[#6B7280]">No alert types recorded in this period</p>
+                                </div>
+                            )}
+                        </div>
+                    </CardBody>
+                </CardDark>
+
+                {/* Row 3: Daily trend line */}
+                <CardDark>
+                    <CardHeader className="px-6 py-4 border-b border-[#E3E6EB]">
+                        <h3 className="font-semibold text-[#1F2937] flex items-center gap-2">
+                            <TrendingUp size={18} className="text-[#3B82F6]" />
+                            Daily Alert Trend
+                        </h3>
+                    </CardHeader>
+                    <CardBody className="p-6">
+                        <div className="h-72">
+                            {hasTrend ? (
+                                <Line data={trendChartData} options={defaultLineOptions} />
+                            ) : (
+                                <div className="h-full flex items-center justify-center">
+                                    <p className="text-[#6B7280]">No daily trend data available for this period</p>
+                                </div>
+                            )}
+                        </div>
+                    </CardBody>
+                </CardDark>
+            </div>
+        );
+    };
+
+    const renderComplianceCharts = () => {
+        if (!reportData) return null;
+
+        const summary = reportData.summary || {};
+        const metrics = reportData.metrics || {};
+
+        // Bar — Compliance Metrics Comparison
+        const complianceChartData = {
+            labels: ['Safety Score', 'Device Coverage', 'Incident Resolution', 'Alert Resolution'],
+            datasets: [{
+                label: 'Percentage',
+                data: [
+                    summary.safetyScore || 0,
+                    summary.deviceCoverage || 0,
+                    summary.incidentResolutionRate || 0,
+                    summary.alertResolutionRate || 0,
+                ],
+                backgroundColor: [
+                    (summary.safetyScore || 0) >= 80 ? CHART_COLORS.green : (summary.safetyScore || 0) >= 60 ? CHART_COLORS.yellow : CHART_COLORS.red,
+                    CHART_COLORS.blue,
+                    CHART_COLORS.teal,
+                    CHART_COLORS.indigo,
+                ],
+                borderRadius: 8,
+                borderWidth: 1,
+                borderColor: [
+                    (summary.safetyScore || 0) >= 80 ? 'rgba(16,185,129,1)' : (summary.safetyScore || 0) >= 60 ? 'rgba(234,179,8,1)' : 'rgba(239,68,68,1)',
+                    'rgba(59,130,246,1)',
+                    'rgba(20,184,166,1)',
+                    'rgba(99,102,241,1)',
+                ],
+            }]
+        };
+
+        const complianceBarOptions = {
+            ...defaultBarOptions,
+            indexAxis: 'y',
+            scales: {
+                ...defaultBarOptions.scales,
+                x: { ...defaultBarOptions.scales.x, max: 100, ticks: { ...defaultBarOptions.scales.x.ticks, callback: v => `${v}%` } },
+                y: { ...defaultBarOptions.scales.y, grid: { display: false } },
+            }
+        };
+
+        // Doughnut — Safety Score Gauge
+        const scoreColor = (summary.safetyScore || 0) >= 80 ? CHART_COLORS.green
+            : (summary.safetyScore || 0) >= 60 ? CHART_COLORS.yellow
+                : CHART_COLORS.red;
+        const gaugeData = {
+            labels: ['Score', 'Remaining'],
+            datasets: [{
+                data: [summary.safetyScore || 0, 100 - (summary.safetyScore || 0)],
+                backgroundColor: [scoreColor, 'rgba(229,231,235,0.5)'],
+                borderWidth: 0,
+            }]
+        };
+        const gaugeOptions = {
+            ...defaultDoughnutOptions,
+            cutout: '75%',
+            plugins: {
+                ...defaultDoughnutOptions.plugins,
+                legend: { display: false },
+                tooltip: { ...defaultDoughnutOptions.plugins.tooltip, filter: (item) => item.dataIndex === 0 },
+            },
+            rotation: -90,
+            circumference: 180,
+        };
+
+        return (
+            <div className="space-y-6">
+                {/* Row 1: Safety Score Gauge + Compliance Bar */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <CardDark>
+                        <CardHeader className="px-6 py-4 border-b border-[#E3E6EB]">
+                            <h3 className="font-semibold text-[#1F2937] flex items-center gap-2">
+                                <Shield size={18} className="text-[#10B981]" />
+                                Overall Safety Score
+                            </h3>
+                        </CardHeader>
+                        <CardBody className="p-6">
+                            <div className="h-64 flex flex-col items-center justify-center relative">
+                                <div className="w-full h-48">
+                                    <Doughnut data={gaugeData} options={gaugeOptions} />
+                                </div>
+                                <div className="absolute bottom-12 text-center">
+                                    <p className="text-4xl font-bold text-[#1F2937]">{summary.safetyScore || 0}%</p>
+                                    <p className="text-sm text-[#6B7280]">
+                                        {(summary.safetyScore || 0) >= 80 ? 'Excellent' : (summary.safetyScore || 0) >= 60 ? 'Needs Improvement' : 'Critical'}
+                                    </p>
+                                </div>
+                            </div>
+                        </CardBody>
+                    </CardDark>
+
+                    <CardDark>
+                        <CardHeader className="px-6 py-4 border-b border-[#E3E6EB]">
+                            <h3 className="font-semibold text-[#1F2937] flex items-center gap-2">
+                                <BarChart3 size={18} className="text-[#6366F1]" />
+                                Compliance Metrics
+                            </h3>
+                        </CardHeader>
+                        <CardBody className="p-6">
+                            <div className="h-64">
+                                <Bar data={complianceChartData} options={complianceBarOptions} />
+                            </div>
+                        </CardBody>
+                    </CardDark>
+                </div>
+
+                {/* Row 2: Detailed Metrics Grid */}
+                <CardDark>
+                    <CardHeader className="px-6 py-4 border-b border-[#E3E6EB]">
+                        <h3 className="font-semibold text-[#1F2937] flex items-center gap-2">
+                            <FileText size={18} className="text-[#6FA3D8]" />
+                            Detailed Metrics
+                        </h3>
+                    </CardHeader>
+                    <CardBody className="p-6">
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            {Object.entries(metrics).map(([key, value]) => (
+                                <div key={key} className="bg-[#EEF1F4] p-4 rounded-lg border border-[#E3E6EB] text-center">
+                                    <p className="text-2xl font-bold text-[#1F2937]">{value}</p>
+                                    <p className="text-sm text-[#4B5563]">{key.replace(/([A-Z])/g, ' $1').trim()}</p>
+                                </div>
+                            ))}
+                        </div>
+                    </CardBody>
+                </CardDark>
+            </div>
+        );
+    };
+
+    // Render charts/details based on report type
+    const renderDetails = () => {
+        switch (reportType) {
+            case 'worker-safety': return renderWorkerSafetyCharts();
+            case 'device-performance': return renderDevicePerformanceCharts();
+            case 'alert-analytics': return renderAlertAnalyticsCharts();
+            case 'compliance': return renderComplianceCharts();
+            default: return null;
         }
     };
 
@@ -559,7 +1119,7 @@ export const Reports = () => {
                     {/* Metrics */}
                     {renderMetrics()}
 
-                    {/* Detailed Charts */}
+                    {/* Charts & Detailed Analytics */}
                     {renderDetails()}
                 </div>
             )}

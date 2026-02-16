@@ -15,6 +15,8 @@
 const char* WIFI_SSID = "Hacking(2.4G)";
 const char* WIFI_PASSWORD = "lelai09099729715";
 const char* SERVER_URL = "https://guardwell.onrender.com/api/sensors/data";
+const char* NUDGE_URL  = "https://guardwell.onrender.com/api/sensors/nudge/DEV-001";
+const char* NUDGE_ACK  = "https://guardwell.onrender.com/api/sensors/nudge/DEV-001/ack";
 const char* DEVICE_ID = "DEV-001";
 
 // Geofence
@@ -31,13 +33,20 @@ const float GEOFENCE_RADIUS_METERS = 100.0;
 #define TOUCHPIN    27
 #define BUZZER      18
 
-// Shared I2C Bus (Voice Sensor + MPU6050)
-// Voice: C/SDA→21, D/SCL→22
-// MPU6050: SDA→21, SCL→22
-#define I2C_SDA     21
-#define I2C_SCL     22 
+// 3 Separate LEDs (one color each)
+#define LED_RED     13
+#define LED_GREEN   12
+#define LED_BLUE    14
 
-// GPS (UART - Serial2, using old voice pins)
+// Voice Recognition UART pins (Serial1)
+#define VOICE_RX    21
+#define VOICE_TX    22
+
+// MPU6050 I2C (own bus, not shared)
+#define MPU_SDA     25
+#define MPU_SCL     26
+
+// GPS (UART - Serial2)
 #define GPS_RX      16  // ESP32 receives from GPS TX
 #define GPS_TX      17  // ESP32 sends to GPS RX
 
@@ -47,7 +56,8 @@ const float GEOFENCE_RADIUS_METERS = 100.0;
 DHT dht(DHTPIN, DHTTYPE);
 Adafruit_MPU6050 mpu;
 TinyGPSPlus gps;
-DFRobot_DF2301Q_I2C voiceSensor;  // I2C mode!
+HardwareSerial voiceSerial(1);  // UART1 for voice sensor
+DFRobot_DF2301Q_UART voiceSensor(&voiceSerial, VOICE_RX, VOICE_TX);
 
 // ============================================
 // VARIABLES
@@ -71,6 +81,26 @@ bool insideGeofence = true;
 unsigned long lastGeofenceCheck = 0;
 
 // ============================================
+// RGB LED STATE MACHINE
+// ============================================
+enum LEDState {
+  LED_IDLE,       // Green steady — connected, normal
+  LED_SENDING,    // Red blink — sending data
+  LED_NUDGE,      // Blue blink — received nudge from website
+  LED_EMERGENCY,  // Rapid red flash — SOS active
+  LED_GEOFENCE,   // Purple (red+blue) — geofence violation
+  LED_GPS_WAIT    // Yellow (red+green) — GPS acquiring
+};
+
+LEDState currentLedState = LED_IDLE;
+unsigned long ledStateStart = 0;
+unsigned long ledBlinkTimer = 0;
+bool ledBlinkOn = false;
+int ledBlinkCount = 0;
+const int NUDGE_BLINK_CYCLES = 10;  // Blue blinks when nudge received
+bool nudgeActive = false;
+
+// ============================================
 // SETUP
 // ============================================
 void setup() {
@@ -78,20 +108,28 @@ void setup() {
   delay(2000);
 
   Serial.println("\n========================================");
-  Serial.println(" GuardWell ESP32 (New Pin Config)");
+  Serial.println(" GuardWell ESP32 (Separated Buses)");
   Serial.println("========================================");
-  Serial.println("I2C Bus (pins 21, 22):");
-  Serial.println("  - Voice Sensor (I2C)");
-  Serial.println("  - MPU6050");
-  Serial.println("GPS UART (pins 16, 17):");
-  Serial.println("  - GPS TX → GPIO 16");
-  Serial.println("  - GPS RX → GPIO 17");
+  Serial.println("Voice Sensor UART (Serial1):");
+  Serial.println("  - Pin 21, Pin 22");
+  Serial.println("MPU6050 I2C (own bus):");
+  Serial.println("  - SDA=25, SCL=26");
+  Serial.println("GPS UART (Serial2):");
+  Serial.println("  - RX=16, TX=17");
+  Serial.println("RGB LED:");
+  Serial.println("  - Red=13, Green=12, Blue=14");
   Serial.println("========================================\n");
 
   pinMode(TOUCHPIN, INPUT);
   pinMode(BUZZER, OUTPUT);
   pinMode(MQ2PIN, INPUT);
+  pinMode(LED_RED, OUTPUT);
+  pinMode(LED_GREEN, OUTPUT);
+  pinMode(LED_BLUE, OUTPUT);
   digitalWrite(BUZZER, LOW);
+  digitalWrite(LED_RED, LOW);
+  digitalWrite(LED_GREEN, LOW);
+  digitalWrite(LED_BLUE, LOW);
 
   // === 1. GPS (UART Serial2) - First to avoid conflicts ===
   Serial.print("[1/5] GPS NEO-M8N... ");
@@ -117,12 +155,12 @@ void setup() {
   Serial.printf("     Geofence: %.4f, %.4f (R=%.0fm)\n", 
                 FACILITY_LAT, FACILITY_LON, GEOFENCE_RADIUS_METERS);
 
-  // === 2. I2C Bus ===
-  Wire.begin(I2C_SDA, I2C_SCL);
+  // === 2. I2C Bus for MPU6050 (pins 25/26 — separate from voice) ===
+  Wire.begin(MPU_SDA, MPU_SCL);
   delay(100);
 
-  // === 3. MPU6050 (I2C) ===
-  Serial.print("[2/5] MPU6050 (I2C)... ");
+  // === 3. MPU6050 (I2C on 25/26) ===
+  Serial.print("[2/5] MPU6050 (SDA=25, SCL=26)... ");
   if (!mpu.begin()) {
     Serial.println("❌");
     mpuConnected = false;
@@ -134,18 +172,17 @@ void setup() {
     mpuConnected = true;
   }
 
-  // === 4. Voice Sensor (I2C) ===
-  Serial.print("[3/5] Voice Sensor (I2C)... ");
+  // === 4. Voice Sensor (UART on pins 21/22) ===
+  Serial.print("[3/5] Voice Sensor (UART 21/22)... ");
   delay(200);
   if (!voiceSensor.begin()) {
-    Serial.println("❌ Check C→21, D→22");
+    Serial.println("❌ Check pins 21, 22");
     voiceConnected = false;
   } else {
     Serial.println("✅");
-    // I2C mode uses different methods - basic settings work by default
-    voiceSensor.setVolume(7);
-    voiceSensor.setMuteMode(0);
-    voiceSensor.setWakeTime(20);
+    voiceSensor.settingCMD(DF2301Q_UART_MSG_CMD_SET_VOLUME, 7);
+    voiceSensor.settingCMD(DF2301Q_UART_MSG_CMD_SET_MUTE, 0);
+    voiceSensor.settingCMD(DF2301Q_UART_MSG_CMD_SET_WAKE_TIME, 20);
     voiceConnected = true;
   }
 
@@ -165,7 +202,13 @@ void setup() {
   connectToWiFi();
   
   Serial.println("\n✅ Setup complete!");
-  Serial.println("📡 GPS acquiring satellites...\n");
+  Serial.println("📡 GPS acquiring satellites...");
+  Serial.println("💡 3-LED system active (R=13, G=12, B=14)");
+  Serial.println("   Voice: UART (CR=16, DT=17)");
+  Serial.println("   GPS:   UART (RX=25, TX=26)\n");
+
+  // Start with GPS waiting state (yellow) or idle (green)
+  setLedState(gpsValid ? LED_IDLE : LED_GPS_WAIT);
 }
 
 // ============================================
@@ -186,6 +229,9 @@ void loop() {
     handleGPS();
   }
 
+  // Handle LED effects (non-blocking)
+  handleLEDEffects();
+
   // GPS debug
   static unsigned long lastDebug = 0;
   if (millis() - lastDebug > 10000 && !gpsValid && gpsConnected) {
@@ -197,7 +243,24 @@ void loop() {
 
   if (millis() - lastSendTime >= SEND_INTERVAL) {
     lastSendTime = millis();
+
+    // Red blink while sending
+    setLedState(LED_SENDING);
     readAndSendSensorData();
+
+    // Poll for nudges from the website
+    checkForNudge();
+
+    // Return to appropriate idle state
+    if (nudgeActive) {
+      // Nudge blink takes priority — don't override
+    } else if (!insideGeofence) {
+      setLedState(LED_GEOFENCE);
+    } else if (!gpsValid && gpsConnected) {
+      setLedState(LED_GPS_WAIT);
+    } else {
+      setLedState(LED_IDLE);
+    }
   }
 
   if (buzzerActive && millis() - buzzerStartTime >= 3000) {
@@ -238,6 +301,7 @@ void checkGeofence() {
 
   if (wasInside && !insideGeofence) {
     Serial.println("🚨 GEOFENCE VIOLATION!");
+    setLedState(LED_GEOFENCE);
     triggerAlert(500);
     sendGeofenceViolation(distance);
   }
@@ -284,6 +348,7 @@ void handleTouchSensor() {
     buzzerActive = true;
     buzzerStartTime = millis();
     digitalWrite(BUZZER, HIGH);
+    setLedState(LED_EMERGENCY);
     Serial.println("🚨 EMERGENCY!");
     sendEmergencyAlert();
     delay(1000);
@@ -469,5 +534,153 @@ void sendToServer(String jsonData) {
 
   int httpCode = http.POST(jsonData);
   Serial.printf("[%d]\n", httpCode);
+  http.end();
+}
+
+// ============================================
+// RGB LED CONTROL (3 Separate LEDs)
+// ============================================
+void setRGB(bool r, bool g, bool b) {
+  digitalWrite(LED_RED,   r ? HIGH : LOW);
+  digitalWrite(LED_GREEN, g ? HIGH : LOW);
+  digitalWrite(LED_BLUE,  b ? HIGH : LOW);
+}
+
+void setLedState(LEDState newState) {
+  if (newState == currentLedState && newState != LED_NUDGE) return;
+  currentLedState = newState;
+  ledStateStart = millis();
+  ledBlinkTimer = millis();
+  ledBlinkOn = true;
+  ledBlinkCount = 0;
+
+  // Set initial color for the state
+  switch (newState) {
+    case LED_IDLE:       setRGB(0, 1, 0); break;  // Green
+    case LED_SENDING:    setRGB(1, 0, 0); break;  // Red
+    case LED_NUDGE:      setRGB(0, 0, 1); break;  // Blue
+    case LED_EMERGENCY:  setRGB(1, 0, 0); break;  // Red (will flash)
+    case LED_GEOFENCE:   setRGB(1, 0, 1); break;  // Purple (red+blue)
+    case LED_GPS_WAIT:   setRGB(1, 1, 0); break;  // Yellow (red+green)
+  }
+}
+
+void handleLEDEffects() {
+  unsigned long now = millis();
+
+  switch (currentLedState) {
+    case LED_IDLE:
+      // Steady green — no blinking
+      break;
+
+    case LED_SENDING:
+      // Quick red blink (100ms on/100ms off)
+      if (now - ledBlinkTimer >= 100) {
+        ledBlinkTimer = now;
+        ledBlinkOn = !ledBlinkOn;
+        setRGB(ledBlinkOn, 0, 0);
+      }
+      break;
+
+    case LED_NUDGE:
+      // Blue blink (300ms on/300ms off) for NUDGE_BLINK_CYCLES
+      if (now - ledBlinkTimer >= 300) {
+        ledBlinkTimer = now;
+        ledBlinkOn = !ledBlinkOn;
+        setRGB(0, 0, ledBlinkOn);
+        if (!ledBlinkOn) ledBlinkCount++;
+        if (ledBlinkCount >= NUDGE_BLINK_CYCLES) {
+          nudgeActive = false;
+          setLedState(LED_IDLE);
+        }
+      }
+      break;
+
+    case LED_EMERGENCY:
+      // Rapid red flash (80ms on/80ms off)
+      if (now - ledBlinkTimer >= 80) {
+        ledBlinkTimer = now;
+        ledBlinkOn = !ledBlinkOn;
+        setRGB(ledBlinkOn, 0, 0);
+      }
+      // Auto-return to idle after 10 seconds
+      if (now - ledStateStart >= 10000) {
+        setLedState(LED_IDLE);
+      }
+      break;
+
+    case LED_GEOFENCE:
+      // Purple pulse (500ms on/500ms off)
+      if (now - ledBlinkTimer >= 500) {
+        ledBlinkTimer = now;
+        ledBlinkOn = !ledBlinkOn;
+        setRGB(ledBlinkOn, 0, ledBlinkOn);  // Purple = red + blue
+      }
+      break;
+
+    case LED_GPS_WAIT:
+      // Slow yellow pulse (1000ms on/1000ms off)
+      if (now - ledBlinkTimer >= 1000) {
+        ledBlinkTimer = now;
+        ledBlinkOn = !ledBlinkOn;
+        setRGB(ledBlinkOn, ledBlinkOn, 0);  // Yellow = red + green
+      }
+      // Switch to green when GPS locks
+      if (gpsValid) {
+        setLedState(LED_IDLE);
+      }
+      break;
+  }
+}
+
+// ============================================
+// NUDGE POLLING (Server → Device)
+// ============================================
+void checkForNudge() {
+  if (WiFi.status() != WL_CONNECTED) return;
+
+  WiFiClientSecure client;
+  client.setInsecure();
+
+  HTTPClient http;
+  http.begin(client, NUDGE_URL);
+  http.setTimeout(3000);
+
+  int httpCode = http.GET();
+
+  if (httpCode == 200) {
+    String response = http.getString();
+    StaticJsonDocument<256> doc;
+    DeserializationError err = deserializeJson(doc, response);
+
+    if (!err && doc["nudge"].as<bool>() == true) {
+      String msg = doc["message"] | "Alert";
+      Serial.printf("📢 NUDGE RECEIVED: %s\n", msg.c_str());
+
+      // Blue blink + short buzzer beep
+      nudgeActive = true;
+      setLedState(LED_NUDGE);
+      triggerAlert(200);  // Short beep
+
+      // Acknowledge the nudge
+      acknowledgeNudge();
+    }
+  }
+
+  http.end();
+}
+
+void acknowledgeNudge() {
+  if (WiFi.status() != WL_CONNECTED) return;
+
+  WiFiClientSecure client;
+  client.setInsecure();
+
+  HTTPClient http;
+  http.begin(client, NUDGE_ACK);
+  http.addHeader("Content-Type", "application/json");
+
+  int httpCode = http.POST("{}");
+  Serial.printf("[Nudge ACK: %d]\n", httpCode);
   http.end();
 }

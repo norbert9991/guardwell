@@ -68,6 +68,13 @@ router.get('/worker-safety', async (req, res) => {
             .slice(0, 5)
             .map(([name, count]) => ({ name, count }));
 
+        // Daily incident counts for trend chart
+        const dailyIncidents = {};
+        incidents.forEach(i => {
+            const date = new Date(i.createdAt).toISOString().split('T')[0];
+            dailyIncidents[date] = (dailyIncidents[date] || 0) + 1;
+        });
+
         res.json({
             summary: {
                 totalWorkers: workers.length,
@@ -81,6 +88,9 @@ router.get('/worker-safety', async (req, res) => {
             incidentsByType,
             incidentsByStatus,
             topWorkersByIncidents,
+            dailyIncidents: Object.entries(dailyIncidents)
+                .sort((a, b) => a[0].localeCompare(b[0]))
+                .map(([date, count]) => ({ date, count })),
             dateRange: { start, end }
         });
     } catch (error) {
@@ -152,6 +162,26 @@ router.get('/device-performance', async (req, res) => {
                 : 0
         };
 
+        // Daily sensor reading averages for trend chart
+        const dailySensorMap = {};
+        sensorData.forEach(s => {
+            const date = new Date(s.createdAt).toISOString().split('T')[0];
+            if (!dailySensorMap[date]) {
+                dailySensorMap[date] = { temp: [], humidity: [], gas: [] };
+            }
+            dailySensorMap[date].temp.push(s.temperature || 0);
+            dailySensorMap[date].humidity.push(s.humidity || 0);
+            dailySensorMap[date].gas.push(s.gasLevel || 0);
+        });
+        const dailySensorReadings = Object.entries(dailySensorMap)
+            .sort((a, b) => a[0].localeCompare(b[0]))
+            .map(([date, vals]) => ({
+                date,
+                avgTemperature: Math.round(vals.temp.reduce((a, b) => a + b, 0) / vals.temp.length * 10) / 10,
+                avgHumidity: Math.round(vals.humidity.reduce((a, b) => a + b, 0) / vals.humidity.length * 10) / 10,
+                avgGas: Math.round(vals.gas.reduce((a, b) => a + b, 0) / vals.gas.length)
+            }));
+
         res.json({
             summary: {
                 totalDevices: devices.length,
@@ -164,6 +194,7 @@ router.get('/device-performance', async (req, res) => {
             devicesByType,
             batteryStats,
             avgReadings,
+            dailySensorReadings,
             offlineDevices: offlineDevices.map(d => ({
                 deviceId: d.deviceId,
                 type: d.type,
