@@ -185,6 +185,56 @@ export const LiveMonitoring = () => {
         }
     };
 
+    // Accelerometer → human-readable orientation / movement
+    const getOrientationInfo = (accel) => {
+        const x = accel?.x || 0;
+        const y = accel?.y || 0;
+        const z = accel?.z || 0;
+        const magnitude = Math.sqrt(x * x + y * y + z * z);
+
+        // Fall / impact detection
+        if (magnitude >= 25) return { label: 'Fall Detected!', icon: '🚨', color: 'text-red-500', bgColor: 'bg-red-500/15' };
+        if (magnitude >= 15) return { label: 'High Impact', icon: '⚠️', color: 'text-orange-500', bgColor: 'bg-orange-500/15' };
+
+        // Orientation based on dominant axis
+        const absX = Math.abs(x), absY = Math.abs(y), absZ = Math.abs(z);
+        if (absZ > absX && absZ > absY) {
+            return z > 0
+                ? { label: 'Flat / Horizontal', icon: '📱', color: 'text-green-600', bgColor: 'bg-green-500/15' }
+                : { label: 'Upside Down', icon: '🔄', color: 'text-yellow-600', bgColor: 'bg-yellow-500/15' };
+        }
+        if (absY > absX && absY > absZ) {
+            return { label: 'Upright / Standing', icon: '🧍', color: 'text-blue-600', bgColor: 'bg-blue-500/15' };
+        }
+        if (absX > absY && absX > absZ) {
+            return { label: 'Tilted Sideways', icon: '↗️', color: 'text-purple-600', bgColor: 'bg-purple-500/15' };
+        }
+        return { label: 'In Motion', icon: '🏃', color: 'text-cyan-600', bgColor: 'bg-cyan-500/15' };
+    };
+
+    // Gyroscope → human-readable rotation status
+    const getRotationInfo = (gyro) => {
+        const x = gyro?.x || 0;
+        const y = gyro?.y || 0;
+        const z = gyro?.z || 0;
+        const rotMag = Math.sqrt(x * x + y * y + z * z);
+
+        if (rotMag < 5) return { label: 'Stationary', icon: '⏸️', color: 'text-green-600', bgColor: 'bg-green-500/15' };
+        if (rotMag < 30) return { label: 'Slight Movement', icon: '🔃', color: 'text-blue-600', bgColor: 'bg-blue-500/15' };
+        if (rotMag < 90) return { label: 'Active Movement', icon: '🔄', color: 'text-yellow-600', bgColor: 'bg-yellow-500/15' };
+        return { label: 'Rapid Rotation', icon: '🌀', color: 'text-red-500', bgColor: 'bg-red-500/15' };
+    };
+
+    // Humidity → human-readable comfort level
+    const getHumidityInfo = (humidity) => {
+        const h = humidity || 0;
+        if (h < 20) return { label: 'Very Dry', color: 'text-orange-500', bgColor: 'bg-orange-500/15' };
+        if (h < 30) return { label: 'Dry', color: 'text-yellow-600', bgColor: 'bg-yellow-500/15' };
+        if (h <= 60) return { label: 'Comfortable', color: 'text-green-600', bgColor: 'bg-green-500/15' };
+        if (h <= 70) return { label: 'Humid', color: 'text-yellow-600', bgColor: 'bg-yellow-500/15' };
+        return { label: 'Very Humid', color: 'text-red-500', bgColor: 'bg-red-500/15' };
+    };
+
     // Calculate metrics
     const activeDevices = workersWithSensorData.filter(w => w.status !== 'offline').length;
     const avgTemp = workersWithSensorData.length > 0
@@ -517,7 +567,12 @@ export const LiveMonitoring = () => {
                                             <Droplets size={16} />
                                             <span className="text-sm">Humidity</span>
                                         </div>
-                                        <span className="font-semibold text-[#4B5563]">{worker.sensors.humidity.toFixed(1)}%</span>
+                                        <div className="flex items-center gap-2">
+                                            <span className={`text-xs px-2 py-0.5 rounded ${getHumidityInfo(worker.sensors.humidity).bgColor} ${getHumidityInfo(worker.sensors.humidity).color}`}>
+                                                {getHumidityInfo(worker.sensors.humidity).label}
+                                            </span>
+                                            <span className={`font-semibold ${getHumidityInfo(worker.sensors.humidity).color}`}>{worker.sensors.humidity.toFixed(1)}%</span>
+                                        </div>
                                     </div>
 
                                     {/* Battery */}
@@ -544,19 +599,19 @@ export const LiveMonitoring = () => {
                                     <div className="mt-3 pt-3 border-t border-[#E3E6EB]">
                                         <div className="flex items-center gap-2 text-[#4B5563] mb-2">
                                             <Activity size={16} />
-                                            <span className="text-sm font-medium">Motion (X, Y, Z)</span>
+                                            <span className="text-sm font-medium">Motion Status</span>
                                         </div>
                                         <div className="grid grid-cols-2 gap-2 text-xs">
-                                            <div className="bg-[#EEF1F4] p-2 rounded">
-                                                <span className="text-[#6B7280] block">Accel (m/s²)</span>
-                                                <span className="text-[#1F2937] font-mono">
-                                                    {worker.sensors.accel.x.toFixed(1)}, {worker.sensors.accel.y.toFixed(1)}, {worker.sensors.accel.z.toFixed(1)}
+                                            <div className={`p-2 rounded ${getOrientationInfo(worker.sensors.accel).bgColor}`}>
+                                                <span className="text-[#6B7280] block">Orientation</span>
+                                                <span className={`font-semibold ${getOrientationInfo(worker.sensors.accel).color}`}>
+                                                    {getOrientationInfo(worker.sensors.accel).icon} {getOrientationInfo(worker.sensors.accel).label}
                                                 </span>
                                             </div>
-                                            <div className="bg-[#EEF1F4] p-2 rounded">
-                                                <span className="text-[#6B7280] block">Gyro (°/s)</span>
-                                                <span className="text-[#1F2937] font-mono">
-                                                    {worker.sensors.gyro.x.toFixed(1)}, {worker.sensors.gyro.y.toFixed(1)}, {worker.sensors.gyro.z.toFixed(1)}
+                                            <div className={`p-2 rounded ${getRotationInfo(worker.sensors.gyro).bgColor}`}>
+                                                <span className="text-[#6B7280] block">Rotation</span>
+                                                <span className={`font-semibold ${getRotationInfo(worker.sensors.gyro).color}`}>
+                                                    {getRotationInfo(worker.sensors.gyro).icon} {getRotationInfo(worker.sensors.gyro).label}
                                                 </span>
                                             </div>
                                         </div>
@@ -711,7 +766,12 @@ export const LiveMonitoring = () => {
                                         <Droplets size={16} />
                                         <span className="text-sm">Humidity</span>
                                     </div>
-                                    <p className="text-2xl font-bold text-[#1F2937]">{selectedWorker.sensors.humidity}%</p>
+                                    <div className="flex items-center gap-2">
+                                        <p className={`text-2xl font-bold ${getHumidityInfo(selectedWorker.sensors.humidity).color}`}>{selectedWorker.sensors.humidity}%</p>
+                                        <span className={`text-xs px-2 py-0.5 rounded ${getHumidityInfo(selectedWorker.sensors.humidity).bgColor} ${getHumidityInfo(selectedWorker.sensors.humidity).color}`}>
+                                            {getHumidityInfo(selectedWorker.sensors.humidity).label}
+                                        </span>
+                                    </div>
                                 </div>
                                 <div className="bg-[#EEF1F4] p-4 rounded-lg border border-[#E3E6EB]">
                                     <div className="flex items-center gap-2 text-[#4B5563] mb-2">
@@ -741,38 +801,28 @@ export const LiveMonitoring = () => {
                         <div>
                             <h4 className="label-modal mb-3">Motion Data</h4>
                             <div className="grid grid-cols-2 gap-4">
-                                <div className="bg-[#EEF1F4] p-4 rounded-lg border border-[#E3E6EB]">
-                                    <h5 className="text-sm text-[#4B5563] mb-2">Accelerometer (m/s²)</h5>
-                                    <div className="grid grid-cols-3 gap-2 text-center">
-                                        <div>
-                                            <span className="text-xs text-[#6B7280]">X</span>
-                                            <p className="text-lg font-mono text-[#6FA3D8]">{selectedWorker.sensors.accel.x.toFixed(2)}</p>
-                                        </div>
-                                        <div>
-                                            <span className="text-xs text-[#6B7280]">Y</span>
-                                            <p className="text-lg font-mono text-[#6FA3D8]">{selectedWorker.sensors.accel.y.toFixed(2)}</p>
-                                        </div>
-                                        <div>
-                                            <span className="text-xs text-[#6B7280]">Z</span>
-                                            <p className="text-lg font-mono text-[#6FA3D8]">{selectedWorker.sensors.accel.z.toFixed(2)}</p>
-                                        </div>
+                                <div className={`p-4 rounded-lg border border-[#E3E6EB] ${getOrientationInfo(selectedWorker.sensors.accel).bgColor}`}>
+                                    <h5 className="text-sm text-[#4B5563] mb-2">Orientation (Accelerometer)</h5>
+                                    <div className="text-center">
+                                        <p className="text-3xl mb-1">{getOrientationInfo(selectedWorker.sensors.accel).icon}</p>
+                                        <p className={`text-lg font-bold ${getOrientationInfo(selectedWorker.sensors.accel).color}`}>
+                                            {getOrientationInfo(selectedWorker.sensors.accel).label}
+                                        </p>
+                                        <p className="text-xs text-[#6B7280] mt-1 font-mono">
+                                            X:{selectedWorker.sensors.accel.x.toFixed(1)} Y:{selectedWorker.sensors.accel.y.toFixed(1)} Z:{selectedWorker.sensors.accel.z.toFixed(1)}
+                                        </p>
                                     </div>
                                 </div>
-                                <div className="bg-[#EEF1F4] p-4 rounded-lg border border-[#E3E6EB]">
-                                    <h5 className="text-sm text-[#4B5563] mb-2">Gyroscope (°/s)</h5>
-                                    <div className="grid grid-cols-3 gap-2 text-center">
-                                        <div>
-                                            <span className="text-xs text-[#6B7280]">X</span>
-                                            <p className="text-lg font-mono text-[#6FA3D8]">{selectedWorker.sensors.gyro.x.toFixed(2)}</p>
-                                        </div>
-                                        <div>
-                                            <span className="text-xs text-[#6B7280]">Y</span>
-                                            <p className="text-lg font-mono text-[#6FA3D8]">{selectedWorker.sensors.gyro.y.toFixed(2)}</p>
-                                        </div>
-                                        <div>
-                                            <span className="text-xs text-[#6B7280]">Z</span>
-                                            <p className="text-lg font-mono text-[#6FA3D8]">{selectedWorker.sensors.gyro.z.toFixed(2)}</p>
-                                        </div>
+                                <div className={`p-4 rounded-lg border border-[#E3E6EB] ${getRotationInfo(selectedWorker.sensors.gyro).bgColor}`}>
+                                    <h5 className="text-sm text-[#4B5563] mb-2">Rotation (Gyroscope)</h5>
+                                    <div className="text-center">
+                                        <p className="text-3xl mb-1">{getRotationInfo(selectedWorker.sensors.gyro).icon}</p>
+                                        <p className={`text-lg font-bold ${getRotationInfo(selectedWorker.sensors.gyro).color}`}>
+                                            {getRotationInfo(selectedWorker.sensors.gyro).label}
+                                        </p>
+                                        <p className="text-xs text-[#6B7280] mt-1 font-mono">
+                                            X:{selectedWorker.sensors.gyro.x.toFixed(1)} Y:{selectedWorker.sensors.gyro.y.toFixed(1)} Z:{selectedWorker.sensors.gyro.z.toFixed(1)}
+                                        </p>
                                     </div>
                                 </div>
                             </div>
