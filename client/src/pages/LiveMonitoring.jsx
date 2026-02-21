@@ -295,7 +295,7 @@ export const LiveMonitoring = () => {
                         <option value="maintenance">Maintenance</option>
                     </select>
                     {/* View Mode Toggle */}
-                    <div className="flex rounded-xl overflow-hidden border border-[#E3E6EB] bg-white shadow-sm p-1 gap-1">
+                    <div className="flex shrink-0 rounded-xl border border-[#E3E6EB] bg-white shadow-sm p-1 gap-1">
                         <button
                             onClick={() => setViewMode('grid')}
                             className={`px-5 py-2.5 flex items-center gap-2 rounded-lg font-medium transition-all duration-200 ${viewMode === 'grid'
