@@ -295,12 +295,12 @@ export const LiveMonitoring = () => {
                         <option value="maintenance">Maintenance</option>
                     </select>
                     {/* View Mode Toggle */}
-                    <div className="flex rounded-lg overflow-hidden border border-[#E3E6EB] shadow-sm">
+                    <div className="flex rounded-xl overflow-hidden border border-[#E3E6EB] bg-white shadow-sm p-1 gap-1">
                         <button
                             onClick={() => setViewMode('grid')}
-                            className={`px-3 py-2 flex items-center gap-2 transition-colors ${viewMode === 'grid'
-                                ? 'bg-[#6FA3D8] text-white'
-                                : 'bg-[#EEF1F4] text-[#4B5563] hover:text-[#1F2937]'
+                            className={`px-5 py-2.5 flex items-center gap-2 rounded-lg font-medium transition-all duration-200 ${viewMode === 'grid'
+                                ? 'bg-[#6FA3D8] text-white shadow-md'
+                                : 'bg-transparent text-[#4B5563] hover:bg-[#EEF1F4] hover:text-[#1F2937]'
                                 }`}
                         >
                             <Grid size={18} />
@@ -308,12 +308,12 @@ export const LiveMonitoring = () => {
                         </button>
                         <button
                             onClick={() => setViewMode('map')}
-                            className={`px-3 py-2 flex items-center gap-2 transition-colors ${viewMode === 'map'
-                                ? 'bg-[#6FA3D8] text-white'
-                                : 'bg-[#EEF1F4] text-[#4B5563] hover:text-[#1F2937]'
+                            className={`px-5 py-2.5 flex items-center gap-2 rounded-lg font-medium transition-all duration-200 ${viewMode === 'map'
+                                ? 'bg-[#6FA3D8] text-white shadow-md'
+                                : 'bg-transparent text-[#4B5563] hover:bg-[#EEF1F4] hover:text-[#1F2937]'
                                 }`}
                         >
-                            <Map size={18} />
+                            <MapPin size={18} />
                             <span className="text-sm">Map</span>
                         </button>
                     </div>
