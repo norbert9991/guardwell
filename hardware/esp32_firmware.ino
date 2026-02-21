@@ -12,8 +12,8 @@
 // ============================================
 // CONFIGURATION
 // ============================================
-const char* WIFI_SSID = "Hacking(2.4G)";
-const char* WIFI_PASSWORD = "lelai09099729715";
+const char* WIFI_SSID = "norbert";
+const char* WIFI_PASSWORD = "999999999";
 const char* SERVER_URL = "https://guardwell.onrender.com/api/sensors/data";
 const char* NUDGE_URL  = "https://guardwell.onrender.com/api/sensors/nudge/DEV-001";
 const char* NUDGE_ACK  = "https://guardwell.onrender.com/api/sensors/nudge/DEV-001/ack";
@@ -33,18 +33,14 @@ const float GEOFENCE_RADIUS_METERS = 100.0;
 #define TOUCHPIN    27
 #define BUZZER      18
 
-// 3 Separate LEDs (one color each)
-#define LED_RED     13
-#define LED_GREEN   12
-#define LED_BLUE    14
+// RGB LED (Common Cathode: HIGH = ON)
+#define RGB_RED     13
+#define RGB_GREEN   12
+#define RGB_BLUE    14
 
-// Voice Recognition UART pins (Serial1)
-#define VOICE_RX    21
-#define VOICE_TX    22
-
-// MPU6050 I2C (own bus, not shared)
-#define MPU_SDA     25
-#define MPU_SCL     26
+// Shared I2C Bus (Voice Sensor + MPU6050)
+#define I2C_SDA     21
+#define I2C_SCL     22 
 
 // GPS (UART - Serial2)
 #define GPS_RX      16  // ESP32 receives from GPS TX
@@ -56,14 +52,14 @@ const float GEOFENCE_RADIUS_METERS = 100.0;
 DHT dht(DHTPIN, DHTTYPE);
 Adafruit_MPU6050 mpu;
 TinyGPSPlus gps;
-HardwareSerial voiceSerial(1);  // UART1 for voice sensor
-DFRobot_DF2301Q_UART voiceSensor(&voiceSerial, VOICE_RX, VOICE_TX);
+DFRobot_DF2301Q_I2C voiceSensor;  // I2C mode!
 
 // ============================================
 // VARIABLES
 // ============================================
 bool buzzerActive = false;
 unsigned long buzzerStartTime = 0;
+unsigned long buzzerDuration = 3000;    // how long buzzer stays on (ms)
 unsigned long lastSendTime = 0;
 const unsigned long SEND_INTERVAL = 2000;
 bool mpuConnected = false;
@@ -77,19 +73,18 @@ bool voiceAlertTriggered = false;
 float currentLat = 0.0;
 float currentLon = 0.0;
 bool gpsValid = false;
-bool insideGeofence = true;
-unsigned long lastGeofenceCheck = 0;
 
 // ============================================
 // RGB LED STATE MACHINE
 // ============================================
 enum LEDState {
-  LED_IDLE,       // Green steady — connected, normal
-  LED_SENDING,    // Red blink — sending data
-  LED_NUDGE,      // Blue blink — received nudge from website
-  LED_EMERGENCY,  // Rapid red flash — SOS active
-  LED_GEOFENCE,   // Purple (red+blue) — geofence violation
-  LED_GPS_WAIT    // Yellow (red+green) — GPS acquiring
+  LED_IDLE,         // Green steady - connected, normal
+  LED_SENDING,      // Red blink - sending data
+  LED_NUDGE,        // Blue blink - received nudge from website
+  LED_EMERGENCY,    // Rapid red flash - SOS active (touch + voice emergency)
+  LED_VOICE_ALERT,  // Amber/orange flash (red+green alternating) - voice command active
+  LED_GEOFENCE,     // Purple (red+blue) - geofence violation
+  LED_GPS_WAIT      // Yellow (red+green) - GPS acquiring
 };
 
 LEDState currentLedState = LED_IDLE;
@@ -97,8 +92,12 @@ unsigned long ledStateStart = 0;
 unsigned long ledBlinkTimer = 0;
 bool ledBlinkOn = false;
 int ledBlinkCount = 0;
-const int NUDGE_BLINK_CYCLES = 10;  // Blue blinks when nudge received
+const int NUDGE_BLINK_CYCLES = 10;    // Blue blinks when nudge received
+const int VOICE_ALERT_BLINK_CYCLES = 15;  // Voice alert blink count
 bool nudgeActive = false;
+bool voiceLedActive = false;    // tracks if voice alert LED pattern is playing
+bool insideGeofence = true;
+unsigned long lastGeofenceCheck = 0;
 
 // ============================================
 // SETUP
@@ -108,28 +107,26 @@ void setup() {
   delay(2000);
 
   Serial.println("\n========================================");
-  Serial.println(" GuardWell ESP32 (Separated Buses)");
+  Serial.println(" GuardWell ESP32 (New Pin Config)");
   Serial.println("========================================");
-  Serial.println("Voice Sensor UART (Serial1):");
-  Serial.println("  - Pin 21, Pin 22");
-  Serial.println("MPU6050 I2C (own bus):");
-  Serial.println("  - SDA=25, SCL=26");
-  Serial.println("GPS UART (Serial2):");
-  Serial.println("  - RX=16, TX=17");
-  Serial.println("RGB LED:");
+  Serial.println("I2C Bus (pins 21, 22):");
+  Serial.println("  - Voice Sensor (I2C)");
+  Serial.println("  - MPU6050");
+  Serial.println("GPS UART (pins 16, 17):");
+  Serial.println("  - GPS TX → GPIO 16");
+  Serial.println("  - GPS RX → GPIO 17");
+  Serial.println("RGB LED (pins 13, 12, 14):");
   Serial.println("  - Red=13, Green=12, Blue=14");
   Serial.println("========================================\n");
 
   pinMode(TOUCHPIN, INPUT);
   pinMode(BUZZER, OUTPUT);
+  pinMode(RGB_RED, OUTPUT);
+  pinMode(RGB_GREEN, OUTPUT);
+  pinMode(RGB_BLUE, OUTPUT);
   pinMode(MQ2PIN, INPUT);
-  pinMode(LED_RED, OUTPUT);
-  pinMode(LED_GREEN, OUTPUT);
-  pinMode(LED_BLUE, OUTPUT);
   digitalWrite(BUZZER, LOW);
-  digitalWrite(LED_RED, LOW);
-  digitalWrite(LED_GREEN, LOW);
-  digitalWrite(LED_BLUE, LOW);
+  setRGB(0, 0, 0); // Start with LED off
 
   // === 1. GPS (UART Serial2) - First to avoid conflicts ===
   Serial.print("[1/5] GPS NEO-M8N... ");
@@ -155,12 +152,12 @@ void setup() {
   Serial.printf("     Geofence: %.4f, %.4f (R=%.0fm)\n", 
                 FACILITY_LAT, FACILITY_LON, GEOFENCE_RADIUS_METERS);
 
-  // === 2. I2C Bus for MPU6050 (pins 25/26 — separate from voice) ===
-  Wire.begin(MPU_SDA, MPU_SCL);
+  // === 2. I2C Bus ===
+  Wire.begin(I2C_SDA, I2C_SCL);
   delay(100);
 
-  // === 3. MPU6050 (I2C on 25/26) ===
-  Serial.print("[2/5] MPU6050 (SDA=25, SCL=26)... ");
+  // === 3. MPU6050 (I2C) ===
+  Serial.print("[2/5] MPU6050 (I2C)... ");
   if (!mpu.begin()) {
     Serial.println("❌");
     mpuConnected = false;
@@ -172,17 +169,17 @@ void setup() {
     mpuConnected = true;
   }
 
-  // === 4. Voice Sensor (UART on pins 21/22) ===
-  Serial.print("[3/5] Voice Sensor (UART 21/22)... ");
+  // === 4. Voice Sensor (I2C) ===
+  Serial.print("[3/5] Voice Sensor (I2C)... ");
   delay(200);
   if (!voiceSensor.begin()) {
-    Serial.println("❌ Check pins 21, 22");
+    Serial.println("❌ Check C→21, D→22");
     voiceConnected = false;
   } else {
     Serial.println("✅");
-    voiceSensor.settingCMD(DF2301Q_UART_MSG_CMD_SET_VOLUME, 7);
-    voiceSensor.settingCMD(DF2301Q_UART_MSG_CMD_SET_MUTE, 0);
-    voiceSensor.settingCMD(DF2301Q_UART_MSG_CMD_SET_WAKE_TIME, 20);
+    voiceSensor.setVolume(7);
+    voiceSensor.setMuteMode(0);
+    voiceSensor.setWakeTime(20);
     voiceConnected = true;
   }
 
@@ -203,9 +200,7 @@ void setup() {
   
   Serial.println("\n✅ Setup complete!");
   Serial.println("📡 GPS acquiring satellites...");
-  Serial.println("💡 3-LED system active (R=13, G=12, B=14)");
-  Serial.println("   Voice: UART (CR=16, DT=17)");
-  Serial.println("   GPS:   UART (RX=25, TX=26)\n");
+  Serial.println("💡 RGB LED active\n");
 
   // Start with GPS waiting state (yellow) or idle (green)
   setLedState(gpsValid ? LED_IDLE : LED_GPS_WAIT);
@@ -229,7 +224,7 @@ void loop() {
     handleGPS();
   }
 
-  // Handle LED effects (non-blocking)
+  // Handle RGB LED effects (non-blocking)
   handleLEDEffects();
 
   // GPS debug
@@ -244,16 +239,18 @@ void loop() {
   if (millis() - lastSendTime >= SEND_INTERVAL) {
     lastSendTime = millis();
 
-    // Red blink while sending
-    setLedState(LED_SENDING);
+    // Only show sending LED if no alert is active
+    if (!voiceLedActive && !nudgeActive && currentLedState != LED_EMERGENCY) {
+      setLedState(LED_SENDING);
+    }
     readAndSendSensorData();
 
     // Poll for nudges from the website
     checkForNudge();
 
-    // Return to appropriate idle state
-    if (nudgeActive) {
-      // Nudge blink takes priority — don't override
+    // Return to appropriate idle state (only if no alert LED is active)
+    if (voiceLedActive || nudgeActive || currentLedState == LED_EMERGENCY) {
+      // Alert LED takes priority — don't override
     } else if (!insideGeofence) {
       setLedState(LED_GEOFENCE);
     } else if (!gpsValid && gpsConnected) {
@@ -263,7 +260,8 @@ void loop() {
     }
   }
 
-  if (buzzerActive && millis() - buzzerStartTime >= 3000) {
+  // Non-blocking buzzer timeout
+  if (buzzerActive && millis() - buzzerStartTime >= buzzerDuration) {
     digitalWrite(BUZZER, LOW);
     buzzerActive = false;
   }
@@ -302,7 +300,7 @@ void checkGeofence() {
   if (wasInside && !insideGeofence) {
     Serial.println("🚨 GEOFENCE VIOLATION!");
     setLedState(LED_GEOFENCE);
-    triggerAlert(500);
+    startBuzzer(500);
     sendGeofenceViolation(distance);
   }
 }
@@ -345,79 +343,113 @@ void connectToWiFi() {
 // ============================================
 void handleTouchSensor() {
   if (digitalRead(TOUCHPIN) == HIGH && !buzzerActive) {
-    buzzerActive = true;
-    buzzerStartTime = millis();
-    digitalWrite(BUZZER, HIGH);
     setLedState(LED_EMERGENCY);
+    startBuzzer(3000);
     Serial.println("🚨 EMERGENCY!");
     sendEmergencyAlert();
-    delay(1000);
   }
 }
 
 // ============================================
-// VOICE RECOGNITION (I2C)
+// NON-BLOCKING BUZZER
+// ============================================
+void startBuzzer(unsigned long durationMs) {
+  buzzerActive = true;
+  buzzerStartTime = millis();
+  buzzerDuration = durationMs;
+  digitalWrite(BUZZER, HIGH);
+}
+
+// ============================================
+// VOICE RECOGNITION (I2C) — NOW WITH LED SYNC
 // ============================================
 void handleVoiceRecognition() {
   uint8_t cmdID = voiceSensor.getCMDID();
   
   if (cmdID != 0) {
     lastVoiceCommandID = cmdID;
-    Serial.printf("🎤 Voice: %d\n", cmdID);
+    Serial.printf("🎤 Voice CMD %d: ", cmdID);
     
     switch(cmdID) {
       case 2:
         lastVoiceCommand = "test_buzzer";
-        triggerAlert(100); 
+        Serial.println("Test Buzzer");
+        // Quick test beep + brief amber flash
+        setLedState(LED_VOICE_ALERT);
+        voiceLedActive = true;
+        startBuzzer(200);
         break;
+
       case 5:
         lastVoiceCommand = "tulong_help";
+        Serial.println("🆘 TULONG / HELP");
         voiceAlertTriggered = true;
-        triggerAlert(500);
+        // EMERGENCY red flash — critical alert
+        setLedState(LED_EMERGENCY);
+        startBuzzer(2000);
         sendVoiceAlert("help");
         break;
+
       case 6:
         lastVoiceCommand = "emergency";
+        Serial.println("🚨 EMERGENCY");
         voiceAlertTriggered = true;
-        triggerAlert(1000);
+        // EMERGENCY red flash — most critical
+        setLedState(LED_EMERGENCY);
+        startBuzzer(3000);
         sendVoiceAlert("emergency");
         break;
+
       case 7:
         lastVoiceCommand = "aray_shock";
+        Serial.println("⚡ ARAY / SHOCK");
         voiceAlertTriggered = true;
-        triggerAlert(800);
+        // Amber flash — pain/shock alert
+        setLedState(LED_VOICE_ALERT);
+        voiceLedActive = true;
+        startBuzzer(1500);
         sendVoiceAlert("fall_shock");
         break;
+
       case 8:
         lastVoiceCommand = "tawag_call";
+        Serial.println("📞 TAWAG / CALL NURSE");
         voiceAlertTriggered = true;
-        triggerAlert(600);
+        // Amber flash — call for assistance
+        setLedState(LED_VOICE_ALERT);
+        voiceLedActive = true;
+        startBuzzer(1000);
         sendVoiceAlert("call_nurse");
         break;
+
       case 10:
         lastVoiceCommand = "cancel";
+        Serial.println("✅ CANCEL");
         voiceAlertTriggered = false;
+        voiceLedActive = false;
+        // Stop everything — return to idle
         digitalWrite(BUZZER, LOW);
         buzzerActive = false;
+        setLedState(LED_IDLE);
         break;
+
       case 11:
         lastVoiceCommand = "sakit_pain";
+        Serial.println("🤕 SAKIT / PAIN");
         voiceAlertTriggered = true;
-        triggerAlert(700);
+        // Amber flash — pain alert
+        setLedState(LED_VOICE_ALERT);
+        voiceLedActive = true;
+        startBuzzer(1500);
         sendVoiceAlert("pain");
         break;
+
       default:
         lastVoiceCommand = "unknown_" + String(cmdID);
+        Serial.println("Unknown");
         break;
     }
   }
-}
-
-void triggerAlert(int duration) {
-  digitalWrite(BUZZER, HIGH);
-  delay(duration);
-  digitalWrite(BUZZER, LOW);
-  delay(100);
 }
 
 // ============================================
@@ -538,16 +570,17 @@ void sendToServer(String jsonData) {
 }
 
 // ============================================
-// RGB LED CONTROL (3 Separate LEDs)
+// RGB LED CONTROL
 // ============================================
 void setRGB(bool r, bool g, bool b) {
-  digitalWrite(LED_RED,   r ? HIGH : LOW);
-  digitalWrite(LED_GREEN, g ? HIGH : LOW);
-  digitalWrite(LED_BLUE,  b ? HIGH : LOW);
+  digitalWrite(RGB_RED,   r ? HIGH : LOW);
+  digitalWrite(RGB_GREEN, g ? HIGH : LOW);
+  digitalWrite(RGB_BLUE,  b ? HIGH : LOW);
 }
 
 void setLedState(LEDState newState) {
-  if (newState == currentLedState && newState != LED_NUDGE) return;
+  // Allow re-entry for NUDGE and VOICE_ALERT to restart their blink cycles
+  if (newState == currentLedState && newState != LED_NUDGE && newState != LED_VOICE_ALERT) return;
   currentLedState = newState;
   ledStateStart = millis();
   ledBlinkTimer = millis();
@@ -556,12 +589,13 @@ void setLedState(LEDState newState) {
 
   // Set initial color for the state
   switch (newState) {
-    case LED_IDLE:       setRGB(0, 1, 0); break;  // Green
-    case LED_SENDING:    setRGB(1, 0, 0); break;  // Red
-    case LED_NUDGE:      setRGB(0, 0, 1); break;  // Blue
-    case LED_EMERGENCY:  setRGB(1, 0, 0); break;  // Red (will flash)
-    case LED_GEOFENCE:   setRGB(1, 0, 1); break;  // Purple (red+blue)
-    case LED_GPS_WAIT:   setRGB(1, 1, 0); break;  // Yellow (red+green)
+    case LED_IDLE:         setRGB(0, 1, 0); break;  // Green
+    case LED_SENDING:      setRGB(1, 0, 0); break;  // Red
+    case LED_NUDGE:        setRGB(0, 0, 1); break;  // Blue
+    case LED_EMERGENCY:    setRGB(1, 0, 0); break;  // Red (will rapid flash)
+    case LED_VOICE_ALERT:  setRGB(1, 1, 0); break;  // Amber/Orange (red+green, will flash)
+    case LED_GEOFENCE:     setRGB(1, 0, 1); break;  // Purple (red+blue)
+    case LED_GPS_WAIT:     setRGB(1, 1, 0); break;  // Yellow (red+green)
   }
 }
 
@@ -606,6 +640,26 @@ void handleLEDEffects() {
       // Auto-return to idle after 10 seconds
       if (now - ledStateStart >= 10000) {
         setLedState(LED_IDLE);
+      }
+      break;
+
+    case LED_VOICE_ALERT:
+      // Amber/orange flash (150ms on/150ms off) — distinct from emergency
+      // Alternates between amber (red+green) ON and OFF
+      if (now - ledBlinkTimer >= 150) {
+        ledBlinkTimer = now;
+        ledBlinkOn = !ledBlinkOn;
+        setRGB(ledBlinkOn, ledBlinkOn, 0);  // Amber = red + green
+        if (!ledBlinkOn) ledBlinkCount++;
+        if (ledBlinkCount >= VOICE_ALERT_BLINK_CYCLES) {
+          voiceLedActive = false;
+          // Return to appropriate state
+          if (!insideGeofence) {
+            setLedState(LED_GEOFENCE);
+          } else {
+            setLedState(LED_IDLE);
+          }
+        }
       }
       break;
 
@@ -660,7 +714,7 @@ void checkForNudge() {
       // Blue blink + short buzzer beep
       nudgeActive = true;
       setLedState(LED_NUDGE);
-      triggerAlert(200);  // Short beep
+      startBuzzer(200);  // Short beep (non-blocking)
 
       // Acknowledge the nudge
       acknowledgeNudge();

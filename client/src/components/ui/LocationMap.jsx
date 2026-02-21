@@ -44,7 +44,7 @@ export function LocationMap({ workers, geofenceCenter, geofenceRadius = 100 }) {
 
     // Filter workers with valid GPS
     const workersWithGPS = workers.filter(w =>
-        w.sensors?.latitude && w.sensors?.longitude && w.sensors?.gpsValid
+        w.sensors?.latitude != null && w.sensors?.longitude != null && w.sensors?.gpsValid
     );
 
     const getMarkerIcon = (worker) => {
@@ -55,7 +55,7 @@ export function LocationMap({ workers, geofenceCenter, geofenceRadius = 100 }) {
     };
 
     return (
-        <div className="w-full h-[500px] rounded-xl overflow-hidden border border-gray-700">
+        <div className="w-full h-[500px] rounded-xl overflow-hidden border border-[#E3E6EB] shadow-md">
             <MapContainer
                 center={mapCenter}
                 zoom={17}
@@ -114,7 +114,7 @@ export function LocationMap({ workers, geofenceCenter, geofenceRadius = 100 }) {
                                         <div className="text-red-600 font-bold">⚠️ OUTSIDE SAFE ZONE</div>
                                     )}
                                     <div className={`font-semibold ${worker.status === 'critical' ? 'text-red-600' :
-                                            worker.status === 'warning' ? 'text-orange-500' : 'text-green-600'
+                                        worker.status === 'warning' ? 'text-orange-500' : 'text-green-600'
                                         }`}>
                                         Status: {worker.status?.toUpperCase()}
                                     </div>

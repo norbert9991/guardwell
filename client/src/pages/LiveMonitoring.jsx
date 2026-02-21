@@ -93,11 +93,12 @@ export const LiveMonitoring = () => {
                 voiceCommandId: realTimeData.voice_command_id || null,
                 voiceAlert: voiceAlertActive,
                 voiceAlertType: realTimeData.voice_alert_type || null,
-                // GPS data
-                latitude: realTimeData.latitude || null,
-                longitude: realTimeData.longitude || null,
-                gpsSpeed: realTimeData.gps_speed || null,
+                // GPS data — use != null to preserve valid 0.0 coordinates
+                latitude: realTimeData.latitude != null ? realTimeData.latitude : null,
+                longitude: realTimeData.longitude != null ? realTimeData.longitude : null,
+                gpsSpeed: realTimeData.gps_speed != null ? realTimeData.gps_speed : null,
                 gpsValid: realTimeData.gps_valid || false,
+                satellites: realTimeData.satellites || 0,
                 geofenceViolation: geofenceViolation,
                 gpsChars: realTimeData.gps_chars || 0
             },
@@ -294,7 +295,7 @@ export const LiveMonitoring = () => {
                         <option value="maintenance">Maintenance</option>
                     </select>
                     {/* View Mode Toggle */}
-                    <div className="flex rounded-lg overflow-hidden border border-gray-700">
+                    <div className="flex rounded-lg overflow-hidden border border-[#E3E6EB] shadow-sm">
                         <button
                             onClick={() => setViewMode('grid')}
                             className={`px-3 py-2 flex items-center gap-2 transition-colors ${viewMode === 'grid'
@@ -775,6 +776,64 @@ export const LiveMonitoring = () => {
                                     </div>
                                 </div>
                             </div>
+                        </div>
+
+                        {/* GPS / Location */}
+                        <div>
+                            <h4 className="label-modal mb-3">GPS / Location</h4>
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                                <div className="bg-[#EEF1F4] p-4 rounded-lg border border-[#E3E6EB]">
+                                    <div className="flex items-center gap-2 text-[#4B5563] mb-2">
+                                        <MapPin size={16} />
+                                        <span className="text-sm">GPS Status</span>
+                                    </div>
+                                    <p className={`text-lg font-bold ${selectedWorker.sensors.gpsValid ? 'text-green-600' : 'text-yellow-600'}`}>
+                                        {selectedWorker.sensors.gpsValid ? '✓ Fix Acquired' : '⏳ Acquiring...'}
+                                    </p>
+                                </div>
+                                <div className="bg-[#EEF1F4] p-4 rounded-lg border border-[#E3E6EB]">
+                                    <div className="flex items-center gap-2 text-[#4B5563] mb-2">
+                                        <Map size={16} />
+                                        <span className="text-sm">Coordinates</span>
+                                    </div>
+                                    {selectedWorker.sensors.gpsValid && selectedWorker.sensors.latitude != null ? (
+                                        <p className="text-sm font-mono font-bold text-[#6FA3D8]">
+                                            {parseFloat(selectedWorker.sensors.latitude).toFixed(6)},<br />
+                                            {parseFloat(selectedWorker.sensors.longitude).toFixed(6)}
+                                        </p>
+                                    ) : (
+                                        <p className="text-sm text-[#9CA3AF]">No fix yet</p>
+                                    )}
+                                </div>
+                                <div className="bg-[#EEF1F4] p-4 rounded-lg border border-[#E3E6EB]">
+                                    <div className="flex items-center gap-2 text-[#4B5563] mb-2">
+                                        <Shield size={16} />
+                                        <span className="text-sm">Geofence</span>
+                                    </div>
+                                    <p className={`text-lg font-bold ${selectedWorker.sensors.geofenceViolation ? 'text-red-500' : 'text-green-600'}`}>
+                                        {selectedWorker.sensors.geofenceViolation ? '⚠ Outside' : '✓ Inside'}
+                                    </p>
+                                </div>
+                            </div>
+                            {selectedWorker.sensors.gpsValid && selectedWorker.sensors.latitude != null && (
+                                <div className="mt-3 bg-[#EEF1F4] p-3 rounded-lg border border-[#E3E6EB] flex items-center justify-between">
+                                    <div className="flex items-center gap-2 text-sm text-[#4B5563]">
+                                        <MapPin size={14} />
+                                        <span>Satellites: <strong>{selectedWorker.sensors.satellites || 'N/A'}</strong></span>
+                                        {selectedWorker.sensors.gpsSpeed != null && selectedWorker.sensors.gpsSpeed > 0 && (
+                                            <span className="ml-3">Speed: <strong>{parseFloat(selectedWorker.sensors.gpsSpeed).toFixed(1)} km/h</strong></span>
+                                        )}
+                                    </div>
+                                    <a
+                                        href={`https://www.google.com/maps?q=${selectedWorker.sensors.latitude},${selectedWorker.sensors.longitude}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-xs text-[#6FA3D8] hover:underline font-medium"
+                                    >
+                                        Open in Google Maps ↗
+                                    </a>
+                                </div>
+                            )}
                         </div>
 
                         {/* Actions */}

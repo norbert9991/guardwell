@@ -268,6 +268,7 @@ const processSensorData = async (data, io) => {
             gps_valid: data.gps_valid,
             geofence_violation: data.geofence_violation,
             gps_chars: data.gps_chars,
+            satellites: data.satellites || 0,
             worker_id: workerId,
             worker_name: workerName,
             createdAt: sensorRecord.createdAt
