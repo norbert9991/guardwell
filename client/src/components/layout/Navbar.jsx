@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Bell, User, LogOut, AlertCircle } from 'lucide-react';
+import { Bell, User, LogOut } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../context/SocketContext';
 import { Badge } from '../ui/Badge';
@@ -49,14 +49,6 @@ export const Navbar = () => {
                                     {connected ? 'Connected' : 'Disconnected'}
                                 </span>
                             </div>
-
-                            {/* Emergency Button */}
-                            <Link to="/emergency">
-                                <button className="px-4 py-2 bg-gradient-to-r from-[#E85D2A] to-[#c44a1f] hover:from-[#c44a1f] hover:to-[#a33d19] text-white font-semibold rounded-lg flex items-center gap-2 shadow-lg hover:shadow-[#E85D2A]/25 transition-all duration-200 text-sm">
-                                    <AlertCircle size={16} />
-                                    <span className="hidden sm:inline">Emergency</span>
-                                </button>
-                            </Link>
 
                             {/* Notifications */}
                             <Link to="/alerts" className="relative">

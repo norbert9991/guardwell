@@ -378,20 +378,20 @@ export const Dashboard = () => {
                 size="md"
             >
                 <div className="space-y-5">
-                    <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-6 text-center">
-                        <div className="w-20 h-20 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
+                    <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
+                        <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
                             <AlertTriangle className="h-10 w-10 text-red-500" />
                         </div>
-                        <h3 className="text-xl font-bold text-white mb-2">System-Wide Emergency</h3>
-                        <p className="text-gray-300">
+                        <h3 className="text-xl font-bold text-[#1F2937] mb-2">System-Wide Emergency</h3>
+                        <p className="text-[#4B5563]">
                             This will broadcast an emergency alert to all {activeWorkers} active workers
                             and notify all emergency response teams.
                         </p>
                     </div>
 
-                    <div className="bg-[#0d1220] rounded-lg p-4 border border-[#2d3a52]">
-                        <h4 className="text-sm font-semibold text-gray-300 mb-3">This action will:</h4>
-                        <ul className="space-y-2 text-sm text-gray-400">
+                    <div className="bg-[#EEF1F4] rounded-lg p-4 border border-[#E3E6EB]">
+                        <h4 className="text-sm font-semibold text-[#1F2937] mb-3">This action will:</h4>
+                        <ul className="space-y-2 text-sm text-[#4B5563]">
                             <li className="flex items-center gap-2">
                                 <div className="w-1.5 h-1.5 bg-red-500 rounded-full"></div>
                                 Alert all connected devices immediately
@@ -412,12 +412,12 @@ export const Dashboard = () => {
                     </div>
 
                     {/* Responsibility Warning */}
-                    <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4">
+                    <div className="bg-yellow-50 border border-yellow-300 rounded-lg p-4">
                         <div className="flex items-start gap-3">
-                            <AlertTriangle className="h-5 w-5 text-yellow-500 flex-shrink-0 mt-0.5" />
+                            <AlertTriangle className="h-5 w-5 text-yellow-600 flex-shrink-0 mt-0.5" />
                             <div>
-                                <h4 className="text-sm font-bold text-yellow-500 mb-1">Important Notice</h4>
-                                <p className="text-xs text-yellow-200/80 leading-relaxed">
+                                <h4 className="text-sm font-bold text-yellow-700 mb-1">Important Notice</h4>
+                                <p className="text-xs text-yellow-800 leading-relaxed">
                                     By activating this emergency alert, you acknowledge that this action is your <strong>full responsibility</strong>.
                                     False or prank emergency activations may result in <strong>disciplinary action, termination,
                                         and potential legal consequences</strong>. All activations are logged with timestamp and operator information
@@ -427,7 +427,7 @@ export const Dashboard = () => {
                         </div>
                     </div>
 
-                    <div className="flex gap-3 pt-4 border-t border-[#2d3a52]/50">
+                    <div className="flex gap-3 pt-4 border-t border-[#E3E6EB]">
                         <Button
                             variant="secondary"
                             className="flex-1"

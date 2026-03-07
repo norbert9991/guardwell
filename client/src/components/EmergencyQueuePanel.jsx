@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import {
     AlertTriangle, User, Clock, CheckCircle, X, ChevronRight, ChevronLeft,
     Bell, Radio, Shield, Mic, MapPin, UserCheck, CheckSquare, Square,
-    ArrowUpDown, Filter, ChevronDown
+    ArrowUpDown, Filter, ChevronDown, Loader2
 } from 'lucide-react';
 import { Button } from './ui/Button';
 import { Badge } from './ui/Badge';
@@ -332,7 +332,14 @@ export const EmergencyQueuePanel = () => {
                                     disabled={selectedIds.length === 0 || isLoading}
                                     className="flex-1 text-xs"
                                 >
-                                    Acknowledge ({selectedIds.length})
+                                    {isLoading ? (
+                                        <>
+                                            <Loader2 size={14} className="mr-1 animate-spin" />
+                                            Processing...
+                                        </>
+                                    ) : (
+                                        `Acknowledge (${selectedIds.length})`
+                                    )}
                                 </Button>
                             </div>
                         )}
@@ -468,8 +475,12 @@ export const EmergencyQueuePanel = () => {
                                                         onClick={() => handleAcknowledge(emergency.id)}
                                                         disabled={isLoading}
                                                     >
-                                                        <CheckCircle size={12} className="mr-1" />
-                                                        Acknowledge
+                                                        {isLoading ? (
+                                                            <Loader2 size={12} className="mr-1 animate-spin" />
+                                                        ) : (
+                                                            <CheckCircle size={12} className="mr-1" />
+                                                        )}
+                                                        {isLoading ? 'Processing...' : 'Acknowledge'}
                                                     </Button>
                                                     <Button
                                                         size="sm"
@@ -491,8 +502,12 @@ export const EmergencyQueuePanel = () => {
                                                 onClick={() => handleResolve(emergency.id)}
                                                 disabled={isLoading}
                                             >
-                                                <CheckCircle size={12} className="mr-1" />
-                                                Mark Resolved
+                                                {isLoading ? (
+                                                    <Loader2 size={12} className="mr-1 animate-spin" />
+                                                ) : (
+                                                    <CheckCircle size={12} className="mr-1" />
+                                                )}
+                                                {isLoading ? 'Processing...' : 'Mark Resolved'}
                                             </Button>
                                         )}
                                     </div>
