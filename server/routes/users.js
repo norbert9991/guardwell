@@ -118,7 +118,7 @@ router.post('/', requireAdmin, async (req, res) => {
 // Update user
 router.put('/:id', requireAdmin, async (req, res) => {
     try {
-        const { fullName, role, department, phone, status } = req.body;
+        const { fullName, role, department, phone, status, email } = req.body;
 
         const user = await User.findByPk(req.params.id);
         if (!user) {
@@ -135,12 +135,21 @@ router.put('/:id', requireAdmin, async (req, res) => {
             return res.status(403).json({ error: 'Only Head Admin can assign Admin role' });
         }
 
+        // If email is being changed, check uniqueness
+        if (email && email.toLowerCase() !== user.email) {
+            const existingUser = await User.findOne({ where: { email: email.toLowerCase() } });
+            if (existingUser) {
+                return res.status(400).json({ error: 'Email already in use by another user' });
+            }
+        }
+
         await user.update({
             fullName: fullName || user.fullName,
             role: role || user.role,
             department: department !== undefined ? department : user.department,
             phone: phone !== undefined ? phone : user.phone,
-            status: status || user.status
+            status: status || user.status,
+            email: email ? email.toLowerCase() : user.email
         });
 
         res.json({

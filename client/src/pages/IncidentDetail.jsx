@@ -153,7 +153,7 @@ export const IncidentDetail = () => {
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
-                    <Button variant="secondary" icon={<ArrowLeft size={18} />} onClick={() => navigate('/incidents')}>
+                    <Button variant="outline" icon={<ArrowLeft size={18} />} onClick={() => navigate('/incidents')}>
                         Back
                     </Button>
                     <div>

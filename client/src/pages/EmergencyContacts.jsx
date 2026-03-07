@@ -547,6 +547,17 @@ export const EmergencyContacts = () => {
                             className="input-modal"
                         />
                     </div>
+                    <div>
+                        <label className="label-modal">Email</label>
+                        <input
+                            type="email"
+                            name="email"
+                            value={formData.email}
+                            onChange={handleInputChange}
+                            className="input-modal"
+                            placeholder="contact@email.com"
+                        />
+                    </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <label className="label-modal">Type</label>

@@ -114,13 +114,18 @@ export const AdminManagement = () => {
         setIsSubmitting(true);
 
         try {
-            const response = await usersApi.update(selectedUser.id, {
+            const updateData = {
                 fullName: formData.fullName,
                 role: formData.role,
                 department: formData.department,
                 phone: formData.phone,
                 status: formData.status
-            });
+            };
+            // Include email only if not Head Admin
+            if (selectedUser?.role !== 'Head Admin') {
+                updateData.email = formData.email;
+            }
+            const response = await usersApi.update(selectedUser.id, updateData);
             setUsers(prev => prev.map(u => u.id === selectedUser.id ? response.data : u));
             setShowEditConfirm(false);
             setShowEditModal(false);
@@ -495,11 +500,15 @@ export const AdminManagement = () => {
                         <label className="label-modal">Email</label>
                         <input
                             type="email"
+                            name="email"
                             value={formData.email}
-                            className="input-modal bg-[#1a2235] opacity-60 cursor-not-allowed"
-                            disabled
+                            onChange={handleInputChange}
+                            className={`input-modal ${selectedUser?.role === 'Head Admin' ? 'opacity-60 cursor-not-allowed' : ''}`}
+                            disabled={selectedUser?.role === 'Head Admin'}
                         />
-                        <p className="text-xs text-gray-500 mt-1">Email cannot be changed</p>
+                        {selectedUser?.role === 'Head Admin' && (
+                            <p className="text-xs text-gray-500 mt-1">Head Admin email cannot be changed</p>
+                        )}
                     </div>
 
                     <div>

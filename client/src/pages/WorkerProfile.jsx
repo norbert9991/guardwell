@@ -89,7 +89,7 @@ export const WorkerProfile = () => {
         <div className="space-y-6">
             {/* Header */}
             <div className="flex items-center gap-4">
-                <Button variant="ghost" onClick={() => navigate('/workers')} icon={<ArrowLeft size={18} />}>
+                <Button variant="outline" onClick={() => navigate('/workers')} icon={<ArrowLeft size={18} />}>
                     Back
                 </Button>
                 <div>

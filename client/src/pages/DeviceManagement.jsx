@@ -55,7 +55,6 @@ export const DeviceManagement = () => {
     const [formData, setFormData] = useState({
         deviceId: '',
         serialNumber: '',
-        type: 'Vest',
         workerId: ''
     });
 
@@ -78,7 +77,7 @@ export const DeviceManagement = () => {
             const response = await devicesApi.create({
                 deviceId: formData.deviceId,
                 serialNumber: formData.serialNumber,
-                type: formData.type,
+                type: 'Wearable',
                 workerId: formData.workerId || null
             });
 
@@ -87,7 +86,6 @@ export const DeviceManagement = () => {
             setFormData({
                 deviceId: '',
                 serialNumber: '',
-                type: 'Vest',
                 workerId: ''
             });
             setShowConfirmModal(false);
@@ -207,11 +205,7 @@ export const DeviceManagement = () => {
     const columns = [
         { key: 'deviceId', label: 'Device ID', sortable: true },
         { key: 'serialNumber', label: 'Serial Number', sortable: true },
-        {
-            key: 'type',
-            label: 'Type',
-            render: (row) => <Badge variant="info">{row.type}</Badge>
-        },
+
         {
             key: 'worker',
             label: 'Assigned To',
@@ -381,21 +375,7 @@ export const DeviceManagement = () => {
                             required
                         />
                     </div>
-                    <div>
-                        <label className="label-modal">
-                            Type
-                        </label>
-                        <select
-                            name="type"
-                            value={formData.type}
-                            onChange={handleInputChange}
-                            className="select-modal"
-                        >
-                            <option value="Vest">Smart Vest</option>
-                            <option value="Helmet">Smart Helmet</option>
-                            <option value="Band">Wearable Band</option>
-                        </select>
-                    </div>
+
                     <div>
                         <label className="label-modal">
                             Assign to Worker (Optional)
