@@ -5,6 +5,7 @@ const Alert = require('./Alert');
 const Incident = require('./Incident');
 const EmergencyContact = require('./EmergencyContact');
 const User = require('./User');
+const NudgeLog = require('./NudgeLog');
 const { sequelize } = require('../config/database');
 const bcrypt = require('bcrypt');
 
@@ -17,6 +18,9 @@ Alert.belongsTo(Worker, { foreignKey: 'workerId', as: 'worker' });
 
 Worker.hasMany(Incident, { foreignKey: 'workerId', as: 'incidents' });
 Incident.belongsTo(Worker, { foreignKey: 'workerId', as: 'worker' });
+
+Worker.hasMany(NudgeLog, { foreignKey: 'workerId', as: 'nudgeLogs' });
+NudgeLog.belongsTo(Worker, { foreignKey: 'workerId', as: 'worker' });
 
 // Sync all models with the database
 // Changed to avoid MySQL "Too many keys" error from repeated alter syncs
@@ -218,5 +222,6 @@ module.exports = {
     Incident,
     EmergencyContact,
     User,
+    NudgeLog,
     syncDatabase
 };

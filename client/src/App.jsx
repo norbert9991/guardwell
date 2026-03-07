@@ -27,6 +27,7 @@ import { AuditLog } from './pages/AuditLog';
 import { SystemAdmin } from './pages/SystemAdmin';
 import { TermsAndConditions } from './pages/TermsAndConditions';
 import { UserManual } from './pages/UserManual';
+import { NudgeLogs } from './pages/NudgeLogs';
 
 // Layout wrapper for authenticated pages - uses EmergencyPanel context
 const LayoutWrapper = ({ children }) => {
@@ -225,6 +226,17 @@ function App() {
                                         <ProtectedRoute>
                                             <LayoutWrapper>
                                                 <UserManual />
+                                            </LayoutWrapper>
+                                        </ProtectedRoute>
+                                    }
+                                />
+
+                                <Route
+                                    path="/nudge-logs"
+                                    element={
+                                        <ProtectedRoute>
+                                            <LayoutWrapper>
+                                                <NudgeLogs />
                                             </LayoutWrapper>
                                         </ProtectedRoute>
                                     }

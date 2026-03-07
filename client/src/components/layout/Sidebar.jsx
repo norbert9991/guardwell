@@ -40,6 +40,7 @@ export const Sidebar = () => {
         { name: 'Alerts', icon: AlertTriangle, path: '/alerts', minRole: 'Safety Officer', badge: pendingEmergencies },
         { name: 'Incidents', icon: FileText, path: '/incidents', minRole: 'Safety Officer' },
         { name: 'Reports', icon: BarChart3, path: '/reports', minRole: 'Safety Officer' },
+        { name: 'Nudge Logs', icon: Bell, path: '/nudge-logs', minRole: 'Safety Officer' },
         { name: 'Emergency Contacts', icon: Phone, path: '/emergency-contacts', minRole: 'Admin' },
         { name: 'User Management', icon: Users, path: '/admin/users', minRole: 'Head Admin' },
         { name: 'System Settings', icon: Settings, path: '/admin', minRole: 'Head Admin' },

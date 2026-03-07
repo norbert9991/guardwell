@@ -92,6 +92,7 @@ bool ledBlinkOn = false;
 int ledBlinkCount = 0;
 const int NUDGE_BLINK_CYCLES = 10;  // Blue blinks when nudge received
 bool nudgeActive = false;
+bool nudgePending = false;  // true = waiting for worker to tap touch sensor to acknowledge
 bool insideGeofence = true;
 unsigned long lastGeofenceCheck = 0;
 
@@ -333,17 +334,38 @@ void connectToWiFi() {
 }
 
 // ============================================
-// TOUCH SENSOR
+// TOUCH SENSOR (Dual mode: Nudge ACK or Emergency)
 // ============================================
 void handleTouchSensor() {
   if (digitalRead(TOUCHPIN) == HIGH && !buzzerActive) {
     buzzerActive = true;
     buzzerStartTime = millis();
-    digitalWrite(BUZZER, HIGH);
-    setLedState(LED_EMERGENCY);
-    Serial.println("🚨 EMERGENCY!");
-    sendEmergencyAlert();
-    delay(1000);
+
+    if (nudgePending) {
+      // --- NUDGE ACKNOWLEDGE MODE ---
+      // Worker tapped touch sensor to respond to nudge
+      nudgePending = false;
+      nudgeActive = false;
+      Serial.println("✅ NUDGE ACKNOWLEDGED by touch sensor");
+
+      // Confirmation: short beep + green flash
+      digitalWrite(BUZZER, HIGH);
+      setRGB(0, 1, 0);  // Green flash
+      delay(300);
+      digitalWrite(BUZZER, LOW);
+      setLedState(LED_IDLE);  // Return to green steady
+
+      // Send acknowledgment to server
+      acknowledgeNudge();
+    } else {
+      // --- EMERGENCY MODE ---
+      // No pending nudge, so this is an emergency button press
+      digitalWrite(BUZZER, HIGH);
+      setLedState(LED_EMERGENCY);
+      Serial.println("🚨 EMERGENCY!");
+      sendEmergencyAlert();
+      delay(1000);
+    }
   }
 }
 
@@ -648,14 +670,15 @@ void checkForNudge() {
     if (!err && doc["nudge"].as<bool>() == true) {
       String msg = doc["message"] | "Alert";
       Serial.printf("📢 NUDGE RECEIVED: %s\n", msg.c_str());
+      Serial.println("   → Tap touch sensor to acknowledge (touch = ack, NOT emergency)");
 
-      // Blue blink + short buzzer beep
+      // Blue blink + short buzzer beep to alert the worker
       nudgeActive = true;
+      nudgePending = true;  // Wait for worker to tap touch sensor
       setLedState(LED_NUDGE);
       triggerAlert(200);  // Short beep
 
-      // Acknowledge the nudge
-      acknowledgeNudge();
+      // DO NOT auto-acknowledge — worker must tap touch sensor
     }
   }
 

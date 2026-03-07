@@ -72,7 +72,10 @@ export const devicesApi = {
 export const sensorsApi = {
     getLatest: (deviceId) => api.get(`/sensors/latest/${deviceId}`),
     getHistory: (deviceId, limit = 100) => api.get(`/sensors/history/${deviceId}`, { params: { limit } }),
-    sendNudge: (deviceId, message = '', sentBy = 'Safety Officer') => api.post(`/sensors/nudge/${deviceId}`, { message, sentBy })
+    sendNudge: (deviceId, message = '', sentBy = 'Safety Officer') => api.post(`/sensors/nudge/${deviceId}`, { message, sentBy }),
+    getNudgeHistory: (deviceId, limit = 50) => api.get(`/sensors/nudge/${deviceId}/history`, { params: { limit } }),
+    getNudgeCount: (deviceId) => api.get(`/sensors/nudge/${deviceId}/count`),
+    getNudgeLogs: (params = {}) => api.get('/sensors/nudge-logs', { params })
 };
 
 // ======================

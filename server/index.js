@@ -280,6 +280,10 @@ const startServer = async () => {
     // Start alert escalation monitoring service
     escalationService.startEscalationService(io);
 
+    // Start nudge expiry & auto-escalation timer
+    const { startNudgeExpiryTimer } = require('./routes/sensors');
+    startNudgeExpiryTimer(io);
+
     // Connect to MQTT if broker is configured
     if (process.env.MQTT_BROKER) {
         connectMQTT();

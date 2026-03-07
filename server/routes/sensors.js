@@ -328,36 +328,99 @@ router.get('/history/:deviceId', async (req, res) => {
 
 // ============================================
 // NUDGE SYSTEM (Server ↔ ESP32)
-// In-memory store — nudges are ephemeral
+// Enhanced: persists to NudgeLog, tracks count,
+// auto-escalates after 3 unanswered nudges
 // ============================================
-const pendingNudges = {};  // { deviceId: { nudge: true, message: "...", timestamp } }
+const pendingNudges = {};  // In-memory for ESP32 polling (fast path)
+
+const NUDGE_EXPIRY_MS = 2 * 60 * 1000; // 2 minutes before a nudge is considered unanswered
+const NUDGE_ESCALATION_THRESHOLD = 3;   // 3 unanswered nudges → auto-escalate
+
+// Helper: count consecutive unanswered (Expired) nudges for a device
+const getUnansweredCount = async (deviceId) => {
+    const { NudgeLog } = require('../models');
+    const expired = await NudgeLog.findAll({
+        where: { deviceId, status: 'Expired' },
+        order: [['createdAt', 'DESC']],
+        limit: NUDGE_ESCALATION_THRESHOLD
+    });
+    // Count only if they are the most recent (no Acknowledged in between)
+    const lastAck = await NudgeLog.findOne({
+        where: { deviceId, status: 'Acknowledged' },
+        order: [['createdAt', 'DESC']]
+    });
+    if (lastAck) {
+        // Only count expired nudges AFTER the last acknowledgment
+        const countAfterAck = await NudgeLog.count({
+            where: {
+                deviceId,
+                status: 'Expired',
+                createdAt: { [require('sequelize').Op.gt]: lastAck.createdAt }
+            }
+        });
+        return countAfterAck;
+    }
+    return await NudgeLog.count({ where: { deviceId, status: 'Expired' } });
+};
 
 // POST /api/sensors/nudge/:deviceId — Safety officer sends a nudge from web dashboard
 router.post('/nudge/:deviceId', async (req, res) => {
     try {
         const { deviceId } = req.params;
-        const { message } = req.body;
+        const { message, sentBy } = req.body;
+        const { NudgeLog, Device, Worker } = require('../models');
 
+        // Find the worker for this device
+        const device = await Device.findOne({
+            where: { deviceId },
+            include: [{ model: Worker, as: 'worker' }]
+        });
+        const workerId = device?.worker?.id || null;
+        const workerName = device?.worker?.fullName || 'Unknown Worker';
+
+        // Save to database
+        const nudgeLog = await NudgeLog.create({
+            deviceId,
+            workerId,
+            sentBy: sentBy || 'Safety Officer',
+            message: message || `Check-in requested for ${workerName}`,
+            status: 'Pending'
+        });
+
+        // Store in memory for ESP32 polling
         pendingNudges[deviceId] = {
             nudge: true,
-            message: message || 'Check-in requested by safety officer',
-            timestamp: new Date().toISOString(),
-            sentBy: req.body.sentBy || 'Safety Officer'
+            nudgeLogId: nudgeLog.id,
+            message: nudgeLog.message,
+            timestamp: nudgeLog.createdAt.toISOString(),
+            sentBy: nudgeLog.sentBy
         };
 
-        console.log(`📢 Nudge queued for ${deviceId}: ${pendingNudges[deviceId].message}`);
+        // Get current unanswered count (expired only, not including this pending one)
+        const unansweredCount = await getUnansweredCount(deviceId);
 
-        // Also emit via Socket.io so other dashboard tabs see it
+        console.log(`📢 Nudge #${unansweredCount + 1} queued for ${deviceId} (${workerName}) by ${nudgeLog.sentBy}`);
+
+        // Emit via Socket.io
         if (req.io) {
             req.io.emit('nudge_sent', {
                 deviceId,
-                message: pendingNudges[deviceId].message,
-                timestamp: pendingNudges[deviceId].timestamp,
-                sentBy: pendingNudges[deviceId].sentBy
+                workerId,
+                workerName,
+                nudgeLogId: nudgeLog.id,
+                message: nudgeLog.message,
+                timestamp: nudgeLog.createdAt.toISOString(),
+                sentBy: nudgeLog.sentBy,
+                unansweredCount
             });
         }
 
-        res.json({ success: true, message: `Nudge queued for ${deviceId}` });
+        res.json({
+            success: true,
+            message: `Nudge queued for ${deviceId}`,
+            nudgeLogId: nudgeLog.id,
+            unansweredCount
+        });
     } catch (error) {
         console.error('Error sending nudge:', error);
         res.status(500).json({ error: 'Failed to send nudge' });
@@ -376,28 +439,270 @@ router.get('/nudge/:deviceId', (req, res) => {
     }
 });
 
-// POST /api/sensors/nudge/:deviceId/ack — ESP32 acknowledges the nudge
-router.post('/nudge/:deviceId/ack', (req, res) => {
+// POST /api/sensors/nudge/:deviceId/ack — ESP32 acknowledges the nudge (worker tapped touch sensor)
+router.post('/nudge/:deviceId/ack', async (req, res) => {
     const { deviceId } = req.params;
+    const { NudgeLog } = require('../models');
 
-    if (pendingNudges[deviceId]) {
-        console.log(`✅ Nudge acknowledged by ${deviceId}`);
+    try {
+        // Find the latest pending nudge for this device
+        const latestNudge = await NudgeLog.findOne({
+            where: { deviceId, status: 'Pending' },
+            order: [['createdAt', 'DESC']]
+        });
 
-        // Emit acknowledgement to dashboard
-        if (req.io) {
-            req.io.emit('nudge_acknowledged', {
-                deviceId,
-                timestamp: new Date().toISOString()
+        if (latestNudge) {
+            const responseTimeMs = Date.now() - new Date(latestNudge.createdAt).getTime();
+            await latestNudge.update({
+                status: 'Acknowledged',
+                acknowledgedAt: new Date(),
+                responseTimeMs
             });
+            console.log(`✅ Nudge acknowledged by ${deviceId} in ${(responseTimeMs / 1000).toFixed(1)}s`);
+
+            // Emit acknowledgement to dashboard
+            if (req.io) {
+                req.io.emit('nudge_acknowledged', {
+                    deviceId,
+                    nudgeLogId: latestNudge.id,
+                    responseTimeMs,
+                    timestamp: new Date().toISOString()
+                });
+            }
         }
 
+        // Clear from in-memory map
         delete pendingNudges[deviceId];
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Error acknowledging nudge:', error);
+        delete pendingNudges[deviceId];
+        res.json({ success: true });
     }
-
-    res.json({ success: true });
 });
+
+// GET /api/sensors/nudge/:deviceId/history — Get nudge history for a device
+router.get('/nudge/:deviceId/history', async (req, res) => {
+    try {
+        const { NudgeLog, Worker } = require('../models');
+        const limit = parseInt(req.query.limit) || 50;
+        const logs = await NudgeLog.findAll({
+            where: { deviceId: req.params.deviceId },
+            include: [{ model: Worker, as: 'worker', attributes: ['id', 'fullName', 'department'] }],
+            order: [['createdAt', 'DESC']],
+            limit
+        });
+        res.json(logs);
+    } catch (error) {
+        console.error('Error fetching nudge history:', error);
+        res.status(500).json({ error: 'Failed to fetch nudge history' });
+    }
+});
+
+// GET /api/sensors/nudge/:deviceId/count — Get unanswered nudge count for a device
+router.get('/nudge/:deviceId/count', async (req, res) => {
+    try {
+        const count = await getUnansweredCount(req.params.deviceId);
+        res.json({ deviceId: req.params.deviceId, unansweredCount: count });
+    } catch (error) {
+        console.error('Error fetching nudge count:', error);
+        res.status(500).json({ error: 'Failed to fetch nudge count' });
+    }
+});
+
+// GET /api/sensors/nudge-logs — Get ALL nudge logs (for the Nudge Logs page)
+router.get('/nudge-logs', async (req, res) => {
+    try {
+        const { NudgeLog, Worker } = require('../models');
+        const limit = parseInt(req.query.limit) || 100;
+        const status = req.query.status; // optional filter: Pending, Acknowledged, Expired
+
+        const where = {};
+        if (status) where.status = status;
+
+        const logs = await NudgeLog.findAll({
+            where,
+            include: [{ model: Worker, as: 'worker', attributes: ['id', 'fullName', 'department'] }],
+            order: [['createdAt', 'DESC']],
+            limit
+        });
+
+        // Also get summary stats
+        const totalNudges = await NudgeLog.count();
+        const pendingCount = await NudgeLog.count({ where: { status: 'Pending' } });
+        const acknowledgedCount = await NudgeLog.count({ where: { status: 'Acknowledged' } });
+        const expiredCount = await NudgeLog.count({ where: { status: 'Expired' } });
+        const escalatedCount = await NudgeLog.count({ where: { escalated: true } });
+
+        res.json({
+            logs,
+            stats: {
+                total: totalNudges,
+                pending: pendingCount,
+                acknowledged: acknowledgedCount,
+                expired: expiredCount,
+                escalated: escalatedCount
+            }
+        });
+    } catch (error) {
+        console.error('Error fetching nudge logs:', error);
+        res.status(500).json({ error: 'Failed to fetch nudge logs' });
+    }
+});
+
+// ============================================
+// NUDGE EXPIRY & AUTO-ESCALATION TIMER
+// Runs every 60 seconds to check for expired nudges
+// ============================================
+const startNudgeExpiryTimer = (io) => {
+    setInterval(async () => {
+        try {
+            const { NudgeLog, Alert, Device, Worker, EmergencyContact } = require('../models');
+            const { Op } = require('sequelize');
+
+            const expiryTime = new Date(Date.now() - NUDGE_EXPIRY_MS);
+
+            // Find pending nudges older than the expiry time
+            const expiredNudges = await NudgeLog.findAll({
+                where: {
+                    status: 'Pending',
+                    createdAt: { [Op.lt]: expiryTime }
+                }
+            });
+
+            for (const nudge of expiredNudges) {
+                // Mark as expired
+                await nudge.update({
+                    status: 'Expired',
+                    expiredAt: new Date()
+                });
+
+                // Also clean from in-memory
+                delete pendingNudges[nudge.deviceId];
+
+                console.log(`⏰ Nudge expired for ${nudge.deviceId} (sent by ${nudge.sentBy})`);
+
+                // Check unanswered count for this device
+                const unansweredCount = await getUnansweredCount(nudge.deviceId);
+
+                // Emit updated count to dashboard
+                if (io) {
+                    io.emit('nudge_expired', {
+                        deviceId: nudge.deviceId,
+                        nudgeLogId: nudge.id,
+                        unansweredCount,
+                        timestamp: new Date().toISOString()
+                    });
+                }
+
+                // AUTO-ESCALATION: if 3+ unanswered nudges
+                if (unansweredCount >= NUDGE_ESCALATION_THRESHOLD) {
+                    // Check if we already escalated recently (within last 10 min) to avoid spam
+                    const recentEscalation = await Alert.findOne({
+                        where: {
+                            deviceId: nudge.deviceId,
+                            type: 'Unresponsive Worker',
+                            createdAt: { [Op.gt]: new Date(Date.now() - 10 * 60 * 1000) }
+                        }
+                    });
+
+                    if (!recentEscalation) {
+                        // Get worker info
+                        const device = await Device.findOne({
+                            where: { deviceId: nudge.deviceId },
+                            include: [{ model: Worker, as: 'worker' }]
+                        });
+                        const workerName = device?.worker?.fullName || 'Unknown Worker';
+                        const workerId = device?.worker?.id || null;
+
+                        // Create critical alert
+                        const alert = await Alert.create({
+                            type: 'Unresponsive Worker',
+                            severity: 'Critical',
+                            deviceId: nudge.deviceId,
+                            workerId,
+                            triggerValue: `${unansweredCount} unanswered nudges`,
+                            threshold: `${NUDGE_ESCALATION_THRESHOLD} nudges`,
+                            status: 'Pending',
+                            escalated: true,
+                            escalatedAt: new Date(),
+                            priority: 1,
+                            notes: `Worker ${workerName} has not responded to ${unansweredCount} consecutive nudges. Auto-escalated to priority 1.`
+                        });
+
+                        // Mark the expired nudges as part of escalation
+                        await NudgeLog.update(
+                            { escalated: true },
+                            {
+                                where: {
+                                    deviceId: nudge.deviceId,
+                                    status: 'Expired',
+                                    escalated: false
+                                }
+                            }
+                        );
+
+                        console.log(`🚨 AUTO-ESCALATION: ${workerName} (${nudge.deviceId}) — ${unansweredCount} unanswered nudges → Priority 1 alert created`);
+
+                        // Emit emergency alert
+                        if (io) {
+                            io.emit('alert', {
+                                id: alert.id,
+                                type: 'Unresponsive Worker',
+                                severity: 'Critical',
+                                worker: workerName,
+                                device: nudge.deviceId,
+                                triggerValue: alert.triggerValue,
+                                timestamp: new Date().toISOString(),
+                                status: 'Pending'
+                            });
+
+                            io.emit('emergency_alert', {
+                                id: alert.id,
+                                type: 'Unresponsive Worker',
+                                worker_name: workerName,
+                                device: nudge.deviceId,
+                                timestamp: new Date().toISOString()
+                            });
+
+                            io.emit('nudge_escalated', {
+                                deviceId: nudge.deviceId,
+                                workerId,
+                                workerName,
+                                unansweredCount,
+                                alertId: alert.id,
+                                timestamp: new Date().toISOString()
+                            });
+                        }
+
+                        // Send email notification
+                        try {
+                            const contacts = await EmergencyContact.findAll();
+                            const emailList = contacts.map(c => c.email).filter(Boolean);
+                            if (emailList.length > 0) {
+                                await emailService.sendThresholdAlert({
+                                    workerName,
+                                    sensorType: 'Unresponsive Worker',
+                                    value: `${unansweredCount} unanswered nudges`,
+                                    threshold: `${NUDGE_ESCALATION_THRESHOLD} nudges`,
+                                    severity: 'Critical',
+                                    contacts: emailList
+                                });
+                            }
+                        } catch (emailError) {
+                            console.error('Failed to send escalation email:', emailError);
+                        }
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('Error in nudge expiry timer:', error);
+        }
+    }, 60 * 1000); // Check every 60 seconds
+};
 
 module.exports = router;
 module.exports.processSensorData = processSensorData;
 module.exports.THRESHOLDS = THRESHOLDS;
+module.exports.startNudgeExpiryTimer = startNudgeExpiryTimer;
 

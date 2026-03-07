@@ -12,7 +12,7 @@ import { devicesApi, alertsApi, sensorsApi } from '../utils/api';
 import { useToast } from '../context/ToastContext';
 
 export const LiveMonitoring = () => {
-    const { sensorData, connected, emitEvent } = useSocket();
+    const { socket, sensorData, connected, emitEvent } = useSocket();
     const [filter, setFilter] = useState('all');
     const [devices, setDevices] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -21,6 +21,8 @@ export const LiveMonitoring = () => {
     const [markedSafe, setMarkedSafe] = useState({});
     const [sosActive, setSosActive] = useState({});
     const [nudgedDevices, setNudgedDevices] = useState({});
+    const [nudgeCounts, setNudgeCounts] = useState({});       // { deviceId: unansweredCount }
+    const [escalatedDevices, setEscalatedDevices] = useState({}); // { deviceId: true }
     const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'map'
     const toast = useToast();
 
@@ -285,8 +287,10 @@ export const LiveMonitoring = () => {
     const handleNudge = async (deviceId, workerName) => {
         try {
             setNudgedDevices(prev => ({ ...prev, [deviceId]: true }));
-            await sensorsApi.sendNudge(deviceId, `Check-in requested for ${workerName}`);
-            toast.success(`Nudge sent to ${workerName}'s device — buzzer and blue LED will activate`);
+            const response = await sensorsApi.sendNudge(deviceId, `Check-in requested for ${workerName}`);
+            const unansweredCount = response.data.unansweredCount || 0;
+            setNudgeCounts(prev => ({ ...prev, [deviceId]: unansweredCount }));
+            toast.success(`Nudge sent to ${workerName}'s device (${unansweredCount}/3 unanswered)`);
 
             // Clear nudge visual after 10 seconds (matches ESP32 NUDGE_BLINK_CYCLES)
             setTimeout(() => {
@@ -306,6 +310,41 @@ export const LiveMonitoring = () => {
             });
         }
     };
+
+    // Listen for nudge-related socket events
+    useEffect(() => {
+        if (!socket) return;
+
+        const handleNudgeAck = (data) => {
+            // Worker responded — reset count
+            setNudgeCounts(prev => ({ ...prev, [data.deviceId]: 0 }));
+            setEscalatedDevices(prev => {
+                const updated = { ...prev };
+                delete updated[data.deviceId];
+                return updated;
+            });
+        };
+
+        const handleNudgeExpired = (data) => {
+            setNudgeCounts(prev => ({ ...prev, [data.deviceId]: data.unansweredCount }));
+        };
+
+        const handleNudgeEscalated = (data) => {
+            setEscalatedDevices(prev => ({ ...prev, [data.deviceId]: true }));
+            setNudgeCounts(prev => ({ ...prev, [data.deviceId]: data.unansweredCount }));
+            toast.error(`${data.workerName} auto-escalated — ${data.unansweredCount} unanswered nudges!`, 'AUTO-ESCALATION');
+        };
+
+        socket.on('nudge_acknowledged', handleNudgeAck);
+        socket.on('nudge_expired', handleNudgeExpired);
+        socket.on('nudge_escalated', handleNudgeEscalated);
+
+        return () => {
+            socket.off('nudge_acknowledged', handleNudgeAck);
+            socket.off('nudge_expired', handleNudgeExpired);
+            socket.off('nudge_escalated', handleNudgeEscalated);
+        };
+    }, [socket]);
 
     // Format time
     const formatTime = (timestamp) => {
@@ -667,13 +706,20 @@ export const LiveMonitoring = () => {
                                         {worker.status !== 'offline' && (
                                             <Button
                                                 size="sm"
-                                                variant={nudgedDevices[worker.device] ? 'secondary' : 'primary'}
-                                                className={`flex-1 ${nudgedDevices[worker.device] ? '' : 'bg-[#6FA3D8] hover:bg-[#5A8EC3]'}`}
+                                                variant={escalatedDevices[worker.device] ? 'danger' : nudgedDevices[worker.device] ? 'secondary' : (nudgeCounts[worker.device] || 0) >= 2 ? 'warning' : 'primary'}
+                                                className={`flex-1 ${escalatedDevices[worker.device] ? '' : nudgedDevices[worker.device] ? '' : (nudgeCounts[worker.device] || 0) >= 2 ? '' : 'bg-[#6FA3D8] hover:bg-[#5A8EC3]'}`}
                                                 onClick={() => handleNudge(worker.device, worker.name)}
-                                                disabled={!!nudgedDevices[worker.device]}
+                                                disabled={!!nudgedDevices[worker.device] || !!escalatedDevices[worker.device]}
                                             >
                                                 <Bell size={14} className="mr-1" />
-                                                {nudgedDevices[worker.device] ? 'Nudged ✓' : 'Nudge'}
+                                                {escalatedDevices[worker.device]
+                                                    ? '⚠ Escalated'
+                                                    : nudgedDevices[worker.device]
+                                                        ? 'Nudged ✓'
+                                                        : (nudgeCounts[worker.device] || 0) > 0
+                                                            ? `Nudge (${nudgeCounts[worker.device]}/3)`
+                                                            : 'Nudge'
+                                                }
                                             </Button>
                                         )}
                                         {/* Show Mark Safe button for devices with active SOS but not yet marked */}
