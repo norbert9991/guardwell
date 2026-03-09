@@ -160,6 +160,40 @@ const connectMQTT = () => {
                         longitude: payload.longitude,
                         alert: savedAlert
                     });
+
+                    // Send email notification to emergency contacts
+                    try {
+                        const { EmergencyContact } = require('./models');
+                        const contacts = await EmergencyContact.findAll();
+                        const emailList = contacts.map(c => c.email).filter(Boolean);
+                        const workerName = device?.worker?.fullName || payload.worker_name || 'Unknown Worker';
+
+                        if (emailList.length > 0) {
+                            if (alertType === 'Emergency Button') {
+                                await emailService.sendEmergencyAlert({
+                                    workerName,
+                                    location: device?.worker?.department || 'Unknown',
+                                    deviceId: deviceId,
+                                    timestamp: new Date().toISOString(),
+                                    contacts: emailList
+                                });
+                            } else {
+                                await emailService.sendThresholdAlert({
+                                    workerName,
+                                    sensorType: alertType,
+                                    value: voiceCommand || 'Button Pressed',
+                                    threshold: 'N/A',
+                                    severity: 'Critical',
+                                    contacts: emailList
+                                });
+                            }
+                            console.log(`📧 Emergency email sent to ${emailList.length} contacts`);
+                        } else {
+                            console.warn('⚠️ No emergency contacts have email addresses');
+                        }
+                    } catch (emailError) {
+                        console.error('Failed to send emergency email:', emailError);
+                    }
                 } catch (dbError) {
                     console.error('Error saving emergency to database:', dbError);
                     // Still broadcast even if DB save fails
