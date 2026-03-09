@@ -120,7 +120,8 @@ export const contactsApi = {
     create: (data) => api.post('/contacts', data),
     update: (id, data) => api.put(`/contacts/${id}`, data),
     archive: (id) => api.patch(`/contacts/${id}/archive`),
-    delete: (id) => api.delete(`/contacts/${id}`)
+    delete: (id) => api.delete(`/contacts/${id}`),
+    sendEmail: (id, subject, message) => api.post(`/contacts/${id}/send-email`, { subject, message })
 };
 
 // ======================

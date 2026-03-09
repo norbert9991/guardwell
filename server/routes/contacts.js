@@ -92,5 +92,55 @@ router.delete('/:id', async (req, res) => {
     }
 });
 
+// Send email to a specific contact
+router.post('/:id/send-email', async (req, res) => {
+    try {
+        const contact = await EmergencyContact.findByPk(req.params.id);
+        if (!contact) {
+            return res.status(404).json({ error: 'Contact not found' });
+        }
+        if (!contact.email) {
+            return res.status(400).json({ error: 'Contact does not have an email address' });
+        }
+
+        const { subject, message } = req.body;
+        const emailService = require('../services/emailService');
+
+        if (!emailService.isConfigured()) {
+            return res.status(503).json({ error: 'Email service not configured. Set SMTP_USER and SMTP_PASS environment variables.' });
+        }
+
+        const result = await emailService.sendEmail({
+            to: contact.email,
+            subject: subject || '📋 Message from GuardWell Safety System',
+            text: message || 'No message provided.',
+            html: `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                    <div style="background: linear-gradient(135deg, #3B82F6, #1E40AF); color: white; padding: 20px; text-align: center;">
+                        <h1 style="margin: 0;">📋 GuardWell Notification</h1>
+                    </div>
+                    <div style="padding: 20px; background: #f9fafb; border: 1px solid #e5e7eb;">
+                        <p style="color: #374151; line-height: 1.6;">${message || 'No message provided.'}</p>
+                    </div>
+                    <div style="padding: 15px; background: #1f2937; color: #9ca3af; text-align: center; font-size: 12px;">
+                        <p style="margin: 0;">Sent from GuardWell Safety Monitoring System</p>
+                    </div>
+                </div>
+            `
+        });
+
+        if (result.success) {
+            console.log(`📧 Manual email sent to ${contact.name} (${contact.email})`);
+            res.json({ success: true, message: `Email sent to ${contact.email}` });
+        } else {
+            console.error(`❌ Failed to send manual email to ${contact.email}:`, result.error);
+            res.status(500).json({ error: `Failed to send email: ${result.error}` });
+        }
+    } catch (error) {
+        console.error('Error sending email:', error);
+        res.status(500).json({ error: 'Failed to send email' });
+    }
+});
+
 module.exports = router;
 

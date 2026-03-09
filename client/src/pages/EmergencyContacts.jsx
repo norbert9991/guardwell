@@ -162,14 +162,24 @@ export const EmergencyContacts = () => {
 
     const handleConfirmEmail = async () => {
         setActionStatus('sending');
-        // Simulate email sending (in production, this would call a backend API)
-        setTimeout(() => {
+        try {
+            await contactsApi.sendEmail(
+                selectedContact.id,
+                `GuardWell Alert - ${selectedContact.name}`,
+                emailMessage || 'This is a notification from GuardWell Safety Monitoring System.'
+            );
             setActionStatus('sent');
+            toast.success(`Email sent to ${selectedContact.email}`);
             setTimeout(() => {
                 setShowEmailModal(false);
                 setActionStatus('idle');
             }, 1500);
-        }, 1500);
+        } catch (error) {
+            console.error('Failed to send email:', error);
+            const errorMsg = error.response?.data?.error || 'Failed to send email';
+            toast.error(errorMsg);
+            setActionStatus('idle');
+        }
     };
 
     const handleConfirmSms = async () => {
