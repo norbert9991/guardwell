@@ -161,6 +161,15 @@ const connectMQTT = () => {
                         alert: savedAlert
                     });
 
+                    // Queue emergency buzzer for all other devices
+                    try {
+                        const { queueEmergencyBuzzer } = require('./routes/sensors');
+                        const workerName = device?.worker?.fullName || payload.worker_name || 'Unknown Worker';
+                        await queueEmergencyBuzzer(deviceId, workerName, alertType);
+                    } catch (buzzerError) {
+                        console.error('Failed to queue emergency buzzers:', buzzerError);
+                    }
+
                     // Send email notification to emergency contacts
                     try {
                         const { EmergencyContact } = require('./models');

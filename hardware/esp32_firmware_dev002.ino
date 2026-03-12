@@ -17,6 +17,7 @@ const char* WIFI_PASSWORD = "999999999";
 const char* SERVER_URL = "https://guardwell.onrender.com/api/sensors/data";
 const char* NUDGE_URL  = "https://guardwell.onrender.com/api/sensors/nudge/DEV-002";
 const char* NUDGE_ACK  = "https://guardwell.onrender.com/api/sensors/nudge/DEV-002/ack";
+const char* EMERGENCY_BUZZER_URL = "https://guardwell.onrender.com/api/sensors/emergency-buzzer/DEV-002";
 const char* DEVICE_ID = "DEV-002";
 
 // Geofence
@@ -242,6 +243,9 @@ void loop() {
 
     // Poll for nudges from the website
     checkForNudge();
+
+    // Poll for emergency buzzer from other devices
+    checkForEmergencyBuzzer();
 
     // Return to appropriate idle state
     if (nudgeActive) {
@@ -674,5 +678,47 @@ void acknowledgeNudge() {
 
   int httpCode = http.POST("{}");
   Serial.printf("[Nudge ACK: %d]\n", httpCode);
+  http.end();
+}
+
+// ============================================
+// EMERGENCY BUZZER POLLING (Server → Device)
+// Checks if another device triggered an emergency
+// ============================================
+void checkForEmergencyBuzzer() {
+  if (WiFi.status() != WL_CONNECTED) return;
+
+  WiFiClientSecure client;
+  client.setInsecure();
+
+  HTTPClient http;
+  http.begin(client, EMERGENCY_BUZZER_URL);
+  http.setTimeout(3000);
+
+  int httpCode = http.GET();
+
+  if (httpCode == 200) {
+    String response = http.getString();
+    StaticJsonDocument<256> doc;
+    DeserializationError err = deserializeJson(doc, response);
+
+    if (!err && doc["buzzer"].as<bool>() == true) {
+      String sourceDevice = doc["sourceDevice"] | "unknown";
+      String workerName = doc["workerName"] | "Unknown";
+      String alertType = doc["type"] | "Emergency";
+      
+      Serial.printf("\n🚨 EMERGENCY BUZZER from %s (%s) — %s\n", 
+                    sourceDevice.c_str(), workerName.c_str(), alertType.c_str());
+      
+      // Activate buzzer for 5 seconds
+      buzzerActive = true;
+      buzzerStartTime = millis();
+      digitalWrite(BUZZER, HIGH);
+      
+      // Rapid red LED flash
+      setLedState(LED_EMERGENCY);
+    }
+  }
+
   http.end();
 }

@@ -242,9 +242,16 @@ export const EmergencyQueuePanel = () => {
                                     <Bell size={20} className={pendingCount > 0 ? 'text-[#E85D2A]' : 'text-[#6B7280]'} />
                                 </div>
                                 <div>
-                                    <h2 className="text-lg font-bold text-[#1F2937]">Emergency Queue</h2>
+                                    <div className="flex items-center gap-2">
+                                        <h2 className="text-lg font-bold text-[#1F2937]">Emergency Queue</h2>
+                                        {totalActive > 0 && (
+                                            <span className={`inline-flex items-center justify-center min-w-[24px] h-6 px-2 rounded-full text-xs font-bold text-white ${pendingCount > 0 ? 'bg-[#E85D2A] animate-pulse' : 'bg-[#F4A261]'}`}>
+                                                {totalActive}
+                                            </span>
+                                        )}
+                                    </div>
                                     <p className="text-xs text-[#6B7280]">
-                                        {pendingCount} pending • {totalActive} active
+                                        {pendingCount} pending • {acknowledgedCount} acknowledged
                                     </p>
                                 </div>
                             </div>
@@ -320,10 +327,10 @@ export const EmergencyQueuePanel = () => {
                                 <Button
                                     size="sm"
                                     variant="outline"
-                                    onClick={selectAllPending}
+                                    onClick={selectedIds.length > 0 ? () => setSelectedIds([]) : selectAllPending}
                                     className="flex-1 text-xs"
                                 >
-                                    Select Pending ({pendingCount})
+                                    {selectedIds.length > 0 ? `Deselect All (${selectedIds.length})` : `Select Pending (${pendingCount})`}
                                 </Button>
                                 <Button
                                     size="sm"

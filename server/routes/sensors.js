@@ -213,6 +213,11 @@ const processSensorData = async (data, io) => {
                     timestamp: new Date().toISOString()
                 });
 
+                // Queue emergency buzzer for all other devices (Emergency Button or Voice Alert)
+                if (alert.type === 'Emergency Button' || alert.type.startsWith('Voice Alert')) {
+                    await queueEmergencyBuzzer(data.device_id, workerName, alert.type);
+                }
+
                 // Send email notification to emergency contacts
                 try {
                     const contacts = await EmergencyContact.findAll();
@@ -332,6 +337,38 @@ router.get('/history/:deviceId', async (req, res) => {
 // auto-escalates after 3 unanswered nudges
 // ============================================
 const pendingNudges = {};  // In-memory for ESP32 polling (fast path)
+const pendingEmergencyBuzzer = {};  // In-memory: { deviceId: { buzzer: true, sourceDevice, workerName, type, timestamp } }
+const EMERGENCY_BUZZER_DURATION_MS = 30 * 1000; // Buzzer alert auto-expires after 30 seconds
+
+// Helper: queue emergency buzzer for all OTHER active devices
+const queueEmergencyBuzzer = async (sourceDeviceId, workerName, alertType) => {
+    try {
+        const allDevices = await Device.findAll({ where: { status: 'Active' } });
+        const now = new Date().toISOString();
+        for (const device of allDevices) {
+            if (device.deviceId !== sourceDeviceId) {
+                pendingEmergencyBuzzer[device.deviceId] = {
+                    buzzer: true,
+                    sourceDevice: sourceDeviceId,
+                    workerName,
+                    type: alertType,
+                    timestamp: now
+                };
+                console.log(`🔔 Emergency buzzer queued for ${device.deviceId} (source: ${sourceDeviceId})`);
+            }
+        }
+        // Auto-expire after 30 seconds
+        setTimeout(() => {
+            for (const device of allDevices) {
+                if (device.deviceId !== sourceDeviceId) {
+                    delete pendingEmergencyBuzzer[device.deviceId];
+                }
+            }
+        }, EMERGENCY_BUZZER_DURATION_MS);
+    } catch (error) {
+        console.error('Error queuing emergency buzzers:', error);
+    }
+};
 
 const NUDGE_EXPIRY_MS = 2 * 60 * 1000; // 2 minutes before a nudge is considered unanswered
 const NUDGE_ESCALATION_THRESHOLD = 3;   // 3 unanswered nudges → auto-escalate
@@ -442,7 +479,7 @@ router.get('/nudge/:deviceId', (req, res) => {
 // POST /api/sensors/nudge/:deviceId/ack — ESP32 acknowledges the nudge (worker tapped touch sensor)
 router.post('/nudge/:deviceId/ack', async (req, res) => {
     const { deviceId } = req.params;
-    const { NudgeLog } = require('../models');
+    const { NudgeLog, Device, Worker } = require('../models');
 
     try {
         // Find the latest pending nudge for this device
@@ -451,6 +488,14 @@ router.post('/nudge/:deviceId/ack', async (req, res) => {
             order: [['createdAt', 'DESC']]
         });
 
+        // Get worker info for the device
+        const device = await Device.findOne({
+            where: { deviceId },
+            include: [{ model: Worker, as: 'worker' }]
+        });
+        const workerName = device?.worker?.fullName || 'Unknown Worker';
+        const workerId = device?.worker?.id || null;
+
         if (latestNudge) {
             const responseTimeMs = Date.now() - new Date(latestNudge.createdAt).getTime();
             await latestNudge.update({
@@ -458,13 +503,16 @@ router.post('/nudge/:deviceId/ack', async (req, res) => {
                 acknowledgedAt: new Date(),
                 responseTimeMs
             });
-            console.log(`✅ Nudge acknowledged by ${deviceId} in ${(responseTimeMs / 1000).toFixed(1)}s`);
+            console.log(`✅ Nudge acknowledged by ${deviceId} (${workerName}) in ${(responseTimeMs / 1000).toFixed(1)}s`);
 
-            // Emit acknowledgement to dashboard
+            // Emit acknowledgement to dashboard with worker info
             if (req.io) {
                 req.io.emit('nudge_acknowledged', {
                     deviceId,
+                    workerId,
+                    workerName,
                     nudgeLogId: latestNudge.id,
+                    message: latestNudge.message,
                     responseTimeMs,
                     timestamp: new Date().toISOString()
                 });
@@ -701,8 +749,26 @@ const startNudgeExpiryTimer = (io) => {
     }, 60 * 1000); // Check every 60 seconds
 };
 
+// ============================================
+// EMERGENCY BUZZER POLLING (Server → ESP32)
+// Each device polls this; if an emergency was triggered
+// by another device, it receives a buzzer command
+// ============================================
+router.get('/emergency-buzzer/:deviceId', (req, res) => {
+    const { deviceId } = req.params;
+    const buzzerData = pendingEmergencyBuzzer[deviceId];
+
+    if (buzzerData && buzzerData.buzzer) {
+        // Return the buzzer command and clear it (one-shot)
+        delete pendingEmergencyBuzzer[deviceId];
+        res.json(buzzerData);
+    } else {
+        res.json({ buzzer: false });
+    }
+});
+
 module.exports = router;
 module.exports.processSensorData = processSensorData;
 module.exports.THRESHOLDS = THRESHOLDS;
 module.exports.startNudgeExpiryTimer = startNudgeExpiryTimer;
-
+module.exports.queueEmergencyBuzzer = queueEmergencyBuzzer;

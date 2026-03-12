@@ -24,6 +24,7 @@ export const LiveMonitoring = () => {
     const [nudgedDevices, setNudgedDevices] = useState({});
     const [nudgeCounts, setNudgeCounts] = useState({});       // { deviceId: unansweredCount }
     const [escalatedDevices, setEscalatedDevices] = useState({}); // { deviceId: true }
+    const [recentAcks, setRecentAcks] = useState([]);             // Recent acknowledged nudges for popup
     const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'map'
     const toast = useToast();
 
@@ -320,13 +321,39 @@ export const LiveMonitoring = () => {
         if (!socket) return;
 
         const handleNudgeAck = (data) => {
-            // Worker responded — reset count
+            // Worker responded — reset count and clear nudge state
             setNudgeCounts(prev => ({ ...prev, [data.deviceId]: 0 }));
             setEscalatedDevices(prev => {
                 const updated = { ...prev };
                 delete updated[data.deviceId];
                 return updated;
             });
+            setNudgedDevices(prev => {
+                const updated = { ...prev };
+                delete updated[data.deviceId];
+                return updated;
+            });
+
+            // Add to recent acks popup
+            const ackEntry = {
+                id: data.nudgeLogId || Date.now(),
+                deviceId: data.deviceId,
+                workerName: data.workerName || data.deviceId,
+                responseTime: data.responseTimeMs ? `${(data.responseTimeMs / 1000).toFixed(1)}s` : 'N/A',
+                timestamp: data.timestamp || new Date().toISOString()
+            };
+            setRecentAcks(prev => [ackEntry, ...prev].slice(0, 10)); // Keep last 10
+
+            // Also show a toast
+            toast.success(
+                `${ackEntry.workerName} acknowledged the nudge (${ackEntry.responseTime})`,
+                'NUDGE ACKNOWLEDGED'
+            );
+
+            // Auto-remove from popup after 60 seconds
+            setTimeout(() => {
+                setRecentAcks(prev => prev.filter(a => a.id !== ackEntry.id));
+            }, 60000);
         };
 
         const handleNudgeExpired = (data) => {
@@ -412,6 +439,49 @@ export const LiveMonitoring = () => {
                     </div>
                 </div>
             </div>
+
+            {/* Recent Nudge Acknowledgments Popup */}
+            {recentAcks.length > 0 && (
+                <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl p-4 shadow-sm animate-in">
+                    <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                            <div className="w-8 h-8 bg-green-500 rounded-lg flex items-center justify-center">
+                                <CheckCircle size={18} className="text-white" />
+                            </div>
+                            <div>
+                                <h3 className="font-semibold text-green-900 text-sm">Recent Nudge Acknowledgments</h3>
+                                <p className="text-xs text-green-600">{recentAcks.length} worker{recentAcks.length > 1 ? 's' : ''} responded</p>
+                            </div>
+                        </div>
+                        <button
+                            onClick={() => setRecentAcks([])}
+                            className="p-1.5 rounded-lg hover:bg-green-200/50 transition-colors text-green-600"
+                            title="Dismiss all"
+                        >
+                            <X size={16} />
+                        </button>
+                    </div>
+                    <div className="space-y-2">
+                        {recentAcks.map(ack => (
+                            <div key={ack.id} className="flex items-center justify-between bg-white/70 rounded-lg px-3 py-2 border border-green-100">
+                                <div className="flex items-center gap-2">
+                                    <div className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center">
+                                        <User size={12} className="text-green-700" />
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-medium text-[#1F2937]">{ack.workerName}</p>
+                                        <p className="text-xs text-[#6B7280]">{ack.deviceId}</p>
+                                    </div>
+                                </div>
+                                <div className="text-right">
+                                    <p className="text-xs font-medium text-green-700">Response: {ack.responseTime}</p>
+                                    <p className="text-xs text-[#6B7280]">{new Date(ack.timestamp).toLocaleTimeString()}</p>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
 
             {/* Key Metrics */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

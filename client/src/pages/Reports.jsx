@@ -971,7 +971,7 @@ export const Reports = () => {
                                 <div className="absolute bottom-12 text-center">
                                     <p className="text-4xl font-bold text-[#1F2937]">{summary.safetyScore || 0}%</p>
                                     <p className="text-sm text-[#6B7280]">
-                                        {(summary.safetyScore || 0) >= 80 ? 'Excellent' : (summary.safetyScore || 0) >= 60 ? 'Needs Improvement' : 'Critical'}
+                                        {(summary.safetyScore || 0) >= 80 ? 'Excellent' : (summary.safetyScore || 0) >= 60 ? 'Needs Improvement' : 'Needs Attention'}
                                     </p>
                                 </div>
                             </div>
