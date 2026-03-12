@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Activity, Thermometer, Wind, Droplets, Battery, Signal, User, Shield, Radio, AlertTriangle, CheckCircle, X, Eye, Clock, Bell, ShieldCheck, Mic, Map, Grid, MapPin } from 'lucide-react';
+import { Activity, Thermometer, Wind, Droplets, Battery, Signal, User, Shield, Radio, AlertTriangle, CheckCircle, X, Eye, Clock, Bell, ShieldCheck, Mic, Map, Grid, MapPin, Globe, Layers } from 'lucide-react';
 import { CardDark, CardBody } from '../components/ui/Card';
 import { MetricCard } from '../components/ui/MetricCard';
 import { Badge } from '../components/ui/Badge';
@@ -26,6 +26,7 @@ export const LiveMonitoring = () => {
     const [escalatedDevices, setEscalatedDevices] = useState({}); // { deviceId: true }
     const [recentAcks, setRecentAcks] = useState([]);             // Recent acknowledged nudges for popup
     const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'map'
+    const [mapStyle, setMapStyle] = useState('satellite'); // 'satellite' or 'vector'
     const toast = useToast();
 
     // Fetch devices from API
@@ -518,25 +519,53 @@ export const LiveMonitoring = () => {
             {/* Map View */}
             {viewMode === 'map' && (
                 <div className="space-y-4">
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between flex-wrap gap-3">
                         <h2 className="text-xl font-semibold text-[#1F2937]">Worker Locations</h2>
-                        <div className="flex items-center gap-4 text-sm">
-                            <span className="flex items-center gap-2">
-                                <span className="w-3 h-3 rounded-full bg-blue-500"></span>
-                                Normal
-                            </span>
-                            <span className="flex items-center gap-2">
-                                <span className="w-3 h-3 rounded-full bg-orange-500"></span>
-                                Warning
-                            </span>
-                            <span className="flex items-center gap-2">
-                                <span className="w-3 h-3 rounded-full bg-red-500"></span>
-                                Critical
-                            </span>
-                            <span className="flex items-center gap-2">
-                                <span className="w-3 h-3 rounded-full bg-violet-500"></span>
-                                Outside Geofence
-                            </span>
+                        <div className="flex items-center gap-4">
+                            {/* Map Style Toggle */}
+                            <div className="flex rounded-lg border border-[#E3E6EB] bg-white shadow-sm p-0.5 gap-0.5">
+                                <button
+                                    onClick={() => setMapStyle('satellite')}
+                                    className={`px-3 py-1.5 flex items-center gap-1.5 rounded-md text-xs font-medium transition-all duration-200 ${
+                                        mapStyle === 'satellite'
+                                            ? 'bg-[#6FA3D8] text-white shadow-sm'
+                                            : 'bg-transparent text-[#4B5563] hover:bg-[#EEF1F4]'
+                                    }`}
+                                >
+                                    <Globe size={14} />
+                                    Satellite
+                                </button>
+                                <button
+                                    onClick={() => setMapStyle('vector')}
+                                    className={`px-3 py-1.5 flex items-center gap-1.5 rounded-md text-xs font-medium transition-all duration-200 ${
+                                        mapStyle === 'vector'
+                                            ? 'bg-[#6FA3D8] text-white shadow-sm'
+                                            : 'bg-transparent text-[#4B5563] hover:bg-[#EEF1F4]'
+                                    }`}
+                                >
+                                    <Layers size={14} />
+                                    Vector
+                                </button>
+                            </div>
+                            {/* Legend */}
+                            <div className="flex items-center gap-3 text-sm">
+                                <span className="flex items-center gap-1.5">
+                                    <span className="w-3 h-3 rounded-full bg-blue-500"></span>
+                                    Normal
+                                </span>
+                                <span className="flex items-center gap-1.5">
+                                    <span className="w-3 h-3 rounded-full bg-orange-500"></span>
+                                    Warning
+                                </span>
+                                <span className="flex items-center gap-1.5">
+                                    <span className="w-3 h-3 rounded-full bg-red-500"></span>
+                                    Critical
+                                </span>
+                                <span className="flex items-center gap-1.5">
+                                    <span className="w-3 h-3 rounded-full bg-violet-500"></span>
+                                    Outside
+                                </span>
+                            </div>
                         </div>
                     </div>
                     <LocationMap
@@ -544,8 +573,9 @@ export const LiveMonitoring = () => {
                             ...w,
                             deviceId: w.device
                         }))}
-                        geofenceCenter={[14.7089, 121.0430]}
+                        geofenceCenter={[14.7149, 121.0150]}
                         geofenceRadius={100}
+                        mapStyle={mapStyle}
                     />
                 </div>
             )}
