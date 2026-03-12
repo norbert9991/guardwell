@@ -119,8 +119,24 @@ export const EmergencyContacts = () => {
     const [selectedContact, setSelectedContact] = useState(null);
     const [callStatus, setCallStatus] = useState('idle'); // idle, calling, connected, ended
     const [emailMessage, setEmailMessage] = useState('');
+    const [emailSubject, setEmailSubject] = useState('');
+    const [selectedTemplate, setSelectedTemplate] = useState('');
+    const [emailTemplates, setEmailTemplates] = useState([]);
     const [smsMessage, setSmsMessage] = useState('');
     const [actionStatus, setActionStatus] = useState('idle'); // idle, sending, sent
+
+    // Fetch email templates on mount
+    useEffect(() => {
+        const fetchTemplates = async () => {
+            try {
+                const response = await contactsApi.getEmailTemplates();
+                setEmailTemplates(response.data);
+            } catch (error) {
+                console.error('Failed to fetch email templates:', error);
+            }
+        };
+        fetchTemplates();
+    }, []);
 
     const handleEditContact = (contact) => {
         setSelectedContact(contact);
@@ -149,8 +165,25 @@ export const EmergencyContacts = () => {
     const handleSendEmail = (contact) => {
         setSelectedContact(contact);
         setEmailMessage('');
+        setEmailSubject('');
+        setSelectedTemplate('');
         setActionStatus('idle');
         setShowEmailModal(true);
+    };
+
+    const handleTemplateChange = (key) => {
+        setSelectedTemplate(key);
+        if (!key) {
+            // Custom message — clear fields
+            setEmailSubject('');
+            setEmailMessage('');
+            return;
+        }
+        const tpl = emailTemplates.find(t => t.key === key);
+        if (tpl) {
+            setEmailSubject(tpl.subject);
+            setEmailMessage(tpl.body);
+        }
     };
 
     const handleSendSms = (contact) => {
@@ -163,10 +196,14 @@ export const EmergencyContacts = () => {
     const handleConfirmEmail = async () => {
         setActionStatus('sending');
         try {
+            const subject = emailSubject.trim() || (selectedTemplate
+                ? emailTemplates.find(t => t.key === selectedTemplate)?.subject
+                : `GuardWell Alert - ${selectedContact.name}`);
             await contactsApi.sendEmail(
                 selectedContact.id,
-                `GuardWell Alert - ${selectedContact.name}`,
-                emailMessage || 'This is a notification from GuardWell Safety Monitoring System.'
+                subject,
+                emailMessage || 'This is a notification from GuardWell Safety Monitoring System.',
+                selectedTemplate || null
             );
             setActionStatus('sent');
             toast.success(`Email sent to ${selectedContact.email}`);
@@ -703,33 +740,88 @@ export const EmergencyContacts = () => {
                         </div>
                     ) : (
                         <>
+                            {/* Recipient info */}
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label className="label-modal">To</label>
+                                    <input
+                                        type="text"
+                                        value={selectedContact?.email || ''}
+                                        disabled
+                                        className="input-modal opacity-70"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="label-modal">Contact Name</label>
+                                    <input
+                                        type="text"
+                                        value={selectedContact?.name || ''}
+                                        disabled
+                                        className="input-modal opacity-70"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Template selector */}
                             <div>
-                                <label className="label-modal">To</label>
+                                <label className="label-modal">Email Template</label>
+                                <select
+                                    value={selectedTemplate}
+                                    onChange={(e) => handleTemplateChange(e.target.value)}
+                                    className="input-modal"
+                                >
+                                    <option value="">✉️ Custom Message (no template)</option>
+                                    {emailTemplates.map(tpl => (
+                                        <option key={tpl.key} value={tpl.key}>{tpl.label}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            {/* Status badge (shown when template selected) */}
+                            {selectedTemplate && (() => {
+                                const tpl = emailTemplates.find(t => t.key === selectedTemplate);
+                                return tpl ? (
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-sm text-[#6b7280] font-medium">Status:</span>
+                                        <span
+                                            className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold text-white"
+                                            style={{ backgroundColor: tpl.statusColor || '#3B82F6' }}
+                                        >
+                                            {tpl.status}
+                                        </span>
+                                        <span className="text-xs text-[#9ca3af] ml-1">This label will appear in the email header</span>
+                                    </div>
+                                ) : null;
+                            })()}
+
+                            {/* Subject */}
+                            <div>
+                                <label className="label-modal">Subject</label>
                                 <input
                                     type="text"
-                                    value={selectedContact?.email || ''}
-                                    disabled
+                                    value={emailSubject}
+                                    onChange={(e) => setEmailSubject(e.target.value)}
                                     className="input-modal"
+                                    placeholder={selectedTemplate ? '' : 'e.g. GuardWell Alert - Site Update'}
                                 />
                             </div>
+
+                            {/* Body */}
                             <div>
-                                <label className="label-modal">Contact Name</label>
-                                <input
-                                    type="text"
-                                    value={selectedContact?.name || ''}
-                                    disabled
-                                    className="input-modal"
-                                />
-                            </div>
-                            <div>
-                                <label className="label-modal">Message</label>
+                                <label className="label-modal">
+                                    Message Body
+                                    {selectedTemplate && (
+                                        <span className="ml-2 text-[#6fa3d8] text-xs font-normal">Pre-filled from template — feel free to edit</span>
+                                    )}
+                                </label>
                                 <textarea
                                     value={emailMessage}
                                     onChange={(e) => setEmailMessage(e.target.value)}
-                                    className="input-modal min-h-[120px]"
+                                    className="input-modal min-h-[160px] font-mono text-sm"
                                     placeholder="Enter your message..."
                                 />
                             </div>
+
                             <div className="flex gap-3 justify-end pt-4 border-t border-[#2d3a52]/50">
                                 <Button variant="secondary" onClick={() => setShowEmailModal(false)}>
                                     Cancel

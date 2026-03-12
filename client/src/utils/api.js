@@ -121,7 +121,9 @@ export const contactsApi = {
     update: (id, data) => api.put(`/contacts/${id}`, data),
     archive: (id) => api.patch(`/contacts/${id}/archive`),
     delete: (id) => api.delete(`/contacts/${id}`),
-    sendEmail: (id, subject, message) => api.post(`/contacts/${id}/send-email`, { subject, message })
+    getEmailTemplates: () => api.get('/contacts/email-templates'),
+    sendEmail: (id, subject, message, templateKey = null) =>
+        api.post(`/contacts/${id}/send-email`, { subject, message, templateKey })
 };
 
 // ======================
