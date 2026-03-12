@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Bell, User, LogOut } from 'lucide-react';
+import { Bell, User, LogOut, RefreshCw } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../context/SocketContext';
+import { useRefresh } from '../../context/RefreshContext';
 import { Badge } from '../ui/Badge';
 import { ConfirmationModal } from '../ui/ConfirmationModal';
 
 export const Navbar = () => {
     const { user, logout } = useAuth();
     const { connected, alerts } = useSocket();
+    const { triggerRefresh, isRefreshing, lastRefreshed } = useRefresh();
     const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
     const pendingAlerts = alerts.filter(a => a.status === 'Pending').length;
@@ -20,6 +22,11 @@ export const Navbar = () => {
     const handleConfirmLogout = () => {
         setShowLogoutConfirm(false);
         logout();
+    };
+
+    const formatLastRefreshed = (date) => {
+        if (!date) return null;
+        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     };
 
     return (
@@ -48,6 +55,25 @@ export const Navbar = () => {
                                 <span className="text-sm text-[#6B7280]">
                                     {connected ? 'Connected' : 'Disconnected'}
                                 </span>
+                            </div>
+
+                            {/* Refresh Button */}
+                            <div className="relative flex flex-col items-center">
+                                <button
+                                    onClick={triggerRefresh}
+                                    disabled={isRefreshing}
+                                    className="p-2.5 rounded-lg hover:bg-[#EEF1F4] transition-colors border border-transparent hover:border-[#E3E6EB] disabled:opacity-50"
+                                    title="Refresh page data"
+                                >
+                                    <RefreshCw
+                                        className={`h-5 w-5 text-[#6B7280] hover:text-[#1F2937] transition-colors ${isRefreshing ? 'animate-spin text-[#3B82F6]' : ''}`}
+                                    />
+                                </button>
+                                {lastRefreshed && !isRefreshing && (
+                                    <span className="absolute -bottom-4 text-[10px] text-[#9CA3AF] whitespace-nowrap">
+                                        {formatLastRefreshed(lastRefreshed)}
+                                    </span>
+                                )}
                             </div>
 
                             {/* Notifications */}

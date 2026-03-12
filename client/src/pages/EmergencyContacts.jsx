@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Plus, Phone, AlertTriangle, Shield, Activity, Siren, CheckCircle, Mail, MessageSquare, Loader2 } from 'lucide-react';
 import { CardDark, CardBody, CardHeader } from '../components/ui/Card';
 import { MetricCard } from '../components/ui/MetricCard';
@@ -10,6 +10,7 @@ import { ConfirmationModal } from '../components/ui/ConfirmationModal';
 import { contactsApi } from '../utils/api';
 import { useToast } from '../context/ToastContext';
 import { useSocket } from '../context/SocketContext';
+import { useRefresh } from '../context/RefreshContext';
 
 export const EmergencyContacts = () => {
     const { emitEvent, connected } = useSocket();
@@ -33,21 +34,23 @@ export const EmergencyContacts = () => {
     });
 
     // Fetch contacts from API
-    useEffect(() => {
-        const fetchContacts = async () => {
-            try {
-                setIsLoading(true);
-                const response = await contactsApi.getAll();
-                setContacts(response.data);
-            } catch (error) {
-                console.error('Failed to fetch contacts:', error);
-                // Keep empty array if API fails
-            } finally {
-                setIsLoading(false);
-            }
-        };
-        fetchContacts();
+    const fetchContacts = useCallback(async () => {
+        try {
+            setIsLoading(true);
+            const response = await contactsApi.getAll();
+            setContacts(response.data);
+        } catch (error) {
+            console.error('Failed to fetch contacts:', error);
+        } finally {
+            setIsLoading(false);
+        }
     }, []);
+
+    useEffect(() => { fetchContacts(); }, [fetchContacts]);
+
+    // Register refresh
+    const { registerRefresh } = useRefresh();
+    useEffect(() => { registerRefresh(fetchContacts); }, [registerRefresh, fetchContacts]);
 
     // Handle Emergency Trigger - uses same socket event as Dashboard
     const handleEmergencyTrigger = () => {

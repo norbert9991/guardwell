@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Download, Calendar, FileText, Users, Radio, AlertTriangle, Shield, TrendingUp, BarChart3, PieChart } from 'lucide-react';
 import { CardDark, CardBody, CardHeader } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { MetricCard } from '../components/ui/MetricCard';
 import { reportsApi } from '../utils/api';
 import { useAuth, PERMISSIONS } from '../context/AuthContext';
+import { useRefresh } from '../context/RefreshContext';
 import {
     Chart as ChartJS,
     CategoryScale,
@@ -145,7 +146,7 @@ export const Reports = () => {
     const canExportReports = hasPermission(PERMISSIONS.EXPORT_REPORTS);
 
     // Fetch report data
-    const fetchReport = async () => {
+    const fetchReport = useCallback(async () => {
         setIsLoading(true);
         setError(null);
         try {
@@ -173,11 +174,15 @@ export const Reports = () => {
         } finally {
             setIsLoading(false);
         }
-    };
+    }, [reportType, dateRange]);
 
     useEffect(() => {
         fetchReport();
-    }, [reportType, dateRange]);
+    }, [fetchReport]);
+
+    // Register refresh
+    const { registerRefresh } = useRefresh();
+    useEffect(() => { registerRefresh(fetchReport); }, [registerRefresh, fetchReport]);
 
     // Export to CSV
     const exportToCSV = () => {

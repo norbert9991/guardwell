@@ -85,6 +85,16 @@ export const AuthProvider = ({ children }) => {
             const storedToken = localStorage.getItem('token');
 
             if (storedToken) {
+                // If the tab was closed and reopened, sessionStorage won't have the flag.
+                // Treat this as a stale session and force re-login.
+                const sessionActive = sessionStorage.getItem('sessionActive');
+                if (!sessionActive) {
+                    localStorage.removeItem('user');
+                    localStorage.removeItem('token');
+                    setLoading(false);
+                    return;
+                }
+
                 try {
                     const response = await authApi.validate();
                     if (response.data.valid) {
@@ -94,11 +104,13 @@ export const AuthProvider = ({ children }) => {
                         // Token invalid, clear storage
                         localStorage.removeItem('user');
                         localStorage.removeItem('token');
+                        sessionStorage.removeItem('sessionActive');
                     }
                 } catch (error) {
                     console.error('Token validation failed:', error);
                     localStorage.removeItem('user');
                     localStorage.removeItem('token');
+                    sessionStorage.removeItem('sessionActive');
                 }
             }
             setLoading(false);
@@ -117,6 +129,9 @@ export const AuthProvider = ({ children }) => {
             setToken(newToken);
             localStorage.setItem('user', JSON.stringify(userData));
             localStorage.setItem('token', newToken);
+            // Mark this tab as having an active session.
+            // sessionStorage is cleared automatically when the tab/window is closed.
+            sessionStorage.setItem('sessionActive', 'true');
 
             return { success: true, user: userData };
         } catch (error) {
@@ -131,6 +146,7 @@ export const AuthProvider = ({ children }) => {
         setToken(null);
         localStorage.removeItem('user');
         localStorage.removeItem('token');
+        sessionStorage.removeItem('sessionActive');
     };
 
     // Role checks

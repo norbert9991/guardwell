@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
     Settings,
     Users,
@@ -26,6 +26,7 @@ import { workersApi, devicesApi, alertsApi, incidentsApi, authApi } from '../uti
 import { useSocket } from '../context/SocketContext';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
+import { useRefresh } from '../context/RefreshContext';
 
 export const SystemAdmin = () => {
     const [activeTab, setActiveTab] = useState('overview');
@@ -74,32 +75,35 @@ export const SystemAdmin = () => {
     const [editThresholds, setEditThresholds] = useState({ ...settings.alertThresholds });
 
     // Fetch system statistics
-    useEffect(() => {
-        const fetchStats = async () => {
-            try {
-                const [workersRes, devicesRes, alertsRes, incidentsRes] = await Promise.all([
-                    workersApi.getAll(),
-                    devicesApi.getAll(),
-                    alertsApi.getAll(),
-                    incidentsApi.getAll()
-                ]);
+    const fetchStats = useCallback(async () => {
+        try {
+            const [workersRes, devicesRes, alertsRes, incidentsRes] = await Promise.all([
+                workersApi.getAll(),
+                devicesApi.getAll(),
+                alertsApi.getAll(),
+                incidentsApi.getAll()
+            ]);
 
-                setSystemStats({
-                    totalWorkers: workersRes.data.length,
-                    totalDevices: devicesRes.data.length,
-                    activeDevices: devicesRes.data.filter(d => d.status === 'Active').length,
-                    totalAlerts: alertsRes.data.length,
-                    pendingAlerts: alertsRes.data.filter(a => a.status === 'Pending').length,
-                    totalIncidents: incidentsRes.data.length
-                });
-            } catch (error) {
-                console.error('Failed to fetch system stats:', error);
-            } finally {
-                setIsLoading(false);
-            }
-        };
-        fetchStats();
+            setSystemStats({
+                totalWorkers: workersRes.data.length,
+                totalDevices: devicesRes.data.length,
+                activeDevices: devicesRes.data.filter(d => d.status === 'Active').length,
+                totalAlerts: alertsRes.data.length,
+                pendingAlerts: alertsRes.data.filter(a => a.status === 'Pending').length,
+                totalIncidents: incidentsRes.data.length
+            });
+        } catch (error) {
+            console.error('Failed to fetch system stats:', error);
+        } finally {
+            setIsLoading(false);
+        }
     }, []);
+
+    useEffect(() => { fetchStats(); }, [fetchStats]);
+
+    // Register refresh
+    const { registerRefresh } = useRefresh();
+    useEffect(() => { registerRefresh(fetchStats); }, [registerRefresh, fetchStats]);
 
     const handleSaveThresholds = () => {
         setSettings(prev => ({

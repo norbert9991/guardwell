@@ -21,6 +21,7 @@ import { ConfirmationModal } from '../components/ui/ConfirmationModal';
 import { usersApi } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
+import { useRefresh } from '../context/RefreshContext';
 
 export const AdminManagement = () => {
     const { user: currentUser, isHeadAdmin } = useAuth();
@@ -54,6 +55,10 @@ export const AdminManagement = () => {
     useEffect(() => {
         fetchUsers();
     }, []);
+
+    // Register refresh
+    const { registerRefresh } = useRefresh();
+    useEffect(() => { registerRefresh(fetchUsers); }, [registerRefresh]);
 
     const fetchUsers = async () => {
         try {

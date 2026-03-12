@@ -7,6 +7,7 @@ import { Button } from '../components/ui/Button';
 import { sensorsApi } from '../utils/api';
 import { useSocket } from '../context/SocketContext';
 import { useToast } from '../context/ToastContext';
+import { useRefresh } from '../context/RefreshContext';
 
 export const NudgeLogs = () => {
     const [logs, setLogs] = useState([]);
@@ -37,6 +38,10 @@ export const NudgeLogs = () => {
     useEffect(() => {
         fetchLogs();
     }, [statusFilter]);
+
+    // Register refresh
+    const { registerRefresh } = useRefresh();
+    useEffect(() => { registerRefresh(() => fetchLogs()); }, [registerRefresh]);
 
     // Listen for real-time nudge events
     useEffect(() => {

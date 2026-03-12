@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { AlertTriangle, Clock, User, CheckCircle, Bell, XCircle, Filter, Calendar, Search, X, FileText, Plus } from 'lucide-react';
 import { CardDark, CardBody, CardHeader } from '../components/ui/Card';
 import { MetricCard } from '../components/ui/MetricCard';
@@ -9,6 +9,7 @@ import { ConfirmationModal } from '../components/ui/ConfirmationModal';
 import { alertsApi, incidentsApi } from '../utils/api';
 import { useSocket } from '../context/SocketContext';
 import { useToast } from '../context/ToastContext';
+import { useRefresh } from '../context/RefreshContext';
 
 export const AlertManagement = () => {
     const [selectedAlert, setSelectedAlert] = useState(null);
@@ -49,19 +50,22 @@ export const AlertManagement = () => {
     const [searchTerm, setSearchTerm] = useState('');
 
     // Fetch alerts from API
-    useEffect(() => {
-        const fetchAlerts = async () => {
-            try {
-                const response = await alertsApi.getAll();
-                setAlerts(response.data);
-            } catch (error) {
-                console.error('Failed to fetch alerts:', error);
-            } finally {
-                setIsLoading(false);
-            }
-        };
-        fetchAlerts();
+    const fetchAlerts = useCallback(async () => {
+        try {
+            const response = await alertsApi.getAll();
+            setAlerts(response.data);
+        } catch (error) {
+            console.error('Failed to fetch alerts:', error);
+        } finally {
+            setIsLoading(false);
+        }
     }, []);
+
+    useEffect(() => { fetchAlerts(); }, [fetchAlerts]);
+
+    // Register refresh
+    const { registerRefresh } = useRefresh();
+    useEffect(() => { registerRefresh(fetchAlerts); }, [registerRefresh, fetchAlerts]);
 
     // Merge real-time alerts with database alerts
     useEffect(() => {

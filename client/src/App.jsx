@@ -1,14 +1,17 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider } from './context/AuthContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import { SocketProvider } from './context/SocketContext';
 import { ToastProvider } from './context/ToastContext';
 import { EmergencyPanelProvider, useEmergencyPanel } from './context/EmergencyPanelContext';
+import { RefreshProvider } from './context/RefreshContext';
 import { ProtectedRoute } from './routes/ProtectedRoute';
 import { Navbar } from './components/layout/Navbar';
 import { Sidebar } from './components/layout/Sidebar';
 import { GlobalEmergencyAlert } from './components/GlobalEmergencyAlert';
 import { EmergencyQueuePanel } from './components/EmergencyQueuePanel';
+import { SessionTimeoutBanner } from './components/SessionTimeoutBanner';
+import { useInactivityTimeout } from './hooks/useInactivityTimeout';
 
 // Pages
 import { Login } from './pages/Login';
@@ -32,9 +35,18 @@ import { NudgeLogs } from './pages/NudgeLogs';
 // Layout wrapper for authenticated pages - uses EmergencyPanel context
 const LayoutWrapper = ({ children }) => {
     const { isExpanded } = useEmergencyPanel();
+    const { logout } = useAuth();
+    const { showWarning, secondsLeft, resetTimer } = useInactivityTimeout(logout);
 
     return (
-        <div className="flex h-screen bg-[#EEF1F4] overflow-hidden">
+        <div className="flex h-screen bg-[#EEF1F4] overflow-hidden" style={{ paddingTop: showWarning ? '48px' : '0' }}>
+            {/* Inactivity timeout banner — fixed above everything */}
+            {showWarning && (
+                <SessionTimeoutBanner
+                    secondsLeft={secondsLeft}
+                    onStayLoggedIn={resetTimer}
+                />
+            )}
             <div className="relative overflow-visible flex-shrink-0">
                 <Sidebar />
             </div>
@@ -60,10 +72,11 @@ function App() {
             <AuthProvider>
                 <SocketProvider>
                     <ToastProvider>
-                        <EmergencyPanelProvider>
-                            <Routes>
-                                {/* Public Routes */}
-                                <Route path="/login" element={<Login />} />
+                        <RefreshProvider>
+                            <EmergencyPanelProvider>
+                                <Routes>
+                                    {/* Public Routes */}
+                                    <Route path="/login" element={<Login />} />
 
                                 {/* Protected Routes */}
                                 <Route
@@ -249,6 +262,7 @@ function App() {
                             {/* Global Emergency Alert - shows on ALL pages */}
                             <GlobalEmergencyAlert />
                         </EmergencyPanelProvider>
+                        </RefreshProvider>
                     </ToastProvider>
                 </SocketProvider>
             </AuthProvider>

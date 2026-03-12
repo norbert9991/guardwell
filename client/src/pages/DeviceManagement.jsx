@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Plus, Search, Settings, Radio, Activity, Wrench, BatteryLow, Eye, Archive } from 'lucide-react';
 import { CardDark, CardBody } from '../components/ui/Card';
 import { MetricCard } from '../components/ui/MetricCard';
@@ -9,6 +9,7 @@ import { Modal } from '../components/ui/Modal';
 import { ConfirmationModal } from '../components/ui/ConfirmationModal';
 import { devicesApi, workersApi } from '../utils/api';
 import { useToast } from '../context/ToastContext';
+import { useRefresh } from '../context/RefreshContext';
 import { useAuth, PERMISSIONS } from '../context/AuthContext';
 
 export const DeviceManagement = () => {
@@ -33,23 +34,26 @@ export const DeviceManagement = () => {
     const canManageDevices = hasPermission(PERMISSIONS.MANAGE_DEVICES);
 
     // Fetch devices and workers from API
-    useEffect(() => {
-        const fetchData = async () => {
-            try {
-                const [devicesRes, workersRes] = await Promise.all([
-                    devicesApi.getAll(),
-                    workersApi.getAll()
-                ]);
-                setDevices(devicesRes.data);
-                setWorkers(workersRes.data);
-            } catch (error) {
-                console.error('Failed to fetch data:', error);
-            } finally {
-                setIsLoading(false);
-            }
-        };
-        fetchData();
+    const fetchData = useCallback(async () => {
+        try {
+            const [devicesRes, workersRes] = await Promise.all([
+                devicesApi.getAll(),
+                workersApi.getAll()
+            ]);
+            setDevices(devicesRes.data);
+            setWorkers(workersRes.data);
+        } catch (error) {
+            console.error('Failed to fetch data:', error);
+        } finally {
+            setIsLoading(false);
+        }
     }, []);
+
+    useEffect(() => { fetchData(); }, [fetchData]);
+
+    // Register refresh
+    const { registerRefresh } = useRefresh();
+    useEffect(() => { registerRefresh(fetchData); }, [registerRefresh, fetchData]);
 
     // Form state
     const [formData, setFormData] = useState({

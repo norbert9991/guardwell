@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Activity, Thermometer, Wind, Droplets, Battery, Signal, User, Shield, Radio, AlertTriangle, CheckCircle, X, Eye, Clock, Bell, ShieldCheck, Mic, Map, Grid, MapPin } from 'lucide-react';
 import { CardDark, CardBody } from '../components/ui/Card';
 import { MetricCard } from '../components/ui/MetricCard';
@@ -10,6 +10,7 @@ import { DeviceLedIndicator } from '../components/ui/DeviceLedIndicator';
 import { useSocket } from '../context/SocketContext';
 import { devicesApi, alertsApi, sensorsApi } from '../utils/api';
 import { useToast } from '../context/ToastContext';
+import { useRefresh } from '../context/RefreshContext';
 
 export const LiveMonitoring = () => {
     const { socket, sensorData, connected, emitEvent } = useSocket();
@@ -26,20 +27,23 @@ export const LiveMonitoring = () => {
     const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'map'
     const toast = useToast();
 
-    // Fetch devices from API on mount
-    useEffect(() => {
-        const fetchDevices = async () => {
-            try {
-                const response = await devicesApi.getAll();
-                setDevices(response.data);
-            } catch (error) {
-                console.error('Failed to fetch devices:', error);
-            } finally {
-                setIsLoading(false);
-            }
-        };
-        fetchDevices();
+    // Fetch devices from API
+    const fetchDevices = useCallback(async () => {
+        try {
+            const response = await devicesApi.getAll();
+            setDevices(response.data);
+        } catch (error) {
+            console.error('Failed to fetch devices:', error);
+        } finally {
+            setIsLoading(false);
+        }
     }, []);
+
+    useEffect(() => { fetchDevices(); }, [fetchDevices]);
+
+    // Register refresh
+    const { registerRefresh } = useRefresh();
+    useEffect(() => { registerRefresh(fetchDevices); }, [registerRefresh, fetchDevices]);
 
     // Combine devices with real-time sensor data
     const workersWithSensorData = devices.map(device => {

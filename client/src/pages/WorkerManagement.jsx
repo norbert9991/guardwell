@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Search, Plus, User, Edit, Eye, Power, Users, UserCheck, Radio, UserMinus, Phone, Mail, AlertTriangle, Camera } from 'lucide-react';
 import { CardDark, CardBody } from '../components/ui/Card';
 import { MetricCard } from '../components/ui/MetricCard';
@@ -10,6 +10,7 @@ import { ConfirmationModal } from '../components/ui/ConfirmationModal';
 import { useNavigate } from 'react-router-dom';
 import { workersApi } from '../utils/api';
 import { useToast } from '../context/ToastContext';
+import { useRefresh } from '../context/RefreshContext';
 import { useAuth, PERMISSIONS } from '../context/AuthContext';
 
 export const WorkerManagement = () => {
@@ -47,21 +48,23 @@ export const WorkerManagement = () => {
     // Permission checks
     const canManageWorkers = hasPermission(PERMISSIONS.MANAGE_WORKERS);
 
-    // Fetch workers on mount
-    useEffect(() => {
-        const fetchWorkers = async () => {
-            try {
-                const response = await workersApi.getAll();
-                setWorkers(response.data);
-            } catch (error) {
-                console.error('Failed to fetch workers:', error);
-                // Keep empty array if API fails
-            } finally {
-                setIsLoading(false);
-            }
-        };
-        fetchWorkers();
+    // Fetch workers
+    const fetchWorkers = useCallback(async () => {
+        try {
+            const response = await workersApi.getAll();
+            setWorkers(response.data);
+        } catch (error) {
+            console.error('Failed to fetch workers:', error);
+        } finally {
+            setIsLoading(false);
+        }
     }, []);
+
+    useEffect(() => { fetchWorkers(); }, [fetchWorkers]);
+
+    // Register refresh
+    const { registerRefresh } = useRefresh();
+    useEffect(() => { registerRefresh(fetchWorkers); }, [registerRefresh, fetchWorkers]);
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;

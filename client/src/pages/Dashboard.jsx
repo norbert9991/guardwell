@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
     Users,
@@ -20,6 +20,7 @@ import { useSocket } from '../context/SocketContext';
 import { useToast } from '../context/ToastContext';
 import { MetricCard } from '../components/ui/MetricCard';
 import { workersApi, devicesApi, alertsApi } from '../utils/api';
+import { useRefresh } from '../context/RefreshContext';
 
 export const Dashboard = () => {
     const { alerts: realtimeAlerts, sensorData, connected, emitEvent, acknowledgeAlert } = useSocket();
@@ -42,26 +43,29 @@ export const Dashboard = () => {
         return () => clearInterval(timer);
     }, []);
 
-    // Fetch data from API on mount
-    useEffect(() => {
-        const fetchData = async () => {
-            try {
-                const [workersRes, devicesRes, alertsRes] = await Promise.all([
-                    workersApi.getAll(),
-                    devicesApi.getAll(),
-                    alertsApi.getAll()
-                ]);
-                setWorkers(workersRes.data);
-                setDevices(devicesRes.data);
-                setDbAlerts(alertsRes.data);
-            } catch (error) {
-                console.error('Failed to fetch dashboard data:', error);
-            } finally {
-                setIsLoading(false);
-            }
-        };
-        fetchData();
+    // Fetch data from API
+    const fetchData = useCallback(async () => {
+        try {
+            const [workersRes, devicesRes, alertsRes] = await Promise.all([
+                workersApi.getAll(),
+                devicesApi.getAll(),
+                alertsApi.getAll()
+            ]);
+            setWorkers(workersRes.data);
+            setDevices(devicesRes.data);
+            setDbAlerts(alertsRes.data);
+        } catch (error) {
+            console.error('Failed to fetch dashboard data:', error);
+        } finally {
+            setIsLoading(false);
+        }
     }, []);
+
+    useEffect(() => { fetchData(); }, [fetchData]);
+
+    // Register refresh function for Navbar refresh button
+    const { registerRefresh } = useRefresh();
+    useEffect(() => { registerRefresh(fetchData); }, [registerRefresh, fetchData]);
 
     // Combine real-time alerts with database alerts
     const allAlerts = [...realtimeAlerts, ...dbAlerts.filter(a =>

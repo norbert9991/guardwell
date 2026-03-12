@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Plus, FileText, AlertTriangle, Clock, Search } from 'lucide-react';
 import { CardDark, CardBody } from '../components/ui/Card';
 import { MetricCard } from '../components/ui/MetricCard';
@@ -10,6 +10,7 @@ import { ConfirmationModal } from '../components/ui/ConfirmationModal';
 import { useNavigate } from 'react-router-dom';
 import { incidentsApi, workersApi } from '../utils/api';
 import { useToast } from '../context/ToastContext';
+import { useRefresh } from '../context/RefreshContext';
 
 export const IncidentManagement = () => {
     const navigate = useNavigate();
@@ -23,23 +24,26 @@ export const IncidentManagement = () => {
     const toast = useToast();
 
     // Fetch incidents and workers from API
-    useEffect(() => {
-        const fetchData = async () => {
-            try {
-                const [incidentsRes, workersRes] = await Promise.all([
-                    incidentsApi.getAll(),
-                    workersApi.getAll()
-                ]);
-                setIncidents(incidentsRes.data);
-                setWorkers(workersRes.data);
-            } catch (error) {
-                console.error('Failed to fetch data:', error);
-            } finally {
-                setIsLoading(false);
-            }
-        };
-        fetchData();
+    const fetchData = useCallback(async () => {
+        try {
+            const [incidentsRes, workersRes] = await Promise.all([
+                incidentsApi.getAll(),
+                workersApi.getAll()
+            ]);
+            setIncidents(incidentsRes.data);
+            setWorkers(workersRes.data);
+        } catch (error) {
+            console.error('Failed to fetch data:', error);
+        } finally {
+            setIsLoading(false);
+        }
     }, []);
+
+    useEffect(() => { fetchData(); }, [fetchData]);
+
+    // Register refresh
+    const { registerRefresh } = useRefresh();
+    useEffect(() => { registerRefresh(fetchData); }, [registerRefresh, fetchData]);
 
     const [formData, setFormData] = useState({
         title: '',
