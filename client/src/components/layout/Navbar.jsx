@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Bell, User, LogOut, RefreshCw } from 'lucide-react';
+import { Bell, User, LogOut, RefreshCw, Globe } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../context/SocketContext';
 import { useRefresh } from '../../context/RefreshContext';
+import { useLanguage } from '../../context/LanguageContext';
 import { Badge } from '../ui/Badge';
 import { ConfirmationModal } from '../ui/ConfirmationModal';
 
@@ -11,6 +12,7 @@ export const Navbar = () => {
     const { user, logout } = useAuth();
     const { connected, alerts } = useSocket();
     const { triggerRefresh, isRefreshing, lastRefreshed } = useRefresh();
+    const { language, toggleLanguage, t } = useLanguage();
     const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
     const pendingAlerts = alerts.filter(a => a.status === 'Pending').length;
@@ -42,7 +44,7 @@ export const Navbar = () => {
                                 </div>
                                 <div className="ml-3">
                                     <h1 className="text-xl font-bold text-[#1F2937]">GuardWell</h1>
-                                    <p className="text-xs text-[#6B7280]">Safety Monitoring System</p>
+                                    <p className="text-xs text-[#6B7280]">{t('nav.safetyMonitoring')}</p>
                                 </div>
                             </div>
                         </div>
@@ -53,9 +55,19 @@ export const Navbar = () => {
                             <div className="flex items-center gap-2">
                                 <div className={`status-dot ${connected ? 'status-online' : 'status-offline'}`} />
                                 <span className="text-sm text-[#6B7280]">
-                                    {connected ? 'Connected' : 'Disconnected'}
+                                    {connected ? t('nav.connected') : t('nav.disconnected')}
                                 </span>
                             </div>
+
+                            {/* Language Toggle */}
+                            <button
+                                onClick={toggleLanguage}
+                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#E3E6EB] hover:bg-[#EEF1F4] transition-colors text-sm font-medium text-[#4B5563] hover:text-[#1F2937]"
+                                title={language === 'en' ? 'Switch to Filipino' : 'Switch to English'}
+                            >
+                                <Globe size={15} className="text-[#6FA3D8]" />
+                                <span className="font-semibold">{language === 'en' ? 'EN' : 'FIL'}</span>
+                            </button>
 
                             {/* Refresh Button */}
                             <div className="relative flex flex-col items-center">
@@ -100,7 +112,7 @@ export const Navbar = () => {
                                 <button
                                     onClick={handleLogoutClick}
                                     className="p-2 rounded-lg hover:bg-[#EEF1F4] text-[#6B7280] hover:text-[#1F2937] transition-colors"
-                                    title="Logout"
+                                    title={t('nav.logout')}
                                 >
                                     <LogOut size={20} />
                                 </button>
@@ -115,11 +127,11 @@ export const Navbar = () => {
                 isOpen={showLogoutConfirm}
                 onClose={() => setShowLogoutConfirm(false)}
                 onConfirm={handleConfirmLogout}
-                title="Confirm Logout"
-                message="Are you sure you want to logout? You will need to sign in again to access the system."
+                title={t('nav.confirmLogout')}
+                message={t('nav.logoutMessage')}
                 variant="warning"
-                confirmText="Logout"
-                cancelText="Cancel"
+                confirmText={t('nav.logout')}
+                cancelText={t('nav.cancel')}
             />
         </>
     );

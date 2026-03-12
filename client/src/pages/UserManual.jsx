@@ -3,7 +3,8 @@ import {
     BookOpen, LayoutDashboard, Activity, Users, Radio, AlertTriangle,
     FileText, BarChart3, Phone, Settings, Shield, ChevronDown, ChevronRight,
     Search, Bell, Eye, Plus, Edit, Power, CheckCircle, Clock, MapPin,
-    Zap, Heart, Thermometer, Wind, TrendingUp, UserCheck, HelpCircle
+    Zap, Heart, Thermometer, Wind, TrendingUp, UserCheck, HelpCircle,
+    Globe, Map, Layers, Timer
 } from 'lucide-react';
 import { CardDark, CardBody, CardHeader } from '../components/ui/Card';
 
@@ -15,6 +16,8 @@ export const UserManual = () => {
         { id: 'overview', name: 'System Overview', icon: BookOpen },
         { id: 'dashboard', name: 'Dashboard', icon: LayoutDashboard },
         { id: 'live-monitoring', name: 'Live Monitoring', icon: Activity },
+        { id: 'map-view', name: 'Map & GPS Tracking', icon: Map },
+        { id: 'nudge-system', name: 'Nudge System', icon: Bell },
         { id: 'workers', name: 'Worker Management', icon: Users },
         { id: 'devices', name: 'Device Management', icon: Radio },
         { id: 'alerts', name: 'Alert Management', icon: AlertTriangle },
@@ -22,6 +25,9 @@ export const UserManual = () => {
         { id: 'incidents', name: 'Incident Management', icon: FileText },
         { id: 'reports', name: 'Reports & Analytics', icon: BarChart3 },
         { id: 'contacts', name: 'Emergency Contacts', icon: Phone },
+        { id: 'nudge-logs', name: 'Nudge Logs', icon: FileText },
+        { id: 'language', name: 'Language Toggle', icon: Globe },
+        { id: 'session-timeout', name: 'Session & Timeout', icon: Timer },
         { id: 'admin', name: 'Administration', icon: Settings },
         { id: 'roles', name: 'User Roles & Permissions', icon: Shield },
         { id: 'faq', name: 'FAQ & Troubleshooting', icon: HelpCircle },
@@ -54,12 +60,16 @@ export const UserManual = () => {
                                 {[
                                     'Real-time sensor data monitoring (temperature, humidity, gas levels)',
                                     'Touch-activated emergency button and voice-activated alerts',
-                                    'GPS location tracking for worker safety',
-                                    'Automated alert escalation system',
+                                    'GPS location tracking with dual map modes (Satellite & Vector)',
+                                    'Simulated warehouse building overlay with room labels',
+                                    'Automated alert escalation and nudge system with auto-escalation',
                                     'Incident management and documentation',
                                     'Comprehensive safety analytics and reports',
                                     'Multi-role access control (Safety Officer, Admin, Head Admin)',
-                                    'Real-time emergency queue with live updates'
+                                    'Real-time emergency queue with live updates and buzzer broadcast',
+                                    'English / Filipino language toggle',
+                                    'Session inactivity timeout for security',
+                                    'Nudge acknowledgment tracking with logs',
                                 ].map((feature, i) => (
                                     <div key={i} className="flex items-start gap-2">
                                         <CheckCircle size={16} className="text-green-500 mt-0.5 flex-shrink-0" />
@@ -79,6 +89,7 @@ export const UserManual = () => {
                                 <li>You will be directed to the Dashboard showing system-wide metrics.</li>
                                 <li>Navigate using the sidebar menu on the left — available options depend on your role.</li>
                                 <li>The Emergency Queue panel on the right shows active emergencies in real-time.</li>
+                                <li>Use the 🌐 button in the top navigation bar to switch between English and Filipino.</li>
                                 <li>Click on any alert or notification to take action immediately.</li>
                             </ol>
                         </div>
@@ -95,20 +106,41 @@ export const UserManual = () => {
 
                         <Section title="Key Metrics Cards" icon={TrendingUp}>
                             <ul className="space-y-2 text-sm text-[#4B5563]">
-                                <li><strong>Total Workers:</strong> The number of workers registered in the system.</li>
+                                <li><strong>Active Workers:</strong> The number of workers currently active in the system.</li>
                                 <li><strong>Active Devices:</strong> The count of IoT devices currently online and transmitting data.</li>
                                 <li><strong>Active Alerts:</strong> Number of alerts currently pending or requiring attention.</li>
-                                <li><strong>Incidents Today:</strong> Number of incidents reported for the current day.</li>
+                                <li><strong>System Status:</strong> Shows whether the system is online (connected via WebSocket) or offline.</li>
                             </ul>
                         </Section>
 
-                        <Section title="What You Can Do" icon={CheckCircle}>
-                            <ul className="space-y-2 text-sm text-[#4B5563]">
-                                <li>• View a summary of all active workers, devices, alerts, and incidents.</li>
-                                <li>• Quickly identify critical situations from the alert summary.</li>
-                                <li>• Click on any metric card to navigate to the detailed module.</li>
-                                <li>• Monitor overall system health and worker safety status.</li>
+                        <Section title="Emergency Panel" icon={AlertTriangle}>
+                            <p className="text-sm text-[#4B5563] mb-2">
+                                The Emergency Panel allows authorized operators to trigger a <strong>system-wide emergency alert</strong> that:
+                            </p>
+                            <ul className="space-y-1 text-sm text-[#4B5563]">
+                                <li>• Alerts all connected devices immediately</li>
+                                <li>• Notifies emergency contacts via the system</li>
+                                <li>• Logs the event for audit purposes</li>
+                                <li>• Triggers evacuation protocols</li>
                             </ul>
+                            <p className="text-sm text-[#4B5563] mt-2">
+                                A confirmation dialog and responsibility warning are shown before activation.
+                            </p>
+                        </Section>
+
+                        <Section title="Live Sensor Data" icon={Activity}>
+                            <p className="text-sm text-[#4B5563]">
+                                Shows real-time aggregated sensor data from all active devices:
+                                average temperature, highest gas reading, critical alert count, and average battery level.
+                                If no devices are transmitting, a "No active devices" message is displayed instead of showing zero values.
+                            </p>
+                        </Section>
+
+                        <Section title="Recent Alerts" icon={Bell}>
+                            <p className="text-sm text-[#4B5563]">
+                                Displays the 5 most recent alerts with severity badges, timestamps, and a quick
+                                <strong> Acknowledge</strong> button that appears on hover. Click "View All" to go to the full Alerts page.
+                            </p>
                         </Section>
                     </div>
                 );
@@ -121,6 +153,19 @@ export const UserManual = () => {
                             The Live Monitoring page displays real-time sensor data from all active ESP32 wearable devices assigned to workers.
                             Data is transmitted every 2 seconds via HTTPS and updated on the dashboard in real-time.
                         </p>
+
+                        <Section title="View Modes" icon={Eye}>
+                            <p className="text-sm text-[#4B5563] mb-2">
+                                Toggle between two view modes using the buttons in the top right:
+                            </p>
+                            <ul className="space-y-2 text-sm text-[#4B5563]">
+                                <li><strong>Grid View:</strong> Shows each worker's device as a card with all sensor readings, status indicators,
+                                    GPS status, motion data, and action buttons.</li>
+                                <li><strong>Map View:</strong> Shows all workers on a Leaflet map with their GPS positions. Supports
+                                    Satellite and Vector tile layers, warehouse building overlay, and geofence visualization.
+                                    See the <em>Map & GPS Tracking</em> section for details.</li>
+                            </ul>
+                        </Section>
 
                         <Section title="Sensor Readings" icon={Thermometer}>
                             <ul className="space-y-3 text-sm text-[#4B5563]">
@@ -143,14 +188,6 @@ export const UserManual = () => {
                             </ul>
                         </Section>
 
-                        <Section title="Location Map" icon={MapPin}>
-                            <p className="text-sm text-[#4B5563]">
-                                The integrated map displays the GPS location of each worker's device.
-                                You can click on a worker's marker to see their latest sensor readings and status.
-                                Location accuracy depends on GPS signal strength and environmental conditions.
-                            </p>
-                        </Section>
-
                         <Section title="Voice Recognition" icon={Bell}>
                             <p className="text-sm text-[#4B5563] mb-2">
                                 Each device has a <strong>DFRobot DF2301Q</strong> voice recognition module that listens for distress commands:
@@ -163,14 +200,6 @@ export const UserManual = () => {
                                 <li>• <strong>"Sakit"</strong> — Reports pain</li>
                                 <li>• <strong>"Cancel"</strong> — Cancels the current alert</li>
                             </ul>
-                        </Section>
-
-                        <Section title="Nudge Feature" icon={Zap}>
-                            <p className="text-sm text-[#4B5563]">
-                                The <strong>Nudge</strong> button allows you to send an alert to a worker's device from the web dashboard.
-                                When received, the device's buzzer beeps and the RGB LED blinks blue.
-                                Use this to get a worker's attention — for example, to check on their status or issue a reminder.
-                            </p>
                         </Section>
 
                         <Section title="RGB LED Status Indicator" icon={Activity}>
@@ -189,6 +218,116 @@ export const UserManual = () => {
                                 If a worker moves outside the designated radius (default 100 meters), a geofence violation alert is
                                 automatically triggered and the device's LED turns purple. This helps ensure workers stay within safe zones.
                             </p>
+                        </Section>
+                    </div>
+                );
+
+            case 'map-view':
+                return (
+                    <div className="space-y-6">
+                        <h2 className="text-2xl font-bold text-[#1F2937] mb-4">Map & GPS Tracking</h2>
+                        <p className="text-[#4B5563] leading-relaxed">
+                            The Map View in Live Monitoring provides a visual overview of all workers' GPS positions on an interactive map,
+                            centered on the facility at <strong>299 P. Dela Cruz St., San Bartolome, Novaliches, Quezon City</strong>.
+                        </p>
+
+                        <Section title="Dual Map Modes" icon={Layers}>
+                            <p className="text-sm text-[#4B5563] mb-2">
+                                Switch between two map tile layers using the toggle buttons above the map:
+                            </p>
+                            <ul className="space-y-2 text-sm text-[#4B5563]">
+                                <li><strong>🛰️ Satellite:</strong> Uses Esri World Imagery for a Google Maps-like aerial view. Best for
+                                    seeing the actual terrain and building footprints from above.</li>
+                                <li><strong>🗺️ Vector:</strong> Uses CARTO light tiles for a clean, minimal map style. The warehouse building
+                                    polygons are most visible in this mode. Ideal for floor-plan-style viewing.</li>
+                            </ul>
+                        </Section>
+
+                        <Section title="Warehouse Building Overlay" icon={MapPin}>
+                            <p className="text-sm text-[#4B5563] mb-2">
+                                A simulated warehouse building is drawn as a vector polygon on the map with labeled rooms:
+                            </p>
+                            <ul className="space-y-1 text-sm text-[#4B5563]">
+                                <li>• 🏭 <strong>GuardWell Warehouse</strong> — Main building outline (dashed border)</li>
+                                <li>• 📦 <strong>Storage</strong> — Yellow-tinted storage area</li>
+                                <li>• 🏢 <strong>Office</strong> — Blue-tinted office area</li>
+                                <li>• 🚚 <strong>Loading Dock</strong> — Green-tinted loading area</li>
+                            </ul>
+                        </Section>
+
+                        <Section title="GPS 'You Are Here' Pin" icon={MapPin}>
+                            <p className="text-sm text-[#4B5563]">
+                                A pulsing blue dot (similar to Google Maps' location indicator) marks the facility's exact location.
+                                Click it to see the full address. This pin is always visible regardless of geofence status.
+                            </p>
+                        </Section>
+
+                        <Section title="Worker Markers" icon={Users}>
+                            <p className="text-sm text-[#4B5563] mb-2">
+                                Each worker with GPS coordinates appears as a colored pin on the map:
+                            </p>
+                            <ul className="space-y-1 text-sm text-[#4B5563]">
+                                <li><span className="inline-block w-3 h-3 rounded-full bg-blue-500 mr-2"></span><strong>Blue:</strong> Normal status</li>
+                                <li><span className="inline-block w-3 h-3 rounded-full bg-orange-500 mr-2"></span><strong>Orange:</strong> Warning status</li>
+                                <li><span className="inline-block w-3 h-3 rounded-full bg-red-500 mr-2"></span><strong>Red:</strong> Critical status</li>
+                                <li><span className="inline-block w-3 h-3 rounded-full bg-violet-500 mr-2"></span><strong>Violet:</strong> Outside geofence</li>
+                            </ul>
+                            <p className="text-sm text-[#4B5563] mt-2">
+                                Worker markers are shown even when they are outside the geofence boundary for continuous tracking visibility.
+                            </p>
+                        </Section>
+
+                        <Section title="Geofence Circle" icon={MapPin}>
+                            <p className="text-sm text-[#4B5563]">
+                                A dashed green circle shows the geofence boundary (default 100m radius) around the facility.
+                                Workers outside this circle trigger violation alerts.
+                            </p>
+                        </Section>
+                    </div>
+                );
+
+            case 'nudge-system':
+                return (
+                    <div className="space-y-6">
+                        <h2 className="text-2xl font-bold text-[#1F2937] mb-4">Nudge System</h2>
+                        <p className="text-[#4B5563] leading-relaxed">
+                            The Nudge feature allows operators to remotely check on workers by sending a signal to their wearable device.
+                            The device will beep and blink blue to get the worker's attention.
+                        </p>
+
+                        <Section title="Sending a Nudge" icon={Bell}>
+                            <ol className="list-decimal list-inside space-y-2 text-sm text-[#4B5563]">
+                                <li>Go to <strong>Live Monitoring</strong> in Grid view.</li>
+                                <li>Find the worker's card and click the <strong>"Nudge"</strong> button.</li>
+                                <li>The button shows the current nudge count (e.g., "Nudge (1/3)").</li>
+                                <li>The worker's device will beep and flash blue for ~10 seconds.</li>
+                                <li>If the worker presses the touch sensor, the nudge is acknowledged.</li>
+                            </ol>
+                        </Section>
+
+                        <Section title="Nudge Acknowledgment" icon={CheckCircle}>
+                            <p className="text-sm text-[#4B5563] mb-2">
+                                When a worker acknowledges a nudge by pressing their device's touch sensor:
+                            </p>
+                            <ul className="space-y-1 text-sm text-[#4B5563]">
+                                <li>• A green notification popup appears at the top of Live Monitoring showing who responded</li>
+                                <li>• The response time is displayed (e.g., "Response: 3.2s")</li>
+                                <li>• A toast notification also appears</li>
+                                <li>• The nudge count for that worker resets to 0</li>
+                            </ul>
+                        </Section>
+
+                        <Section title="Auto-Escalation (3 Unanswered)" icon={AlertTriangle}>
+                            <p className="text-sm text-[#4B5563]">
+                                If a worker fails to respond to <strong>3 consecutive nudges</strong>, they are automatically escalated
+                                to Priority 1 status. This triggers:
+                            </p>
+                            <ul className="space-y-1 text-sm text-[#4B5563] mt-2">
+                                <li>• A critical alert is created in the system</li>
+                                <li>• Emergency contacts are notified via email</li>
+                                <li>• The nudge button changes to "⚠ Escalated" and is disabled</li>
+                                <li>• The escalation is logged in Nudge Logs</li>
+                            </ul>
                         </Section>
                     </div>
                 );
@@ -259,7 +398,7 @@ export const UserManual = () => {
                         <h2 className="text-2xl font-bold text-[#1F2937] mb-4">Device Management</h2>
                         <p className="text-[#4B5563] leading-relaxed">
                             Manage the ESP32 IoT wearable devices used for worker safety monitoring.
-                            Each device contains multiple sensors and communicates via MQTT protocol.
+                            Each device contains multiple sensors and communicates via HTTPS protocol.
                         </p>
 
                         <Section title="Adding a Device" icon={Plus}>
@@ -267,7 +406,7 @@ export const UserManual = () => {
                                 <li>Click <strong>"Add Device"</strong> and enter the Device ID (must match the ESP32 firmware configuration).</li>
                                 <li>Provide a device name for easy identification.</li>
                                 <li>Set the device type and model information.</li>
-                                <li>The device will appear as "Offline" until it connects to the MQTT broker.</li>
+                                <li>The device will appear as "Offline" until it connects to the server.</li>
                             </ol>
                         </Section>
 
@@ -311,6 +450,7 @@ export const UserManual = () => {
                                 <li><strong>Gas Detection:</strong> MQ2 sensor detects elevated levels of smoke, LPG, or CO.</li>
                                 <li><strong>Fall Detected:</strong> MPU6050 accelerometer detects a sudden impact (acceleration &gt; 25 m/s²).</li>
                                 <li><strong>Geofence Violation:</strong> Worker's GPS position moves outside the designated facility radius.</li>
+                                <li><strong>Nudge Auto-Escalation:</strong> Worker failed to respond to 3 consecutive nudges.</li>
                             </ul>
                         </Section>
 
@@ -359,7 +499,7 @@ export const UserManual = () => {
                                 <li>• The panel updates automatically in real-time via WebSocket — no need to refresh.</li>
                                 <li>• New emergencies appear at the top with a visual animation.</li>
                                 <li>• Each emergency card shows the worker name, device, alert type, and timestamp.</li>
-                                <li>• A sound notification plays when a new emergency arrives.</li>
+                                <li>• A buzzer sound is broadcast to all connected devices when an emergency is triggered.</li>
                                 <li>• The panel can be expanded or collapsed using the toggle button.</li>
                             </ul>
                         </Section>
@@ -376,7 +516,7 @@ export const UserManual = () => {
                             <p className="text-sm text-[#4B5563]">
                                 When a new critical emergency arrives, a full-screen banner appears at the top of the page
                                 with the alert details. This ensures you never miss a critical emergency regardless of
-                                which page you're currently viewing.
+                                which page you're currently viewing. An emergency buzzer sound also plays on all connected devices.
                             </p>
                         </Section>
                     </div>
@@ -487,9 +627,95 @@ export const UserManual = () => {
 
                         <Section title="Notification System" icon={Bell}>
                             <p className="text-sm text-[#4B5563]">
-                                When an alert is escalated (unacknowledged past the configured time), the system can send
-                                email notifications to the relevant emergency contacts. This ensures that critical situations
-                                are communicated to supervisors and safety personnel even if the monitoring operator is unavailable.
+                                When an alert is escalated (unacknowledged past the configured time) or a worker's nudge count
+                                reaches 3, the system sends email notifications to the relevant emergency contacts.
+                                This ensures that critical situations are communicated even if the monitoring operator is unavailable.
+                            </p>
+                        </Section>
+                    </div>
+                );
+
+            case 'nudge-logs':
+                return (
+                    <div className="space-y-6">
+                        <h2 className="text-2xl font-bold text-[#1F2937] mb-4">Nudge Logs</h2>
+                        <p className="text-[#4B5563] leading-relaxed">
+                            The Nudge Logs page provides a detailed history of all nudges sent to workers.
+                            It tracks who was nudged, when, whether they responded, and the response time.
+                        </p>
+
+                        <Section title="Log Details" icon={FileText}>
+                            <ul className="space-y-2 text-sm text-[#4B5563]">
+                                <li><strong>Worker Name:</strong> The worker who received the nudge.</li>
+                                <li><strong>Device ID:</strong> Which device was nudged.</li>
+                                <li><strong>Sent At:</strong> Timestamp when the nudge was sent.</li>
+                                <li><strong>Status:</strong> Acknowledged, Expired, or Escalated.</li>
+                                <li><strong>Response Time:</strong> How long the worker took to respond (if acknowledged).</li>
+                                <li><strong>Unanswered Count:</strong> Number of consecutive unanswered nudges at that point.</li>
+                            </ul>
+                        </Section>
+
+                        <Section title="Filtering & Search" icon={Search}>
+                            <p className="text-sm text-[#4B5563]">
+                                Use the search bar to filter logs by worker name or device ID.
+                                Logs are sorted by most recent first.
+                            </p>
+                        </Section>
+                    </div>
+                );
+
+            case 'language':
+                return (
+                    <div className="space-y-6">
+                        <h2 className="text-2xl font-bold text-[#1F2937] mb-4">Language Toggle (EN / Filipino)</h2>
+                        <p className="text-[#4B5563] leading-relaxed">
+                            GuardWell supports two languages: <strong>English</strong> and <strong>Filipino</strong>.
+                            You can switch between them at any time.
+                        </p>
+
+                        <Section title="How to Switch Language" icon={Globe}>
+                            <ol className="list-decimal list-inside space-y-2 text-sm text-[#4B5563]">
+                                <li>Look for the <strong>🌐 EN</strong> or <strong>🌐 FIL</strong> button in the top navigation bar.</li>
+                                <li>Click it to toggle between English and Filipino.</li>
+                                <li>The interface labels (navigation, dashboard, live monitoring, etc.) will update immediately.</li>
+                                <li>Your preference is saved automatically and will persist across sessions.</li>
+                            </ol>
+                        </Section>
+
+                        <Section title="What Gets Translated" icon={CheckCircle}>
+                            <ul className="space-y-1 text-sm text-[#4B5563]">
+                                <li>• Navigation bar labels and connection status</li>
+                                <li>• Sidebar menu items</li>
+                                <li>• Dashboard headings, metric cards, and action buttons</li>
+                                <li>• Live Monitoring view labels, sensor names, and status indicators</li>
+                                <li>• Confirmation dialogs and modals</li>
+                            </ul>
+                        </Section>
+                    </div>
+                );
+
+            case 'session-timeout':
+                return (
+                    <div className="space-y-6">
+                        <h2 className="text-2xl font-bold text-[#1F2937] mb-4">Session & Timeout</h2>
+                        <p className="text-[#4B5563] leading-relaxed">
+                            For security, GuardWell includes a session inactivity timeout that automatically logs you out
+                            after a period of inactivity.
+                        </p>
+
+                        <Section title="How It Works" icon={Timer}>
+                            <ul className="space-y-2 text-sm text-[#4B5563]">
+                                <li>• If you are inactive (no mouse movement, clicks, or keyboard input) for a set period, a warning banner appears.</li>
+                                <li>• The banner shows a countdown timer and a <strong>"Stay Logged In"</strong> button.</li>
+                                <li>• If you click "Stay Logged In" or interact with the page, the timer resets.</li>
+                                <li>• If the countdown reaches zero, you are automatically logged out.</li>
+                            </ul>
+                        </Section>
+
+                        <Section title="Why This Exists" icon={Shield}>
+                            <p className="text-sm text-[#4B5563]">
+                                The timeout ensures that unattended workstations do not remain logged into the safety
+                                monitoring system, preventing unauthorized access and maintaining data security.
                             </p>
                         </Section>
                     </div>
@@ -557,6 +783,8 @@ export const UserManual = () => {
                                         ['View Devices', true, true, true],
                                         ['Manage Devices', false, true, true],
                                         ['View & Respond to Alerts', true, true, true],
+                                        ['Send Nudges', true, true, true],
+                                        ['View Nudge Logs', true, true, true],
                                         ['View Incidents', true, true, true],
                                         ['Create/Edit Incidents', true, true, true],
                                         ['View Reports', true, true, true],
@@ -590,7 +818,7 @@ export const UserManual = () => {
                             },
                             {
                                 q: 'A device shows as "Offline" even though it should be active.',
-                                a: 'Check that the ESP32 device is powered on, connected to WiFi, and configured with the correct MQTT broker address. The device LED should indicate its connection status.'
+                                a: 'Check that the ESP32 device is powered on, connected to WiFi, and configured with the correct server address. The device LED should indicate its connection status.'
                             },
                             {
                                 q: 'I\'m not receiving emergency alert notifications.',
@@ -611,6 +839,22 @@ export const UserManual = () => {
                             {
                                 q: 'How is my data protected?',
                                 a: 'All data is transferred over encrypted connections (HTTPS). User authentication uses JWT tokens with bcrypt-hashed passwords. Access is restricted based on user roles. Please review the Terms & Conditions for full data privacy details.'
+                            },
+                            {
+                                q: 'How do I switch the interface language?',
+                                a: 'Click the 🌐 button (showing "EN" or "FIL") in the top navigation bar to toggle between English and Filipino. Your preference is saved automatically.'
+                            },
+                            {
+                                q: 'A worker did not respond to nudges. What happens?',
+                                a: 'After 3 unanswered nudges, the worker is automatically escalated to Priority 1. A critical alert is created and emergency contacts are notified via email. The worker\'s card will show "⚠ Escalated".'
+                            },
+                            {
+                                q: 'I was logged out automatically. Why?',
+                                a: 'GuardWell has a session inactivity timeout. If you don\'t interact with the system for a set period, a warning banner appears with a countdown. If you don\'t click "Stay Logged In" before it expires, you are logged out for security.'
+                            },
+                            {
+                                q: 'How do I view the warehouse on the map?',
+                                a: 'Go to Live Monitoring → Map view. The warehouse building is shown as a polygon overlay with labeled rooms. Switch to "Vector" mode for the clearest view of the floor plan.'
                             },
                         ].map((faq, i) => (
                             <CardDark key={i}>

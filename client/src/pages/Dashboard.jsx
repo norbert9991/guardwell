@@ -18,6 +18,7 @@ import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
 import { useSocket } from '../context/SocketContext';
 import { useToast } from '../context/ToastContext';
+import { useLanguage } from '../context/LanguageContext';
 import { MetricCard } from '../components/ui/MetricCard';
 import { workersApi, devicesApi, alertsApi } from '../utils/api';
 import { useRefresh } from '../context/RefreshContext';
@@ -26,6 +27,7 @@ export const Dashboard = () => {
     const { alerts: realtimeAlerts, sensorData, connected, emitEvent, acknowledgeAlert } = useSocket();
     const navigate = useNavigate();
     const toast = useToast();
+    const { t } = useLanguage();
     const [workers, setWorkers] = useState([]);
     const [devices, setDevices] = useState([]);
     const [dbAlerts, setDbAlerts] = useState([]);
@@ -79,15 +81,16 @@ export const Dashboard = () => {
 
     // Calculate averages from real sensor data
     const sensorValues = Object.values(sensorData);
-    const avgTemp = sensorValues.length > 0
+    const hasActiveSensors = sensorValues.length > 0;
+    const avgTemp = hasActiveSensors
         ? Math.round(sensorValues.reduce((sum, s) => sum + (s.temperature || 0), 0) / sensorValues.length)
-        : 0;
-    const maxGas = sensorValues.length > 0
+        : null;
+    const maxGas = hasActiveSensors
         ? Math.max(...sensorValues.map(s => s.gas_level || 0))
-        : 0;
-    const avgBattery = sensorValues.length > 0
+        : null;
+    const avgBattery = hasActiveSensors
         ? Math.round(sensorValues.reduce((sum, s) => sum + (s.battery || 0), 0) / sensorValues.length)
-        : 0;
+        : null;
     const criticalAlerts = allAlerts.filter(a => a.severity === 'Critical').length;
 
     // Format time ago
@@ -149,13 +152,13 @@ export const Dashboard = () => {
             {/* Header */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-4xl font-bold text-[#1F2937] mb-2 tracking-tight">Dashboard</h1>
-                    <p className="text-[#6B7280] text-lg">Real-time overview of worker safety and monitoring system</p>
+                    <h1 className="text-4xl font-bold text-[#1F2937] mb-2 tracking-tight">{t('dashboard.title')}</h1>
+                    <p className="text-[#6B7280] text-lg">{t('dashboard.subtitle')}</p>
                 </div>
                 <div className="text-right hidden md:block">
                     <div className="flex items-center gap-2 justify-end mb-2">
                         <div className={`w-2 h-2 rounded-full ${connected ? 'bg-green-500' : 'bg-red-500'}`} />
-                        <span className="text-sm text-[#6B7280]">{connected ? 'Live' : 'Disconnected'}</span>
+                        <span className="text-sm text-[#6B7280]">{connected ? 'Live' : t('nav.disconnected')}</span>
                     </div>
                     <div className="flex items-center gap-2 justify-end">
                         <Clock size={16} className="text-[#6FA3D8]" />
@@ -172,32 +175,32 @@ export const Dashboard = () => {
             {/* Metrics Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <MetricCard
-                    title="Active Workers"
+                    title={t('dashboard.activeWorkers')}
                     value={activeWorkers || workers.length}
                     icon={Users}
                     color="bg-[#00BFA5]"
-                    subtitle={`${workers.length} total registered`}
+                    subtitle={`${workers.length} ${t('dashboard.totalRegistered')}`}
                 />
                 <MetricCard
-                    title="Active Devices"
+                    title={t('dashboard.activeDevices')}
                     value={`${activeDevices}/${devices.length}`}
                     icon={Radio}
                     color="bg-[#3B82F6]"
-                    subtitle="Transmitting data"
+                    subtitle={t('dashboard.transmittingData')}
                 />
                 <MetricCard
-                    title="Active Alerts"
+                    title={t('dashboard.activeAlerts')}
                     value={pendingAlerts}
                     icon={AlertTriangle}
                     color={pendingAlerts > 0 ? "bg-[#EF4444]" : "bg-[#10B981]"}
-                    subtitle={pendingAlerts > 0 ? "Require attention" : "All clear"}
+                    subtitle={pendingAlerts > 0 ? t('dashboard.requireAttention') : t('dashboard.allClear')}
                 />
                 <MetricCard
-                    title="System Status"
-                    value={connected ? "Online" : "Offline"}
+                    title={t('dashboard.systemStatus')}
+                    value={connected ? t('dashboard.online') : t('dashboard.offline')}
                     icon={Shield}
                     color={connected ? "bg-[#10B981]" : "bg-[#EF4444]"}
-                    subtitle={connected ? "All systems operational" : "Reconnecting..."}
+                    subtitle={connected ? t('dashboard.allOperational') : t('dashboard.reconnecting')}
                 />
             </div>
 
@@ -212,10 +215,10 @@ export const Dashboard = () => {
                                     <div className="p-2 rounded-lg bg-[#F59E0B]/20">
                                         <AlertTriangle className="h-5 w-5 text-[#F59E0B]" />
                                     </div>
-                                    Recent Alerts
+                                    {t('dashboard.recentAlerts')}
                                 </h2>
                                 <Link to="/alerts">
-                                    <Button variant="outline" size="sm" className="hover:bg-[#F59E0B]/10 hover:text-[#F59E0B] hover:border-[#F59E0B]">View All</Button>
+                                    <Button variant="outline" size="sm" className="hover:bg-[#F59E0B]/10 hover:text-[#F59E0B] hover:border-[#F59E0B]">{t('dashboard.viewAll')}</Button>
                                 </Link>
                             </div>
                         </CardHeader>
@@ -254,7 +257,7 @@ export const Dashboard = () => {
                                                             }}
                                                             disabled={acknowledging === alert.id}
                                                         >
-                                                            {acknowledging === alert.id ? 'Processing...' : 'Acknowledge'}
+                                                            {acknowledging === alert.id ? t('dashboard.processing') : t('dashboard.acknowledge')}
                                                         </Button>
                                                     )}
                                                 </div>
@@ -266,8 +269,8 @@ export const Dashboard = () => {
                                         <div className="w-16 h-16 bg-[#EEF1F4] rounded-full flex items-center justify-center mx-auto mb-4">
                                             <AlertTriangle className="h-8 w-8 text-[#9CA3AF]" />
                                         </div>
-                                        <p className="text-lg font-medium text-[#4B5563]">No recent alerts</p>
-                                        <p className="text-sm">Everything is running smoothly</p>
+                                        <p className="text-lg font-medium text-[#4B5563]">{t('dashboard.noRecentAlerts')}</p>
+                                        <p className="text-sm">{t('dashboard.runningSmooth')}</p>
                                     </div>
                                 )}
                             </div>
@@ -289,12 +292,12 @@ export const Dashboard = () => {
                                 )}
                             </div>
                             <h3 className="text-xl font-bold text-[#1F2937] mb-2">
-                                {emergencyTriggered ? 'Emergency Activated!' : 'Emergency Alert'}
+                                {emergencyTriggered ? t('dashboard.emergencyActivated') : t('dashboard.emergencyAlert')}
                             </h3>
                             <p className="text-sm text-[#4B5563] mb-6">
                                 {emergencyTriggered
-                                    ? 'All units have been notified. Response teams are being dispatched.'
-                                    : 'Trigger immediate emergency response for all active units'
+                                    ? t('dashboard.allNotified')
+                                    : t('dashboard.triggerEmergency')
                                 }
                             </p>
                             <Button
@@ -304,71 +307,50 @@ export const Dashboard = () => {
                                 onClick={() => setShowEmergencyModal(true)}
                                 disabled={emergencyTriggered}
                             >
-                                {emergencyTriggered ? 'EMERGENCY ACTIVE' : 'ACTIVATE EMERGENCY'}
+                                {emergencyTriggered ? t('dashboard.emergencyActive') : t('dashboard.activateEmergency')}
                             </Button>
                         </CardBody>
                     </CardDark>
 
-                    {/* Today's Performance - Now with real data */}
+                    {/* Live Sensor Data */}
                     <CardDark className="border-t-4 border-t-[#3B82F6]">
                         <CardHeader className="px-6 py-4 border-b border-[#E3E6EB]">
                             <h3 className="font-bold text-[#1F2937] flex items-center gap-2">
                                 <Activity className="h-5 w-5 text-[#3B82F6]" />
-                                Live Sensor Data
+                                {t('dashboard.liveSensorData')}
                             </h3>
                         </CardHeader>
                         <CardBody className="p-6">
-                            <div className="space-y-5">
-                                <div className="flex items-center justify-between group">
-                                    <span className="text-sm text-[#4B5563] group-hover:text-[#1F2937] transition-colors">Avg Temperature</span>
-                                    <span className={`text-lg font-bold ${avgTemp >= 40 ? 'text-red-500' : 'text-[#1F2937]'}`}>{avgTemp}°C</span>
+                            {hasActiveSensors ? (
+                                <div className="space-y-5">
+                                    <div className="flex items-center justify-between group">
+                                        <span className="text-sm text-[#4B5563] group-hover:text-[#1F2937] transition-colors">{t('dashboard.avgTemperature')}</span>
+                                        <span className={`text-lg font-bold ${avgTemp >= 40 ? 'text-red-500' : 'text-[#1F2937]'}`}>{avgTemp}°C</span>
+                                    </div>
+                                    <div className="flex items-center justify-between group">
+                                        <span className="text-sm text-[#4B5563] group-hover:text-[#1F2937] transition-colors">{t('dashboard.highestGas')}</span>
+                                        <span className={`text-lg font-bold ${maxGas >= 200 ? 'text-orange-500' : 'text-[#1F2937]'}`}>{maxGas} PPM</span>
+                                    </div>
+                                    <div className="flex items-center justify-between group">
+                                        <span className="text-sm text-[#4B5563] group-hover:text-[#1F2937] transition-colors">{t('dashboard.criticalAlerts')}</span>
+                                        <span className={`text-lg font-bold ${criticalAlerts > 0 ? 'text-[#EF4444]' : 'text-[#10B981]'}`}>{criticalAlerts}</span>
+                                    </div>
+                                    <div className="flex items-center justify-between group">
+                                        <span className="text-sm text-[#4B5563] flex items-center gap-2 group-hover:text-[#1F2937] transition-colors">
+                                            <Battery size={16} className="text-[#10B981]" />
+                                            {t('dashboard.avgBattery')}
+                                        </span>
+                                        <span className={`text-lg font-bold ${avgBattery < 20 ? 'text-red-500' : 'text-[#10B981]'}`}>{avgBattery}%</span>
+                                    </div>
                                 </div>
-                                <div className="flex items-center justify-between group">
-                                    <span className="text-sm text-[#4B5563] group-hover:text-[#1F2937] transition-colors">Highest Gas Reading</span>
-                                    <span className={`text-lg font-bold ${maxGas >= 200 ? 'text-orange-500' : 'text-[#1F2937]'}`}>{maxGas} PPM</span>
+                            ) : (
+                                <div className="text-center py-6">
+                                    <div className="w-12 h-12 bg-[#EEF1F4] rounded-full flex items-center justify-center mx-auto mb-3">
+                                        <Activity className="h-6 w-6 text-[#9CA3AF]" />
+                                    </div>
+                                    <p className="text-sm text-[#6B7280]">{t('dashboard.noActiveDevices')}</p>
                                 </div>
-                                <div className="flex items-center justify-between group">
-                                    <span className="text-sm text-[#4B5563] group-hover:text-[#1F2937] transition-colors">Critical Alerts</span>
-                                    <span className={`text-lg font-bold ${criticalAlerts > 0 ? 'text-[#EF4444]' : 'text-[#10B981]'}`}>{criticalAlerts}</span>
-                                </div>
-                                <div className="flex items-center justify-between group">
-                                    <span className="text-sm text-[#4B5563] flex items-center gap-2 group-hover:text-[#1F2937] transition-colors">
-                                        <Battery size={16} className="text-[#10B981]" />
-                                        Avg Battery Level
-                                    </span>
-                                    <span className={`text-lg font-bold ${avgBattery < 20 ? 'text-red-500' : 'text-[#10B981]'}`}>{avgBattery || '--'}%</span>
-                                </div>
-                            </div>
-                        </CardBody>
-                    </CardDark>
-
-                    {/* Quick Actions */}
-                    <CardDark className="border-t-4 border-t-[#00BFA5]">
-                        <CardBody className="p-6">
-                            <h3 className="font-bold text-[#1F2937] mb-4 flex items-center gap-2">
-                                <TrendingUp className="h-5 w-5 text-[#00BFA5]" />
-                                Quick Actions
-                            </h3>
-                            <div className="space-y-3">
-                                <Link to="/live-monitoring">
-                                    <Button variant="outline" className="w-full justify-start py-3 hover:bg-[#00BFA5]/10 border-[#E3E6EB] hover:border-[#00BFA5]" size="sm">
-                                        <Activity size={18} className="mr-3 text-[#00BFA5]" />
-                                        Live Monitoring
-                                    </Button>
-                                </Link>
-                                <Link to="/workers">
-                                    <Button variant="outline" className="w-full justify-start py-3 hover:bg-[#3B82F6]/10 border-[#E3E6EB] hover:border-[#3B82F6] hover:text-[#3B82F6]" size="sm">
-                                        <Users size={18} className="mr-3 text-[#3B82F6]" />
-                                        Manage Workers
-                                    </Button>
-                                </Link>
-                                <Link to="/reports">
-                                    <Button variant="outline" className="w-full justify-start py-3 hover:bg-[#F59E0B]/10 border-[#E3E6EB] hover:border-[#F59E0B] hover:text-[#F59E0B]" size="sm">
-                                        <TrendingUp size={18} className="mr-3 text-[#F59E0B]" />
-                                        View Reports
-                                    </Button>
-                                </Link>
-                            </div>
+                            )}
                         </CardBody>
                     </CardDark>
                 </div>
@@ -386,7 +368,7 @@ export const Dashboard = () => {
                         <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
                             <AlertTriangle className="h-10 w-10 text-red-500" />
                         </div>
-                        <h3 className="text-xl font-bold text-[#1F2937] mb-2">System-Wide Emergency</h3>
+                        <h3 className="text-xl font-bold text-[#1F2937] mb-2">{t('dashboard.systemWideEmergency')}</h3>
                         <p className="text-[#4B5563]">
                             This will broadcast an emergency alert to all {activeWorkers} active workers
                             and notify all emergency response teams.
@@ -420,7 +402,7 @@ export const Dashboard = () => {
                         <div className="flex items-start gap-3">
                             <AlertTriangle className="h-5 w-5 text-yellow-600 flex-shrink-0 mt-0.5" />
                             <div>
-                                <h4 className="text-sm font-bold text-yellow-700 mb-1">Important Notice</h4>
+                                <h4 className="text-sm font-bold text-yellow-700 mb-1">{t('dashboard.importantNotice')}</h4>
                                 <p className="text-xs text-yellow-800 leading-relaxed">
                                     By activating this emergency alert, you acknowledge that this action is your <strong>full responsibility</strong>.
                                     False or prank emergency activations may result in <strong>disciplinary action, termination,
@@ -437,14 +419,14 @@ export const Dashboard = () => {
                             className="flex-1"
                             onClick={() => setShowEmergencyModal(false)}
                         >
-                            Cancel
+                            {t('nav.cancel')}
                         </Button>
                         <Button
                             variant="danger"
                             className="flex-1 font-bold"
                             onClick={handleActivateEmergency}
                         >
-                            I UNDERSTAND, ACTIVATE
+                            {t('dashboard.iUnderstandActivate')}
                         </Button>
                     </div>
                 </div>

@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../context/SocketContext';
+import { useLanguage } from '../../context/LanguageContext';
 import { cn } from '../../utils/cn';
 
 export const Sidebar = () => {
@@ -27,23 +28,24 @@ export const Sidebar = () => {
     const location = useLocation();
     const { isAdmin, isHeadAdmin, userRole } = useAuth();
     const { emergencyAlerts } = useSocket();
+    const { t } = useLanguage();
 
     // Count pending emergencies
     const pendingEmergencies = emergencyAlerts.filter(e => !e.acknowledged && e.status !== 'Resolved').length;
 
     // Menu items with minimum role required
     const menuItems = [
-        { name: 'Dashboard', icon: LayoutDashboard, path: '/', minRole: 'Safety Officer' },
-        { name: 'Live Monitoring', icon: Activity, path: '/live-monitoring', minRole: 'Safety Officer' },
-        { name: 'Workers', icon: Users, path: '/workers', minRole: 'Safety Officer' },
-        { name: 'Devices', icon: Radio, path: '/devices', minRole: 'Safety Officer' },
-        { name: 'Alerts', icon: AlertTriangle, path: '/alerts', minRole: 'Safety Officer', badge: pendingEmergencies },
-        { name: 'Incidents', icon: FileText, path: '/incidents', minRole: 'Safety Officer' },
-        { name: 'Reports', icon: BarChart3, path: '/reports', minRole: 'Safety Officer' },
-        { name: 'Nudge Logs', icon: Bell, path: '/nudge-logs', minRole: 'Safety Officer' },
-        { name: 'Emergency Contacts', icon: Phone, path: '/emergency-contacts', minRole: 'Admin' },
-        { name: 'User Management', icon: Users, path: '/admin/users', minRole: 'Head Admin' },
-        { name: 'System Settings', icon: Settings, path: '/admin', minRole: 'Head Admin' },
+        { name: t('sidebar.dashboard'), icon: LayoutDashboard, path: '/', minRole: 'Safety Officer' },
+        { name: t('sidebar.liveMonitoring'), icon: Activity, path: '/live-monitoring', minRole: 'Safety Officer' },
+        { name: t('sidebar.workers'), icon: Users, path: '/workers', minRole: 'Safety Officer' },
+        { name: t('sidebar.devices'), icon: Radio, path: '/devices', minRole: 'Safety Officer' },
+        { name: t('sidebar.alerts'), icon: AlertTriangle, path: '/alerts', minRole: 'Safety Officer', badge: pendingEmergencies },
+        { name: t('sidebar.incidents'), icon: FileText, path: '/incidents', minRole: 'Safety Officer' },
+        { name: t('sidebar.reports'), icon: BarChart3, path: '/reports', minRole: 'Safety Officer' },
+        { name: t('sidebar.nudgeLogs'), icon: Bell, path: '/nudge-logs', minRole: 'Safety Officer' },
+        { name: t('sidebar.emergencyContacts'), icon: Phone, path: '/emergency-contacts', minRole: 'Admin' },
+        { name: t('sidebar.userManagement'), icon: Users, path: '/admin/users', minRole: 'Head Admin' },
+        { name: t('sidebar.systemSettings'), icon: Settings, path: '/admin', minRole: 'Head Admin' },
     ];
 
     // Role hierarchy for filtering
@@ -90,7 +92,7 @@ export const Sidebar = () => {
                     {!collapsed && (
                         <div className="flex-1 min-w-0">
                             <h1 className="text-lg font-bold text-[#1F2937]">GuardWell</h1>
-                            <p className="text-xs text-[#6B7280]">Safety Monitoring</p>
+                            <p className="text-xs text-[#6B7280]">{t('sidebar.safetyMonitoring')}</p>
                         </div>
                     )}
                 </div>
@@ -162,7 +164,7 @@ export const Sidebar = () => {
                             )}
                         >
                             <BookOpen size={13} />
-                            Manual
+                            {t('sidebar.manual')}
                         </Link>
                         <span className="text-[#D1D5DB]">|</span>
                         <Link
@@ -175,7 +177,7 @@ export const Sidebar = () => {
                             )}
                         >
                             <FileCheck size={13} />
-                            Terms
+                            {t('sidebar.terms')}
                         </Link>
                     </div>
                     <p className="text-xs text-[#6B7280] text-center font-medium tracking-wider uppercase">
@@ -189,4 +191,3 @@ export const Sidebar = () => {
         </div>
     );
 };
-

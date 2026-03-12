@@ -5,6 +5,7 @@ import { SocketProvider } from './context/SocketContext';
 import { ToastProvider } from './context/ToastContext';
 import { EmergencyPanelProvider, useEmergencyPanel } from './context/EmergencyPanelContext';
 import { RefreshProvider } from './context/RefreshContext';
+import { LanguageProvider } from './context/LanguageContext';
 import { ProtectedRoute } from './routes/ProtectedRoute';
 import { Navbar } from './components/layout/Navbar';
 import { Sidebar } from './components/layout/Sidebar';
@@ -69,6 +70,7 @@ const LayoutWrapper = ({ children }) => {
 function App() {
     return (
         <BrowserRouter>
+            <LanguageProvider>
             <AuthProvider>
                 <SocketProvider>
                     <ToastProvider>
@@ -266,6 +268,7 @@ function App() {
                     </ToastProvider>
                 </SocketProvider>
             </AuthProvider>
+            </LanguageProvider>
         </BrowserRouter>
     );
 }
