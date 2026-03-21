@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useMemo } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Circle, Polygon, Tooltip, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -31,38 +31,6 @@ const icons = {
     outside: createIcon('violet')
 };
 
-// ── Pulsing GPS "You Are Here" icon ──
-const gpsIcon = L.divIcon({
-    className: 'gps-pulse-icon',
-    html: `
-        <div style="position:relative;width:40px;height:40px;">
-            <div style="
-                position:absolute;top:50%;left:50%;
-                width:16px;height:16px;
-                margin:-8px 0 0 -8px;
-                background:#4285F4;
-                border:3px solid #fff;
-                border-radius:50%;
-                box-shadow:0 0 6px rgba(66,133,244,0.6);
-                z-index:2;
-            "></div>
-            <div style="
-                position:absolute;top:50%;left:50%;
-                width:40px;height:40px;
-                margin:-20px 0 0 -20px;
-                background:rgba(66,133,244,0.18);
-                border:2px solid rgba(66,133,244,0.35);
-                border-radius:50%;
-                z-index:1;
-                animation:gpsPulse 2s ease-out infinite;
-            "></div>
-        </div>
-    `,
-    iconSize: [40, 40],
-    iconAnchor: [20, 20],
-    popupAnchor: [0, -20]
-});
-
 // ── Hazardous zone bounding box around the coordinate ──
 const HAZARDOUS_ZONE = [
     [14.705600, 121.034600],
@@ -71,29 +39,73 @@ const HAZARDOUS_ZONE = [
     [14.705300, 121.034600],
 ];
 
-// ── Inject pulse animation CSS ──
-const pulseStyleId = 'gps-pulse-keyframes';
-if (typeof document !== 'undefined' && !document.getElementById(pulseStyleId)) {
-    const style = document.createElement('style');
-    style.id = pulseStyleId;
-    style.textContent = `
-        @keyframes gpsPulse {
-            0%   { transform: scale(0.5); opacity: 1; }
-            100% { transform: scale(2.2); opacity: 0; }
+// ── Tile layer configs ──
+const TILE_LAYERS = {
+    satellite: {
+        url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+        attribution: '&copy; <a href="https://www.esri.com/">Esri</a> — World Imagery',
+        maxZoom: 20,
+    },
+    vector: {
+        url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>',
+        maxZoom: 20,
+    },
+};
+
+// ── Component to fly to a focused device ──
+function FocusController({ focusDeviceId, workers, markerRefs, geofenceCenter }) {
+    const map = useMap();
+
+    useEffect(() => {
+        if (!focusDeviceId) return;
+
+        const worker = workers.find(w => w.deviceId === focusDeviceId);
+        if (worker?.sensors?.latitude && worker?.sensors?.longitude) {
+            const lat = parseFloat(worker.sensors.latitude);
+            const lng = parseFloat(worker.sensors.longitude);
+            if (lat !== 0 || lng !== 0) {
+                // If device is outside geofence, zoom out more so user can see both
+                // the geofence boundary and the device position
+                const isOutside = worker.sensors?.geofenceViolation;
+                if (isOutside && geofenceCenter) {
+                    // Fit bounds to show both the device and the geofence center
+                    const bounds = L.latLngBounds([geofenceCenter, [lat, lng]]);
+                    map.flyToBounds(bounds.pad(0.3), { duration: 1.2, maxZoom: 17 });
+                } else {
+                    map.flyTo([lat, lng], 19, { duration: 1.2 });
+                }
+
+                // Open the marker popup after the fly animation
+                setTimeout(() => {
+                    const ref = markerRefs.current?.[focusDeviceId];
+                    if (ref) ref.openPopup();
+                }, 1300);
+            }
         }
-        .gps-pulse-icon { background: none !important; border: none !important; }
-    `;
-    document.head.appendChild(style);
+    }, [focusDeviceId, workers, map, markerRefs, geofenceCenter]);
+
+    return null;
 }
 
-// ── Component to recenter map ──
-function MapController({ center, zoom }) {
+// ── Component to fit all markers on the map ──
+function FitAllController({ workers, trigger, geofenceCenter }) {
     const map = useMap();
+
     useEffect(() => {
-        if (center) {
-            map.setView(center, zoom || map.getZoom());
+        if (!trigger) return;
+        const points = workers
+            .filter(w => w.sensors?.latitude && w.sensors?.longitude)
+            .map(w => [parseFloat(w.sensors.latitude), parseFloat(w.sensors.longitude)]);
+
+        if (geofenceCenter) points.push(geofenceCenter);
+
+        if (points.length > 0) {
+            const bounds = L.latLngBounds(points);
+            map.flyToBounds(bounds.pad(0.2), { duration: 1.2, maxZoom: 18 });
         }
-    }, [center, zoom, map]);
+    }, [trigger, workers, map, geofenceCenter]);
+
     return null;
 }
 
@@ -117,20 +129,6 @@ function HazardousZoneOverlay() {
     );
 }
 
-// ── Tile layer configs ──
-const TILE_LAYERS = {
-    satellite: {
-        url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-        attribution: '&copy; <a href="https://www.esri.com/">Esri</a> — World Imagery',
-        maxZoom: 20,
-    },
-    vector: {
-        url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>',
-        maxZoom: 20,
-    },
-};
-
 // ══════════════════════════════════════════
 // Main LocationMap component
 // ══════════════════════════════════════════
@@ -138,15 +136,26 @@ export function LocationMap({
     workers,
     geofenceCenter,
     geofenceRadius = 100,
-    mapStyle = 'satellite',  // 'satellite' | 'vector'
+    mapStyle = 'satellite',
+    focusDeviceId = null,    // deviceId to fly to
+    onMarkerClick = null,    // callback(deviceId)
+    fitAllTrigger = 0,       // increment to trigger fit-all
 }) {
     const mapCenter = geofenceCenter || FACILITY_CENTER;
     const tileConfig = TILE_LAYERS[mapStyle] || TILE_LAYERS.satellite;
+    const markerRefs = useRef({});
 
-    // Show ALL workers with coordinates — no gpsValid filter
-    const workersWithGPS = workers.filter(w =>
-        w.sensors?.latitude != null && w.sensors?.longitude != null
-    );
+    // Show only workers with VALID, non-zero GPS coordinates
+    const workersWithGPS = useMemo(() =>
+        workers.filter(w => {
+            const lat = parseFloat(w.sensors?.latitude);
+            const lng = parseFloat(w.sensors?.longitude);
+            // Must have coordinates, must not be (0,0), and should have valid GPS
+            return w.sensors?.latitude != null &&
+                   w.sensors?.longitude != null &&
+                   !(lat === 0 && lng === 0) &&
+                   !isNaN(lat) && !isNaN(lng);
+        }), [workers]);
 
     const getMarkerIcon = (worker) => {
         if (worker.sensors?.geofenceViolation) return icons.outside;
@@ -187,14 +196,14 @@ export function LocationMap({
                 {/* Hazardous Zone Overlay */}
                 <HazardousZoneOverlay />
 
-                {/* "You Are Here" GPS Pin — always visible */}
-                <Marker position={FACILITY_CENTER} icon={gpsIcon}>
+                {/* Facility Center Marker (non-GPS reference point) */}
+                <Marker position={FACILITY_CENTER} icon={icons.normal} opacity={0.5}>
                     <Popup>
-                        <div className="text-sm" style={{ minWidth: 200 }}>
-                            <strong style={{ fontSize: 14, color: '#1e293b' }}>📍 You Are Here</strong>
+                        <div className="text-sm" style={{ minWidth: 180 }}>
+                            <strong style={{ fontSize: 14, color: '#1e293b' }}>📍 Facility Center</strong>
                             <hr style={{ margin: '6px 0', borderColor: '#e2e8f0' }} />
                             <div style={{ color: '#475569', lineHeight: 1.5 }}>
-                                Hazardous Zone Center<br />
+                                Geofence Reference Point<br />
                                 14°42'19.8"N 121°02'05.2"E
                             </div>
                             <div style={{ marginTop: 6, fontSize: 11, color: '#94a3b8' }}>
@@ -204,7 +213,7 @@ export function LocationMap({
                     </Popup>
                 </Marker>
 
-                {/* Worker Markers */}
+                {/* Worker Markers — only real GPS data */}
                 {workersWithGPS.map((worker) => (
                     <Marker
                         key={worker.id}
@@ -213,6 +222,10 @@ export function LocationMap({
                             parseFloat(worker.sensors.longitude)
                         ]}
                         icon={getMarkerIcon(worker)}
+                        ref={(ref) => { if (ref) markerRefs.current[worker.deviceId] = ref; }}
+                        eventHandlers={{
+                            click: () => onMarkerClick?.(worker.deviceId),
+                        }}
                     >
                         <Popup>
                             <div className="text-sm min-w-[150px]">
@@ -223,6 +236,9 @@ export function LocationMap({
                                     <div>📍 {parseFloat(worker.sensors.latitude).toFixed(6)}, {parseFloat(worker.sensors.longitude).toFixed(6)}</div>
                                     {worker.sensors?.gpsSpeed > 0 && (
                                         <div>🚗 {worker.sensors.gpsSpeed.toFixed(1)} km/h</div>
+                                    )}
+                                    {worker.sensors?.satellites > 0 && (
+                                        <div>🛰️ {worker.sensors.satellites} satellites</div>
                                     )}
                                     {worker.sensors?.geofenceViolation && (
                                         <div className="text-red-600 font-bold">⚠️ OUTSIDE SAFE ZONE</div>
@@ -238,7 +254,20 @@ export function LocationMap({
                     </Marker>
                 ))}
 
-                <MapController center={mapCenter} zoom={18} />
+                {/* Fly-to controller for Locate button */}
+                <FocusController
+                    focusDeviceId={focusDeviceId}
+                    workers={workersWithGPS}
+                    markerRefs={markerRefs}
+                    geofenceCenter={mapCenter}
+                />
+
+                {/* Fit-all controller */}
+                <FitAllController
+                    workers={workersWithGPS}
+                    trigger={fitAllTrigger}
+                    geofenceCenter={mapCenter}
+                />
             </MapContainer>
         </div>
     );

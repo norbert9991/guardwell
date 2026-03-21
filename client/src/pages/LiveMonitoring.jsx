@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Activity, Thermometer, Wind, Droplets, Battery, Signal, User, Shield, Radio, AlertTriangle, CheckCircle, X, Eye, Clock, Bell, ShieldCheck, Mic, Map, Grid, MapPin, Globe, Layers } from 'lucide-react';
+import { Activity, Thermometer, Wind, Droplets, Battery, Signal, User, Shield, Radio, AlertTriangle, CheckCircle, X, Eye, Clock, Bell, ShieldCheck, Mic, Map, Grid, MapPin, Globe, Layers, Navigation2 } from 'lucide-react';
 import { CardDark, CardBody } from '../components/ui/Card';
 import { MetricCard } from '../components/ui/MetricCard';
 import { Badge } from '../components/ui/Badge';
@@ -27,6 +27,8 @@ export const LiveMonitoring = () => {
     const [recentAcks, setRecentAcks] = useState([]);             // Recent acknowledged nudges for popup
     const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'map'
     const [mapStyle, setMapStyle] = useState('satellite'); // 'satellite' or 'vector'
+    const [focusDeviceId, setFocusDeviceId] = useState(null); // device to fly to on map
+    const [fitAllTrigger, setFitAllTrigger] = useState(0); // increment to trigger fit-all
     const toast = useToast();
 
     // Fetch devices from API
@@ -568,15 +570,99 @@ export const LiveMonitoring = () => {
                             </div>
                         </div>
                     </div>
-                    <LocationMap
-                        workers={filteredWorkers.map(w => ({
-                            ...w,
-                            deviceId: w.device
-                        }))}
-                        geofenceCenter={[14.705493, 121.034774]}
-                        geofenceRadius={100}
-                        mapStyle={mapStyle}
-                    />
+
+                    {/* Map + Device List side by side */}
+                    <div className="flex gap-4">
+                        {/* Map */}
+                        <div className="flex-1">
+                            <LocationMap
+                                workers={filteredWorkers.map(w => ({
+                                    ...w,
+                                    deviceId: w.device
+                                }))}
+                                geofenceCenter={[14.705493, 121.034774]}
+                                geofenceRadius={100}
+                                mapStyle={mapStyle}
+                                focusDeviceId={focusDeviceId}
+                                onMarkerClick={(deviceId) => setFocusDeviceId(deviceId)}
+                                fitAllTrigger={fitAllTrigger}
+                            />
+                        </div>
+
+                        {/* Device List - Locate Sidebar */}
+                        <div className="w-72 bg-white border border-[#E3E6EB] rounded-xl shadow-sm overflow-hidden flex flex-col" style={{ height: 500 }}>
+                            <div className="p-3 border-b border-[#E3E6EB] bg-[#EEF1F4] flex items-center justify-between">
+                                <h3 className="font-semibold text-sm text-[#1F2937] flex items-center gap-2">
+                                    <Navigation2 size={16} className="text-[#6FA3D8]" />
+                                    Devices ({filteredWorkers.length})
+                                </h3>
+                                <button
+                                    onClick={() => {
+                                        setFocusDeviceId(null);
+                                        setFitAllTrigger(prev => prev + 1);
+                                    }}
+                                    className="text-xs px-2.5 py-1 rounded-md font-medium bg-white border border-[#E3E6EB] text-[#4B5563] hover:bg-[#6FA3D8] hover:text-white hover:border-[#6FA3D8] transition-all"
+                                >
+                                    Show All
+                                </button>
+                            </div>
+                            <div className="flex-1 overflow-y-auto p-2 space-y-2">
+                                {filteredWorkers.map((worker) => {
+                                    const hasValidGPS = worker.sensors.latitude != null &&
+                                        worker.sensors.longitude != null &&
+                                        worker.sensors.gpsValid &&
+                                        !(parseFloat(worker.sensors.latitude) === 0 && parseFloat(worker.sensors.longitude) === 0);
+
+                                    return (
+                                        <div
+                                            key={worker.id}
+                                            className={`p-3 rounded-lg border transition-all ${
+                                                focusDeviceId === worker.device
+                                                    ? 'border-[#6FA3D8] bg-[#6FA3D8]/10'
+                                                    : 'border-[#E3E6EB] hover:border-[#6FA3D8]/50 hover:bg-[#EEF1F4]'
+                                            }`}
+                                        >
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <div className={`w-2 h-2 rounded-full ${
+                                                    worker.status === 'critical' ? 'bg-red-500' :
+                                                    worker.status === 'warning' ? 'bg-orange-500' :
+                                                    worker.status === 'offline' ? 'bg-gray-400' : 'bg-green-500'
+                                                }`} />
+                                                <span className="text-sm font-medium text-[#1F2937] truncate flex-1">{worker.name}</span>
+                                                <span className="text-xs text-[#6B7280]">{worker.device}</span>
+                                            </div>
+                                            <div className="flex items-center justify-between">
+                                                <span className={`text-xs px-2 py-0.5 rounded ${
+                                                    hasValidGPS
+                                                        ? 'bg-green-50 text-green-600'
+                                                        : 'bg-yellow-50 text-yellow-600'
+                                                }`}>
+                                                    {hasValidGPS ? '✓ GPS Fix' : '⏳ No GPS'}
+                                                </span>
+                                                <button
+                                                    onClick={() => setFocusDeviceId(worker.device)}
+                                                    disabled={!hasValidGPS}
+                                                    className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-all flex items-center gap-1.5 ${
+                                                        hasValidGPS
+                                                            ? 'bg-[#6FA3D8] text-white hover:bg-[#5A8FC4] cursor-pointer'
+                                                            : 'bg-[#E3E6EB] text-[#9CA3AF] cursor-not-allowed'
+                                                    }`}
+                                                >
+                                                    <MapPin size={12} />
+                                                    Locate
+                                                </button>
+                                            </div>
+                                            {hasValidGPS && (
+                                                <div className="mt-2 text-xs text-[#6B7280] font-mono">
+                                                    {parseFloat(worker.sensors.latitude).toFixed(6)}, {parseFloat(worker.sensors.longitude).toFixed(6)}
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    </div>
                 </div>
             )}
 

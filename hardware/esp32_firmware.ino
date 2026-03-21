@@ -13,8 +13,8 @@
 // ============================================
 // CONFIGURATION
 // ============================================
-const char* WIFI_SSID = "norbert";
-const char* WIFI_PASSWORD = "999999999";
+const char* WIFI_SSID = "infi";
+const char* WIFI_PASSWORD = "12345678";
 const char* SERVER_URL = "https://guardwell.onrender.com/api/sensors/data";
 const char* NUDGE_URL  = "https://guardwell.onrender.com/api/sensors/nudge/DEV-001";
 const char* NUDGE_ACK  = "https://guardwell.onrender.com/api/sensors/nudge/DEV-001/ack";
@@ -79,18 +79,18 @@ float hannWindow[FFT_SIZE];
 
 // --- TUNABLE THRESHOLDS ---
 // Adjust these for your specific industrial environment!
-float VOICE_BAND_RATIO_THRESHOLD = 0.40;  // Min ratio of voice-band energy to total (higher = stricter)
-float SFM_THRESHOLD              = 0.45;  // Max spectral flatness for human voice (lower = stricter)
-float RMS_THRESHOLD              = 800.0; // Min RMS amplitude to consider (filters silence)
-float ONSET_THRESHOLD            = 2.5;   // Amplitude burst ratio (current vs. baseline)
+// Current: HIGH SENSITIVITY for detecting human voice at a distance
+float VOICE_BAND_RATIO_THRESHOLD = 0.30;  // Min ratio of voice-band energy to total (lower = more sensitive)
+float SFM_THRESHOLD              = 0.50;  // Max spectral flatness for human voice (higher = more sensitive)
+float RMS_THRESHOLD              = 200.0; // Min RMS amplitude to consider (lower = picks up quieter sounds)
+float ONSET_THRESHOLD            = 1.0;   // Effectively disabled — spectral features (SFM+BandR) handle classification
 unsigned long DETECTION_COOLDOWN = 3000;  // Cooldown between detections (ms)
 
 // Running state
 float baselineRMS = 0.0;
 unsigned long lastDetectionTime = 0;
 bool soundAlertTriggered = false;
-int consecutiveDetections = 0;
-const int REQUIRED_CONSECUTIVE = 2; // Require 2 consecutive positive frames to trigger
+
 
 // ============================================
 // VARIABLES
@@ -538,7 +538,6 @@ void handleSoundDetection() {
 
   // Skip analysis if too quiet (below noise floor)
   if (rms < RMS_THRESHOLD) {
-    consecutiveDetections = 0;
     return;
   }
 
@@ -614,29 +613,22 @@ void handleSoundDetection() {
                   isHumanSound ? "<< HUMAN" : "");
   }
 
-  // --- 9. Trigger with consecutive frame requirement + cooldown ---
-  if (isHumanSound) {
-    consecutiveDetections++;
-    if (consecutiveDetections >= REQUIRED_CONSECUTIVE &&
-        (millis() - lastDetectionTime > DETECTION_COOLDOWN)) {
-      lastDetectionTime = millis();
-      consecutiveDetections = 0;
+  // --- 9. Trigger with cooldown ---
+  if (isHumanSound && (millis() - lastDetectionTime > DETECTION_COOLDOWN)) {
+    lastDetectionTime = millis();
 
-      Serial.println("\n🎤 ============================================");
-      Serial.println("🎤  HUMAN SOUND DETECTED IN INDUSTRIAL ZONE!");
-      Serial.printf("🎤  RMS=%.0f, BandRatio=%.2f, SFM=%.3f, Onset=%.1f\n",
-                    rms, voiceBandRatio, sfm, onsetRatio);
-      Serial.println("🎤 ============================================\n");
+    Serial.println("\n🎤 ============================================");
+    Serial.println("🎤  HUMAN SOUND DETECTED IN INDUSTRIAL ZONE!");
+    Serial.printf("🎤  RMS=%.0f, BandRatio=%.2f, SFM=%.3f, Onset=%.1f\n",
+                  rms, voiceBandRatio, sfm, onsetRatio);
+    Serial.println("🎤 ============================================\n");
 
-      // Activate buzzer alert
-      lastVoiceCommand = "human_detected";
-      voiceAlertTriggered = true;
-      soundAlertTriggered = true;
-      triggerAlert(800);  // 800ms buzzer burst
-      sendVoiceAlert("human_distress");
-    }
-  } else {
-    consecutiveDetections = 0;
+    // Activate buzzer alert
+    lastVoiceCommand = "human_detected";
+    voiceAlertTriggered = true;
+    soundAlertTriggered = true;
+    triggerAlert(800);  // 800ms buzzer burst
+    sendVoiceAlert("human_distress");
   }
 }
 
