@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { AlertTriangle, User, Radio, Clock, CheckCircle, Phone, Shield, Mic, Loader2 } from 'lucide-react';
 import { Button } from './ui/Button';
 import { useSocket } from '../context/SocketContext';
@@ -6,10 +6,13 @@ import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { alertsApi } from '../utils/api';
 
+const STORAGE_KEY = 'guardwell_global_emergency_enabled';
+
 /**
  * Global Emergency Alert Overlay
  * Displays system-wide when any emergency button is triggered.
  * Blocks all user interaction until emergencies are acknowledged.
+ * Can be disabled in System Settings > Notification Settings.
  */
 export const GlobalEmergencyAlert = () => {
     const { emergencyAlerts, hasActiveEmergency, acknowledgeEmergency } = useSocket();
@@ -18,8 +21,24 @@ export const GlobalEmergencyAlert = () => {
     const [loading, setLoading] = useState({});
     const navigate = useNavigate();
 
-    // Don't render anything if no active emergencies
-    if (!hasActiveEmergency) return null;
+    // Read toggle from localStorage (defaults to enabled)
+    const [overlayEnabled, setOverlayEnabled] = useState(() => {
+        const stored = localStorage.getItem(STORAGE_KEY);
+        return stored === null ? true : stored === 'true';
+    });
+
+    // Listen for storage changes so toggling in Settings updates this in real-time
+    useEffect(() => {
+        const handleStorageChange = () => {
+            const stored = localStorage.getItem(STORAGE_KEY);
+            setOverlayEnabled(stored === null ? true : stored === 'true');
+        };
+        window.addEventListener('storage', handleStorageChange);
+        return () => window.removeEventListener('storage', handleStorageChange);
+    }, []);
+
+    // Don't render if overlay is disabled or no active emergencies
+    if (!overlayEnabled || !hasActiveEmergency) return null;
 
     const unacknowledgedEmergencies = emergencyAlerts.filter(e => !e.acknowledged);
 
