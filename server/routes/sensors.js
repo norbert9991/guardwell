@@ -11,16 +11,9 @@ const THRESHOLDS = {
     battery: { low: 20 }
 };
 
-// Voice/Sound alert type mapping
-// INMP441: human_distress (FFT-based human sound detection in industrial zones)
-// DFRobot DF2301Q: Tagalog voice commands (legacy, kept for compatibility)
+// Voice alert type mapping (INMP441 human sound detection)
 const VOICE_ALERT_TYPES = {
-    human_distress: { name: 'Sound Alert - Human Detected', severity: 'Critical', tagalog: 'Tao Nakita' },
-    help: { name: 'Voice Alert - Help', severity: 'Critical', tagalog: 'Tulong' },
-    emergency: { name: 'Voice Alert - Emergency', severity: 'Critical', tagalog: 'Emergency' },
-    fall_shock: { name: 'Voice Alert - Fall/Shock', severity: 'Critical', tagalog: 'Aray' },
-    call_nurse: { name: 'Voice Alert - Call Nurse', severity: 'High', tagalog: 'Tawag' },
-    pain: { name: 'Voice Alert - Pain', severity: 'High', tagalog: 'Sakit' }
+    human_distress: { name: 'Voice Alert - Human Detected', severity: 'Critical', tagalog: 'Tao Nakita' },
 };
 
 // Process sensor data and check for alerts
@@ -84,7 +77,7 @@ const processSensorData = async (data, io) => {
             });
         }
 
-        // Sound/Voice alert (INMP441 human detection or DFRobot voice commands)
+        // Voice alert (INMP441 human sound detection)
         if (data.voice_alert && data.alert_type) {
             const voiceAlertInfo = VOICE_ALERT_TYPES[data.alert_type];
             if (voiceAlertInfo) {
@@ -217,7 +210,7 @@ const processSensorData = async (data, io) => {
                 });
 
                 // Queue emergency buzzer for all other devices (Emergency Button or Voice Alert)
-                if (alert.type === 'Emergency Button' || alert.type.startsWith('Voice Alert') || alert.type.startsWith('Sound Alert')) {
+                if (alert.type === 'Emergency Button' || alert.type.startsWith('Voice Alert')) {
                     await queueEmergencyBuzzer(data.device_id, workerName, alert.type);
                 }
 

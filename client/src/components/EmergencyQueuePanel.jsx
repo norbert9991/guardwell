@@ -391,9 +391,9 @@ export const EmergencyQueuePanel = () => {
                                             </button>
 
                                             {/* Icon */}
-                                            <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${emergency.type?.includes('Voice Alert') || emergency.type?.includes('Sound Alert') ? 'bg-[#6FA3D8]/20' : 'bg-[#E85D2A]/20'
+                                            <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${emergency.type?.includes('Voice Alert') ? 'bg-[#6FA3D8]/20' : 'bg-[#E85D2A]/20'
                                                 }`}>
-                                                {emergency.type?.includes('Voice Alert') || emergency.type?.includes('Sound Alert') ? (
+                                                {emergency.type?.includes('Voice Alert') ? (
                                                     <Mic size={18} className="text-[#6FA3D8]" />
                                                 ) : (
                                                     <AlertTriangle size={18} className="text-[#E85D2A]" />

@@ -23,6 +23,60 @@ export const GlobalEmergencyAlert = () => {
 
     const unacknowledgedEmergencies = emergencyAlerts.filter(e => !e.acknowledged);
 
+    // Determine alert category for styling
+    const getAlertCategory = (type) => {
+        if (type?.includes('Voice Alert')) return 'voice';     // INMP441 human detection
+        return 'emergency';                                     // Emergency Button, Gas, Fall, etc.
+    };
+
+    // Category-specific styles
+    const categoryStyles = {
+        voice: {
+            iconBg: 'bg-purple-500/30',
+            iconColor: 'text-purple-400',
+            textColor: 'text-purple-400',
+            badgeBg: 'bg-purple-500/20 border-purple-500',
+            badgeText: 'text-purple-300',
+            borderColor: 'border-purple-500',
+            gradientFrom: 'from-purple-900/40',
+            gradientTo: 'to-purple-800/20',
+            shadowColor: 'shadow-purple-500/20',
+        },
+        emergency: {
+            iconBg: 'bg-red-500/30',
+            iconColor: 'text-red-400',
+            textColor: 'text-red-400',
+            badgeBg: 'bg-red-500/20 border-red-500',
+            badgeText: 'text-red-300',
+            borderColor: 'border-red-500',
+            gradientFrom: 'from-red-900/40',
+            gradientTo: 'to-red-800/20',
+            shadowColor: 'shadow-red-500/20',
+        },
+    };
+
+    // Category-specific icon
+    const getCategoryIcon = (category) => {
+        switch (category) {
+            case 'voice': return <Mic className="h-9 w-9 text-purple-400" />;
+            default:      return <User className="h-9 w-9 text-red-400" />;
+        }
+    };
+
+    // Human-readable description for voice alerts
+    const getAlertDescription = (emergency, category) => {
+        if (category === 'voice') {
+            if (emergency.type?.includes('Human Detected')) {
+                return 'Human voice detected in industrial zone — possible distress signal';
+            }
+            if (emergency.voice_command) {
+                const cmd = emergency.voice_command.split('_')[0];
+                return `Worker called: "${cmd.charAt(0).toUpperCase() + cmd.slice(1)}"`;
+            }
+        }
+        return null;
+    };
+
     const handleAcknowledge = async (emergency) => {
         setLoading(prev => ({ ...prev, [emergency.id]: true }));
         try {
@@ -69,72 +123,75 @@ export const GlobalEmergencyAlert = () => {
 
                 {/* Emergency Cards */}
                 <div className="space-y-4 max-h-[50vh] overflow-y-auto">
-                    {unacknowledgedEmergencies.map((emergency) => (
-                        <div
-                            key={emergency.id || `${emergency.device}-${emergency.timestamp}`}
-                            className="bg-gradient-to-r from-red-900/40 to-red-800/20 border-2 border-red-500 rounded-xl p-6 shadow-lg shadow-red-500/20"
-                        >
-                            <div className="flex items-start justify-between gap-4">
-                                <div className="flex items-center gap-4">
-                                    <div className={`w-16 h-16 ${emergency.type?.includes('Voice Alert') ? 'bg-purple-500/30' : 'bg-red-500/30'} rounded-full flex items-center justify-center animate-pulse`}>
-                                        {emergency.type?.includes('Voice Alert')
-                                            ? <Mic className="h-9 w-9 text-purple-400" />
-                                            : <User className="h-9 w-9 text-red-400" />
-                                        }
-                                    </div>
-                                    <div>
-                                        <h3 className="text-2xl font-bold text-white">
-                                            {emergency.worker_name || 'Unknown Worker'}
-                                        </h3>
-                                        <p className={`${emergency.type?.includes('Voice Alert') ? 'text-purple-400' : 'text-red-400'} font-semibold text-lg`}>
-                                            {emergency.type || 'Emergency Button Pressed'}
-                                        </p>
-                                        {/* Voice Command Badge */}
-                                        {emergency.voice_command && (
-                                            <div className="mt-2 inline-flex items-center gap-2 bg-purple-500/20 border border-purple-500 px-3 py-1.5 rounded-lg">
-                                                <Mic size={14} className="text-purple-400" />
-                                                <span className="text-purple-300 font-semibold">
-                                                    🎤 Voice: "{emergency.voice_command?.split('_')[0]?.toUpperCase()}"
+                    {unacknowledgedEmergencies.map((emergency) => {
+                        const category = getAlertCategory(emergency.type);
+                        const styles = categoryStyles[category];
+                        const description = getAlertDescription(emergency, category);
+
+                        return (
+                            <div
+                                key={emergency.id || `${emergency.device}-${emergency.timestamp}`}
+                                className={`bg-gradient-to-r ${styles.gradientFrom} ${styles.gradientTo} border-2 ${styles.borderColor} rounded-xl p-6 shadow-lg ${styles.shadowColor}`}
+                            >
+                                <div className="flex items-start justify-between gap-4">
+                                    <div className="flex items-center gap-4">
+                                        <div className={`w-16 h-16 ${styles.iconBg} rounded-full flex items-center justify-center animate-pulse`}>
+                                            {getCategoryIcon(category)}
+                                        </div>
+                                        <div>
+                                            <h3 className="text-2xl font-bold text-white">
+                                                {emergency.worker_name || 'Unknown Worker'}
+                                            </h3>
+                                            <p className={`${styles.textColor} font-semibold text-lg`}>
+                                                {emergency.type || 'Emergency Button Pressed'}
+                                            </p>
+                                            {/* Context description for voice alerts */}
+                                            {description && (
+                                                <div className={`mt-2 inline-flex items-center gap-2 ${styles.badgeBg} border px-3 py-1.5 rounded-lg`}>
+                                                    <Mic size={14} className="text-purple-400" />
+                                                    <span className={`${styles.badgeText} font-semibold text-sm`}>
+                                                        {description}
+                                                    </span>
+                                                </div>
+                                            )}
+                                            <div className="flex flex-wrap items-center gap-4 mt-2 text-sm text-gray-400">
+                                                <span className="flex items-center gap-1.5 bg-black/30 px-2 py-1 rounded">
+                                                    <Radio size={14} />
+                                                    Device: {emergency.device}
+                                                </span>
+                                                <span className="flex items-center gap-1.5 bg-black/30 px-2 py-1 rounded">
+                                                    <Clock size={14} />
+                                                    {new Date(emergency.timestamp).toLocaleTimeString()}
                                                 </span>
                                             </div>
-                                        )}
-                                        <div className="flex flex-wrap items-center gap-4 mt-2 text-sm text-gray-400">
-                                            <span className="flex items-center gap-1.5 bg-black/30 px-2 py-1 rounded">
-                                                <Radio size={14} />
-                                                Device: {emergency.device}
-                                            </span>
-                                            <span className="flex items-center gap-1.5 bg-black/30 px-2 py-1 rounded">
-                                                <Clock size={14} />
-                                                {new Date(emergency.timestamp).toLocaleTimeString()}
-                                            </span>
                                         </div>
                                     </div>
                                 </div>
-                            </div>
 
-                            {/* Action Buttons */}
-                            <div className="mt-5 flex gap-3">
-                                <Button
-                                    variant="danger"
-                                    className="flex-1 py-3 text-lg font-semibold"
-                                    icon={loading[emergency.id] ? <Loader2 size={20} className="animate-spin" /> : <CheckCircle size={20} />}
-                                    onClick={() => handleAcknowledge(emergency)}
-                                    disabled={loading[emergency.id]}
-                                >
-                                    {loading[emergency.id] ? 'Saving...' : 'Acknowledge'}
-                                </Button>
-                                <Button
-                                    variant="primary"
-                                    className="flex-1 py-3 text-lg font-semibold"
-                                    icon={loading[emergency.id] ? <Loader2 size={20} className="animate-spin" /> : <Shield size={20} />}
-                                    onClick={() => handleAcknowledgeAndNavigate(emergency)}
-                                    disabled={loading[emergency.id]}
-                                >
-                                    Acknowledge & Go to Monitoring
-                                </Button>
+                                {/* Action Buttons */}
+                                <div className="mt-5 flex gap-3">
+                                    <Button
+                                        variant="danger"
+                                        className="flex-1 py-3 text-lg font-semibold"
+                                        icon={loading[emergency.id] ? <Loader2 size={20} className="animate-spin" /> : <CheckCircle size={20} />}
+                                        onClick={() => handleAcknowledge(emergency)}
+                                        disabled={loading[emergency.id]}
+                                    >
+                                        {loading[emergency.id] ? 'Saving...' : 'Acknowledge'}
+                                    </Button>
+                                    <Button
+                                        variant="primary"
+                                        className="flex-1 py-3 text-lg font-semibold"
+                                        icon={loading[emergency.id] ? <Loader2 size={20} className="animate-spin" /> : <Shield size={20} />}
+                                        onClick={() => handleAcknowledgeAndNavigate(emergency)}
+                                        disabled={loading[emergency.id]}
+                                    >
+                                        Acknowledge & Go to Monitoring
+                                    </Button>
+                                </div>
                             </div>
-                        </div>
-                    ))}
+                        );
+                    })}
                 </div>
 
                 {/* Emergency Instructions */}
