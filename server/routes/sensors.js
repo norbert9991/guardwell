@@ -217,7 +217,7 @@ const processSensorData = async (data, io) => {
                 });
 
                 // Queue emergency buzzer for all other devices (Emergency Button or Voice Alert)
-                if (alert.type === 'Emergency Button' || alert.type.startsWith('Voice Alert')) {
+                if (alert.type === 'Emergency Button' || alert.type.startsWith('Voice Alert') || alert.type.startsWith('Sound Alert')) {
                     await queueEmergencyBuzzer(data.device_id, workerName, alert.type);
                 }
 
