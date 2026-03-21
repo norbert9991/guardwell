@@ -50,6 +50,19 @@ export const SystemAdmin = () => {
     const [passwordError, setPasswordError] = useState('');
     const [isExecuting, setIsExecuting] = useState(false);
 
+    // Global Emergency Alert overlay toggle (persisted in localStorage)
+    const [globalEmergencyEnabled, setGlobalEmergencyEnabled] = useState(() => {
+        const stored = localStorage.getItem('guardwell_global_emergency_enabled');
+        return stored === null ? true : stored === 'true';
+    });
+
+    const handleToggleGlobalEmergency = (checked) => {
+        setGlobalEmergencyEnabled(checked);
+        localStorage.setItem('guardwell_global_emergency_enabled', String(checked));
+        window.dispatchEvent(new Event('storage'));
+        toast.success(checked ? 'Global emergency overlay enabled' : 'Global emergency overlay disabled');
+    };
+
     // System settings state
     const [settings, setSettings] = useState({
         alertThresholds: {
@@ -479,6 +492,31 @@ export const SystemAdmin = () => {
                                         ...prev,
                                         notifications: { ...prev.notifications, pushNotifications: e.target.checked }
                                     }))}
+                                    className="sr-only peer"
+                                />
+                                <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-500"></div>
+                            </label>
+                        </div>
+
+                        {/* Global Emergency Alert Overlay Toggle */}
+                        <div className="flex items-center justify-between p-4 bg-[#EEF1F4] rounded-lg border-2 border-dashed border-[#E3E6EB]">
+                            <div>
+                                <h4 className="font-medium text-[#1F2937] flex items-center gap-2">
+                                    <AlertTriangle size={16} className="text-red-500" />
+                                    Global Emergency Alert Overlay
+                                </h4>
+                                <p className="text-sm text-[#4B5563]">Full-screen blocking overlay for emergencies</p>
+                                {!globalEmergencyEnabled && (
+                                    <p className="text-xs text-amber-600 mt-1">
+                                        ⚠ Overlay disabled — alerts still appear in Emergency Queue
+                                    </p>
+                                )}
+                            </div>
+                            <label className="relative inline-flex items-center cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    checked={globalEmergencyEnabled}
+                                    onChange={(e) => handleToggleGlobalEmergency(e.target.checked)}
                                     className="sr-only peer"
                                 />
                                 <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-500"></div>
