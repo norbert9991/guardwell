@@ -1,0 +1,276 @@
+import React from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import { SocketProvider } from './context/SocketContext';
+import { ToastProvider } from './context/ToastContext';
+import { EmergencyPanelProvider, useEmergencyPanel } from './context/EmergencyPanelContext';
+import { RefreshProvider } from './context/RefreshContext';
+import { LanguageProvider } from './context/LanguageContext';
+import { ProtectedRoute } from './routes/ProtectedRoute';
+import { Navbar } from './components/layout/Navbar';
+import { Sidebar } from './components/layout/Sidebar';
+import { GlobalEmergencyAlert } from './components/GlobalEmergencyAlert';
+import { EmergencyQueuePanel } from './components/EmergencyQueuePanel';
+import { SessionTimeoutBanner } from './components/SessionTimeoutBanner';
+import { useInactivityTimeout } from './hooks/useInactivityTimeout';
+
+// Pages
+import { Login } from './pages/Login';
+import { Dashboard } from './pages/Dashboard';
+import { LiveMonitoring } from './pages/LiveMonitoring';
+import { WorkerManagement } from './pages/WorkerManagement';
+import { WorkerProfile } from './pages/WorkerProfile';
+import { DeviceManagement } from './pages/DeviceManagement';
+import { AlertManagement } from './pages/AlertManagement';
+import { IncidentManagement } from './pages/IncidentManagement';
+import { IncidentDetail } from './pages/IncidentDetail';
+import { Reports } from './pages/Reports';
+import { EmergencyContacts } from './pages/EmergencyContacts';
+import { AdminManagement } from './pages/AdminManagement';
+import { AuditLog } from './pages/AuditLog';
+import { SystemAdmin } from './pages/SystemAdmin';
+import { TermsAndConditions } from './pages/TermsAndConditions';
+import { UserManual } from './pages/UserManual';
+import { NudgeLogs } from './pages/NudgeLogs';
+
+// Layout wrapper for authenticated pages - uses EmergencyPanel context
+const LayoutWrapper = ({ children }) => {
+    const { isExpanded } = useEmergencyPanel();
+    const { logout } = useAuth();
+    const { showWarning, secondsLeft, resetTimer } = useInactivityTimeout(logout);
+
+    return (
+        <div className="flex h-screen bg-[#EEF1F4] overflow-hidden" style={{ paddingTop: showWarning ? '48px' : '0' }}>
+            {/* Inactivity timeout banner — fixed above everything */}
+            {showWarning && (
+                <SessionTimeoutBanner
+                    secondsLeft={secondsLeft}
+                    onStayLoggedIn={resetTimer}
+                />
+            )}
+            <div className="relative overflow-visible flex-shrink-0">
+                <Sidebar />
+            </div>
+            <div className="flex-1 flex flex-col overflow-hidden">
+                <Navbar />
+                {/* Dynamic padding based on panel state - smooth transition */}
+                <main
+                    className="flex-1 overflow-y-auto p-6 transition-all duration-300"
+                    style={{ paddingRight: isExpanded ? '400px' : '24px' }}
+                >
+                    {children}
+                </main>
+            </div>
+            {/* Emergency Queue Panel - persistent sidebar */}
+            <EmergencyQueuePanel />
+        </div>
+    );
+};
+
+function App() {
+    return (
+        <BrowserRouter>
+            <LanguageProvider>
+            <AuthProvider>
+                <SocketProvider>
+                    <ToastProvider>
+                        <RefreshProvider>
+                            <EmergencyPanelProvider>
+                                <Routes>
+                                    {/* Public Routes */}
+                                    <Route path="/login" element={<Login />} />
+
+                                {/* Protected Routes */}
+                                <Route
+                                    path="/"
+                                    element={
+                                        <ProtectedRoute>
+                                            <LayoutWrapper>
+                                                <Dashboard />
+                                            </LayoutWrapper>
+                                        </ProtectedRoute>
+                                    }
+                                />
+
+                                <Route
+                                    path="/live-monitoring"
+                                    element={
+                                        <ProtectedRoute>
+                                            <LayoutWrapper>
+                                                <LiveMonitoring />
+                                            </LayoutWrapper>
+                                        </ProtectedRoute>
+                                    }
+                                />
+
+                                <Route
+                                    path="/workers"
+                                    element={
+                                        <ProtectedRoute>
+                                            <LayoutWrapper>
+                                                <WorkerManagement />
+                                            </LayoutWrapper>
+                                        </ProtectedRoute>
+                                    }
+                                />
+
+                                <Route
+                                    path="/workers/:id"
+                                    element={
+                                        <ProtectedRoute>
+                                            <LayoutWrapper>
+                                                <WorkerProfile />
+                                            </LayoutWrapper>
+                                        </ProtectedRoute>
+                                    }
+                                />
+
+                                <Route
+                                    path="/devices"
+                                    element={
+                                        <ProtectedRoute>
+                                            <LayoutWrapper>
+                                                <DeviceManagement />
+                                            </LayoutWrapper>
+                                        </ProtectedRoute>
+                                    }
+                                />
+
+                                <Route
+                                    path="/alerts"
+                                    element={
+                                        <ProtectedRoute>
+                                            <LayoutWrapper>
+                                                <AlertManagement />
+                                            </LayoutWrapper>
+                                        </ProtectedRoute>
+                                    }
+                                />
+
+                                <Route
+                                    path="/incidents"
+                                    element={
+                                        <ProtectedRoute>
+                                            <LayoutWrapper>
+                                                <IncidentManagement />
+                                            </LayoutWrapper>
+                                        </ProtectedRoute>
+                                    }
+                                />
+
+                                <Route
+                                    path="/incidents/:id"
+                                    element={
+                                        <ProtectedRoute>
+                                            <LayoutWrapper>
+                                                <IncidentDetail />
+                                            </LayoutWrapper>
+                                        </ProtectedRoute>
+                                    }
+                                />
+
+                                <Route
+                                    path="/reports"
+                                    element={
+                                        <ProtectedRoute>
+                                            <LayoutWrapper>
+                                                <Reports />
+                                            </LayoutWrapper>
+                                        </ProtectedRoute>
+                                    }
+                                />
+
+                                <Route
+                                    path="/emergency-contacts"
+                                    element={
+                                        <ProtectedRoute requireAdmin>
+                                            <LayoutWrapper>
+                                                <EmergencyContacts />
+                                            </LayoutWrapper>
+                                        </ProtectedRoute>
+                                    }
+                                />
+
+                                <Route
+                                    path="/admin/users"
+                                    element={
+                                        <ProtectedRoute requiredRole="Head Admin">
+                                            <LayoutWrapper>
+                                                <AdminManagement />
+                                            </LayoutWrapper>
+                                        </ProtectedRoute>
+                                    }
+                                />
+
+                                <Route
+                                    path="/admin/audit"
+                                    element={
+                                        <ProtectedRoute requiredRole="Head Admin">
+                                            <LayoutWrapper>
+                                                <AuditLog />
+                                            </LayoutWrapper>
+                                        </ProtectedRoute>
+                                    }
+                                />
+
+                                <Route
+                                    path="/admin"
+                                    element={
+                                        <ProtectedRoute requiredRole="Head Admin">
+                                            <LayoutWrapper>
+                                                <SystemAdmin />
+                                            </LayoutWrapper>
+                                        </ProtectedRoute>
+                                    }
+                                />
+
+                                <Route
+                                    path="/terms"
+                                    element={
+                                        <ProtectedRoute>
+                                            <LayoutWrapper>
+                                                <TermsAndConditions />
+                                            </LayoutWrapper>
+                                        </ProtectedRoute>
+                                    }
+                                />
+
+                                <Route
+                                    path="/user-manual"
+                                    element={
+                                        <ProtectedRoute>
+                                            <LayoutWrapper>
+                                                <UserManual />
+                                            </LayoutWrapper>
+                                        </ProtectedRoute>
+                                    }
+                                />
+
+                                <Route
+                                    path="/nudge-logs"
+                                    element={
+                                        <ProtectedRoute>
+                                            <LayoutWrapper>
+                                                <NudgeLogs />
+                                            </LayoutWrapper>
+                                        </ProtectedRoute>
+                                    }
+                                />
+
+                                {/* Catch all redirect */}
+                                <Route path="*" element={<Navigate to="/" replace />} />
+                            </Routes>
+
+                            {/* Global Emergency Alert - shows on ALL pages */}
+                            <GlobalEmergencyAlert />
+                        </EmergencyPanelProvider>
+                        </RefreshProvider>
+                    </ToastProvider>
+                </SocketProvider>
+            </AuthProvider>
+            </LanguageProvider>
+        </BrowserRouter>
+    );
+}
+
+export default App;
