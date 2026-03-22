@@ -180,10 +180,13 @@ export const GlobalEmergencyAlert = () => {
                                             <p className={`${styles.textColor} font-semibold text-lg`}>
                                                 {emergency.type || 'Emergency Button Pressed'}
                                             </p>
-                                            {/* Context description for voice alerts */}
+                                            {/* Context description for alerts */}
                                             {description && (
                                                 <div className={`mt-2 inline-flex items-center gap-2 ${styles.badgeBg} border px-3 py-1.5 rounded-lg`}>
-                                                    <Mic size={14} className="text-purple-400" />
+                                                    {category === 'flat' 
+                                                        ? <Smartphone size={14} className="text-orange-400" />
+                                                        : <Mic size={14} className="text-purple-400" />
+                                                    }
                                                     <span className={`${styles.badgeText} font-semibold text-sm`}>
                                                         {description}
                                                     </span>

@@ -59,10 +59,15 @@ const ROLE_PERMISSIONS = {
         PERMISSIONS.VIEW_ALERTS,
         PERMISSIONS.VIEW_INCIDENTS,
         PERMISSIONS.VIEW_REPORTS,
+        PERMISSIONS.MANAGE_WORKERS,
+        PERMISSIONS.MANAGE_DEVICES,
+        PERMISSIONS.MANAGE_CONTACTS,
         PERMISSIONS.ACKNOWLEDGE_ALERTS,
         PERMISSIONS.MANAGE_INCIDENTS,
         PERMISSIONS.TRIGGER_EMERGENCY,
         PERMISSIONS.MARK_SAFE,
+        PERMISSIONS.EXPORT_REPORTS,
+        PERMISSIONS.ARCHIVE_RECORDS,
     ],
 };
 
@@ -151,8 +156,8 @@ export const AuthProvider = ({ children }) => {
 
     // Role checks
     const isHeadAdmin = user?.role === 'Head Admin';
-    const isAdmin = user?.role === 'Admin' || isHeadAdmin;
-    const isSafetyOfficer = user?.role === 'Safety Officer';
+    const isAdmin = user?.role === 'Admin' || user?.role === 'Safety Officer' || isHeadAdmin;
+    const isSafetyOfficer = user?.role === 'Safety Officer' || user?.role === 'Admin';
 
     // Permission check function
     const hasPermission = (permission) => {

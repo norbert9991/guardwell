@@ -676,18 +676,19 @@ void readAndSendSensorData() {
     if (sqrt(ax*ax + ay*ay + az*az) > 25.0) fallDetected = true;
 
     // --- Flat orientation detection (possible fall / incapacitation) ---
+    // Detects BOTH face-up flat AND upside-down flat
     float absX = fabs(ax), absY = fabs(ay), absZ = fabs(az);
     float gyroMag = sqrt(gx*gx + gy*gy + gz*gz);
-    bool isFlat = (absZ > absX && absZ > absY && az > 0);  // Face-up flat
+    bool isFlat = (absZ > absX && absZ > absY);  // Z-axis dominant = flat (face-up or upside-down)
     bool isStationary = (gyroMag < 5.0);  // Low rotation = not moving
 
     if (isFlat && isStationary) {
       flatConsecutiveCount++;
-      Serial.printf("[FLAT] Flat detected (%d/%d)\n", flatConsecutiveCount, FLAT_CONSECUTIVE_THRESHOLD);
+      Serial.printf("[FLAT] Flat detected (%d/%d) az=%.2f gyro=%.2f\n", 
+                    flatConsecutiveCount, FLAT_CONSECUTIVE_THRESHOLD, az, gyroMag);
 
       if (flatConsecutiveCount >= FLAT_CONSECUTIVE_THRESHOLD && !flatAlertSent) {
         flatAlertSent = true;
-        flatOrientationAlert = true;
 
         Serial.println("\n🚨 ============================================");
         Serial.println("🚨  FLAT ORIENTATION EMERGENCY!");
@@ -701,6 +702,11 @@ void readAndSendSensorData() {
 
         // Send flat orientation emergency to server
         sendFlatOrientationAlert();
+      }
+
+      // Keep flat flag true as long as device is flat AND alert has been sent
+      if (flatAlertSent) {
+        flatOrientationAlert = true;
       }
     } else {
       // Not flat anymore — reset counter

@@ -43,7 +43,7 @@ export const Sidebar = () => {
         { name: t('sidebar.incidents'), icon: FileText, path: '/incidents', minRole: 'Safety Officer' },
         { name: t('sidebar.reports'), icon: BarChart3, path: '/reports', minRole: 'Safety Officer' },
         { name: t('sidebar.nudgeLogs'), icon: Bell, path: '/nudge-logs', minRole: 'Safety Officer' },
-        { name: t('sidebar.emergencyContacts'), icon: Phone, path: '/emergency-contacts', minRole: 'Admin' },
+        { name: t('sidebar.emergencyContacts'), icon: Phone, path: '/emergency-contacts', minRole: 'Safety Officer' },
         { name: t('sidebar.userManagement'), icon: Users, path: '/admin/users', minRole: 'Head Admin' },
         { name: t('sidebar.systemSettings'), icon: Settings, path: '/admin', minRole: 'Head Admin' },
     ];

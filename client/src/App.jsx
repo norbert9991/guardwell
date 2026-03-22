@@ -183,7 +183,7 @@ function App() {
                                 <Route
                                     path="/emergency-contacts"
                                     element={
-                                        <ProtectedRoute requireAdmin>
+                                        <ProtectedRoute>
                                             <LayoutWrapper>
                                                 <EmergencyContacts />
                                             </LayoutWrapper>

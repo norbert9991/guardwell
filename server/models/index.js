@@ -209,6 +209,24 @@ const syncDatabase = async (force = false) => {
 
             console.log('✅ Default Head Admin created: admin@guardwell.com');
         }
+
+        // Create default Safety Officer if none exists
+        const safetyOfficerExists = await User.findOne({ where: { role: 'Safety Officer' } });
+        if (!safetyOfficerExists) {
+            const salt = await bcrypt.genSalt(10);
+            const hashedPassword = await bcrypt.hash('SafetyOfficer@2024', salt);
+
+            await User.create({
+                email: 'safety@guardwell.com',
+                password: hashedPassword,
+                fullName: 'Safety Officer',
+                role: 'Safety Officer',
+                department: 'Safety',
+                status: 'Active'
+            }, { hooks: false });
+
+            console.log('✅ Default Safety Officer created: safety@guardwell.com');
+        }
     } catch (error) {
         console.error('❌ Error synchronizing models:', error);
     }
