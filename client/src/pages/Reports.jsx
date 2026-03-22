@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Download, Calendar, FileText, Users, Radio, AlertTriangle, Shield, TrendingUp, BarChart3, PieChart } from 'lucide-react';
+import { Download, Calendar, FileText, Users, Radio, AlertTriangle, Shield, TrendingUp, BarChart3, PieChart, Brain, Zap, Clock, ThermometerSun, Droplets, Wind, Award } from 'lucide-react';
 import { CardDark, CardBody, CardHeader } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { MetricCard } from '../components/ui/MetricCard';
@@ -522,7 +522,108 @@ export const Reports = () => {
                         </div>
                     </CardBody>
                 </CardDark>
-            </div>
+
+            {/* ══ ANALYTICS INSIGHTS ══ */}
+            {reportData.analytics && (
+                <div className="space-y-6">
+                    <div className="flex items-center gap-3 pt-4">
+                        <div className="p-2 rounded-lg bg-gradient-to-br from-purple-500 to-indigo-600 shadow-lg">
+                            <Brain size={20} className="text-white" />
+                        </div>
+                        <div>
+                            <h3 className="text-xl font-bold text-[#1F2937]">Analytics Insights</h3>
+                            <p className="text-sm text-[#6B7280]">AI-powered risk analysis using weighted scoring algorithm</p>
+                        </div>
+                    </div>
+
+                    {/* Incident Trend */}
+                    {reportData.analytics.incidentTrend && (
+                        <CardDark className="border-l-4 border-l-purple-500">
+                            <CardBody className="p-6">
+                                <div className="flex items-center gap-3 mb-4">
+                                    <TrendingUp size={18} className="text-purple-600" />
+                                    <h4 className="font-semibold text-[#1F2937]">Incident Trend Analysis</h4>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div className="bg-[#EEF1F4] p-4 rounded-lg border border-[#E3E6EB] text-center">
+                                        <p className={`text-2xl font-bold ${
+                                            reportData.analytics.incidentTrend.direction === 'Rising' ? 'text-red-500' :
+                                            reportData.analytics.incidentTrend.direction === 'Falling' ? 'text-green-500' : 'text-blue-500'
+                                        }`}>
+                                            {reportData.analytics.incidentTrend.direction === 'Rising' ? '📈' :
+                                             reportData.analytics.incidentTrend.direction === 'Falling' ? '📉' : '➡️'}
+                                            {' '}{reportData.analytics.incidentTrend.direction}
+                                        </p>
+                                        <p className="text-sm text-[#4B5563] mt-1">Trend Direction</p>
+                                    </div>
+                                    <div className="bg-[#EEF1F4] p-4 rounded-lg border border-[#E3E6EB] text-center">
+                                        <p className="text-2xl font-bold text-[#1F2937]">
+                                            {reportData.analytics.incidentTrend.percentageChange > 0 ? '+' : ''}
+                                            {reportData.analytics.incidentTrend.percentageChange}%
+                                        </p>
+                                        <p className="text-sm text-[#4B5563] mt-1">Change vs Previous Period</p>
+                                    </div>
+                                    <div className="bg-[#EEF1F4] p-4 rounded-lg border border-[#E3E6EB] text-center">
+                                        <p className="text-2xl font-bold text-[#1F2937]">{reportData.analytics.incidentTrend.recentAvg || 0}</p>
+                                        <p className="text-sm text-[#4B5563] mt-1">Recent Daily Average</p>
+                                    </div>
+                                </div>
+                            </CardBody>
+                        </CardDark>
+                    )}
+
+                    {/* Worker Risk Scoring */}
+                    <CardDark className="border-l-4 border-l-indigo-500">
+                        <CardHeader className="px-6 py-4 border-b border-[#E3E6EB]">
+                            <div className="flex items-center justify-between">
+                                <h4 className="font-semibold text-[#1F2937] flex items-center gap-2">
+                                    <Zap size={18} className="text-indigo-600" />
+                                    Worker Risk Scoring Algorithm
+                                </h4>
+                                <div className="flex items-center gap-3 text-xs">
+                                    <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-red-500"></span> High ({reportData.analytics.highRiskWorkers})</span>
+                                    <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-yellow-500"></span> Medium ({reportData.analytics.mediumRiskWorkers})</span>
+                                    <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-green-500"></span> Low ({reportData.analytics.lowRiskWorkers})</span>
+                                </div>
+                            </div>
+                        </CardHeader>
+                        <CardBody className="p-6">
+                            <p className="text-xs text-[#6B7280] mb-4 bg-[#EEF1F4] p-3 rounded-lg border border-[#E3E6EB] font-mono">
+                                Formula: RiskScore = (Critical×40) + (High×25) + (Medium×15) + (Low×5) + (RecentAlerts×10) + RecencyBonus
+                            </p>
+                            {reportData.analytics.workerRiskAnalysis?.length > 0 ? (
+                                <div className="space-y-3">
+                                    {reportData.analytics.workerRiskAnalysis.map((w, i) => (
+                                        <div key={i} className="flex items-center gap-4 p-3 rounded-lg border border-[#E3E6EB] bg-white hover:bg-[#EEF1F4] transition-colors">
+                                            <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm ${
+                                                w.riskLevel === 'High' ? 'bg-red-500' :
+                                                w.riskLevel === 'Medium' ? 'bg-yellow-500' : 'bg-green-500'
+                                            }`}>
+                                                {w.riskScore}
+                                            </div>
+                                            <div className="flex-1">
+                                                <p className="font-medium text-[#1F2937]">{w.name}</p>
+                                                <p className="text-xs text-[#6B7280]">
+                                                    {w.factors.totalIncidents} incidents ({w.factors.criticalIncidents} critical) · {w.factors.recentAlerts} recent alerts
+                                                </p>
+                                            </div>
+                                            <span className={`text-xs px-3 py-1 rounded-full font-semibold ${
+                                                w.riskLevel === 'High' ? 'bg-red-100 text-red-700' :
+                                                w.riskLevel === 'Medium' ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'
+                                            }`}>
+                                                {w.riskLevel} Risk
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <p className="text-[#6B7280] text-center py-4">No risk data — no incidents or alerts recorded for workers</p>
+                            )}
+                        </CardBody>
+                    </CardDark>
+                </div>
+            )}
+        </div>
         );
     };
 
@@ -722,7 +823,103 @@ export const Reports = () => {
                         </div>
                     </CardBody>
                 </CardDark>
-            </div>
+
+            {/* ══ ANALYTICS INSIGHTS ══ */}
+            {reportData.analytics && (
+                <div className="space-y-6">
+                    <div className="flex items-center gap-3 pt-4">
+                        <div className="p-2 rounded-lg bg-gradient-to-br from-purple-500 to-indigo-600 shadow-lg">
+                            <Brain size={20} className="text-white" />
+                        </div>
+                        <div>
+                            <h3 className="text-xl font-bold text-[#1F2937]">Analytics Insights</h3>
+                            <p className="text-sm text-[#6B7280]">Sensor threshold analysis &amp; device reliability scoring</p>
+                        </div>
+                    </div>
+
+                    {/* Threshold Analysis */}
+                    {reportData.analytics.thresholdAnalysis && (
+                        <CardDark className="border-l-4 border-l-orange-500">
+                            <CardHeader className="px-6 py-4 border-b border-[#E3E6EB]">
+                                <h4 className="font-semibold text-[#1F2937] flex items-center gap-2">
+                                    <AlertTriangle size={18} className="text-orange-500" />
+                                    Sensor Threshold Violations
+                                </h4>
+                            </CardHeader>
+                            <CardBody className="p-6">
+                                <p className="text-xs text-[#6B7280] mb-4">Readings exceeding safety thresholds out of {reportData.analytics.thresholdAnalysis.totalReadings.toLocaleString()} total readings</p>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    {Object.entries(reportData.analytics.thresholdAnalysis.violations).map(([key, v]) => (
+                                        <div key={key} className={`p-4 rounded-lg border ${
+                                            v.count > 0 ? 'bg-red-50 border-red-200' : 'bg-green-50 border-green-200'
+                                        }`}>
+                                            <div className="flex items-center gap-2 mb-2">
+                                                {key === 'temperature' && <ThermometerSun size={16} className="text-red-500" />}
+                                                {key === 'humidity' && <Droplets size={16} className="text-blue-500" />}
+                                                {key === 'gasLevel' && <Wind size={16} className="text-orange-500" />}
+                                                <span className="font-semibold text-sm text-[#1F2937]">{v.label}</span>
+                                            </div>
+                                            <p className={`text-2xl font-bold ${v.count > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                                                {v.count} <span className="text-sm font-normal">violations</span>
+                                            </p>
+                                            <p className="text-xs text-[#6B7280] mt-1">
+                                                {v.percentage}% exceeded &gt;{v.threshold}{v.unit}
+                                                {v.maxValue !== null && ` · Max: ${v.maxValue}${v.unit}`}
+                                            </p>
+                                        </div>
+                                    ))}
+                                </div>
+                            </CardBody>
+                        </CardDark>
+                    )}
+
+                    {/* Device Reliability */}
+                    {reportData.analytics.deviceReliability?.length > 0 && (
+                        <CardDark className="border-l-4 border-l-blue-500">
+                            <CardHeader className="px-6 py-4 border-b border-[#E3E6EB]">
+                                <div className="flex items-center justify-between">
+                                    <h4 className="font-semibold text-[#1F2937] flex items-center gap-2">
+                                        <Zap size={18} className="text-blue-600" />
+                                        Device Reliability Scoring
+                                    </h4>
+                                    <span className="text-sm font-semibold text-[#1F2937] bg-[#EEF1F4] px-3 py-1 rounded-lg">
+                                        Fleet Score: {reportData.analytics.fleetReliability}%
+                                    </span>
+                                </div>
+                            </CardHeader>
+                            <CardBody className="p-6">
+                                <div className="space-y-3">
+                                    {reportData.analytics.deviceReliability.map((d, i) => (
+                                        <div key={i} className="flex items-center gap-4 p-3 rounded-lg border border-[#E3E6EB] bg-white">
+                                            <div className="w-full max-w-[100px]">
+                                                <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                                                    <div className={`h-full rounded-full ${
+                                                        d.uptimeScore >= 80 ? 'bg-green-500' :
+                                                        d.uptimeScore >= 50 ? 'bg-yellow-500' : 'bg-red-500'
+                                                    }`} style={{ width: `${d.uptimeScore}%` }} />
+                                                </div>
+                                                <p className="text-xs text-center mt-1 font-mono text-[#6B7280]">{d.uptimeScore}%</p>
+                                            </div>
+                                            <div className="flex-1">
+                                                <p className="font-medium text-[#1F2937] text-sm">{d.deviceId}</p>
+                                                <p className="text-xs text-[#6B7280]">{d.worker} · Battery: {d.battery}%</p>
+                                            </div>
+                                            <span className={`text-xs px-3 py-1 rounded-full font-semibold ${
+                                                d.status === 'Excellent' ? 'bg-green-100 text-green-700' :
+                                                d.status === 'Good' ? 'bg-blue-100 text-blue-700' :
+                                                d.status === 'Fair' ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'
+                                            }`}>
+                                                {d.status}
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </CardBody>
+                        </CardDark>
+                    )}
+                </div>
+            )}
+        </div>
         );
     };
 
@@ -880,7 +1077,178 @@ export const Reports = () => {
                         </div>
                     </CardBody>
                 </CardDark>
-            </div>
+
+            {/* ══ ANALYTICS INSIGHTS ══ */}
+            {reportData.analytics && (
+                <div className="space-y-6">
+                    <div className="flex items-center gap-3 pt-4">
+                        <div className="p-2 rounded-lg bg-gradient-to-br from-purple-500 to-indigo-600 shadow-lg">
+                            <Brain size={20} className="text-white" />
+                        </div>
+                        <div>
+                            <h3 className="text-xl font-bold text-[#1F2937]">Analytics Insights</h3>
+                            <p className="text-sm text-[#6B7280]">Trend analysis, anomaly detection (Z-Score), &amp; peak hours</p>
+                        </div>
+                    </div>
+
+                    {/* Trend Analysis */}
+                    {reportData.analytics.trendAnalysis && (
+                        <CardDark className="border-l-4 border-l-purple-500">
+                            <CardBody className="p-6">
+                                <div className="flex items-center gap-3 mb-4">
+                                    <TrendingUp size={18} className="text-purple-600" />
+                                    <h4 className="font-semibold text-[#1F2937]">7-Day Moving Average Trend</h4>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div className="bg-[#EEF1F4] p-4 rounded-lg border border-[#E3E6EB] text-center">
+                                        <p className={`text-2xl font-bold ${
+                                            reportData.analytics.trendAnalysis.direction === 'Rising' ? 'text-red-500' :
+                                            reportData.analytics.trendAnalysis.direction === 'Falling' ? 'text-green-500' : 'text-blue-500'
+                                        }`}>
+                                            {reportData.analytics.trendAnalysis.direction === 'Rising' ? '📈' :
+                                             reportData.analytics.trendAnalysis.direction === 'Falling' ? '📉' : '➡️'}
+                                            {' '}{reportData.analytics.trendAnalysis.direction}
+                                        </p>
+                                        <p className="text-sm text-[#4B5563] mt-1">Alert Trend</p>
+                                    </div>
+                                    <div className="bg-[#EEF1F4] p-4 rounded-lg border border-[#E3E6EB] text-center">
+                                        <p className="text-2xl font-bold text-[#1F2937]">
+                                            {reportData.analytics.trendAnalysis.percentageChange > 0 ? '+' : ''}
+                                            {reportData.analytics.trendAnalysis.percentageChange}%
+                                        </p>
+                                        <p className="text-sm text-[#4B5563] mt-1">Period-over-Period Change</p>
+                                    </div>
+                                    <div className="bg-[#EEF1F4] p-4 rounded-lg border border-[#E3E6EB] text-center">
+                                        <p className="text-2xl font-bold text-[#1F2937]">{reportData.analytics.trendAnalysis.recentAvg || 0}</p>
+                                        <p className="text-sm text-[#4B5563] mt-1">Daily Average (Recent)</p>
+                                    </div>
+                                </div>
+                            </CardBody>
+                        </CardDark>
+                    )}
+
+                    {/* Anomaly Detection */}
+                    <CardDark className="border-l-4 border-l-red-500">
+                        <CardHeader className="px-6 py-4 border-b border-[#E3E6EB]">
+                            <h4 className="font-semibold text-[#1F2937] flex items-center gap-2">
+                                <Zap size={18} className="text-red-500" />
+                                Anomaly Detection (Z-Score Algorithm)
+                            </h4>
+                        </CardHeader>
+                        <CardBody className="p-6">
+                            <p className="text-xs text-[#6B7280] mb-4 bg-[#EEF1F4] p-3 rounded-lg border border-[#E3E6EB] font-mono">
+                                Flags days where alert count &gt; mean + 2×σ (standard deviations)
+                            </p>
+                            {reportData.analytics.anomalies?.length > 0 ? (
+                                <div className="space-y-2">
+                                    {reportData.analytics.anomalies.map((a, i) => (
+                                        <div key={i} className="flex items-center gap-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                                            <div className="w-10 h-10 bg-red-500 rounded-full flex items-center justify-center text-white font-bold text-sm">
+                                                ⚠️
+                                            </div>
+                                            <div className="flex-1">
+                                                <p className="font-medium text-red-800">{a.date}</p>
+                                                <p className="text-xs text-red-600">
+                                                    {a.count} alerts (Z-Score: {a.zScore}) · Threshold: {a.threshold} · Mean: {a.mean}
+                                                </p>
+                                            </div>
+                                            <span className="text-xs px-3 py-1 bg-red-100 text-red-700 rounded-full font-semibold">Anomaly</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="text-center py-4">
+                                    <p className="text-green-600 font-medium">✓ No anomalies detected</p>
+                                    <p className="text-xs text-[#6B7280] mt-1">All daily alert counts are within normal statistical range</p>
+                                </div>
+                            )}
+                        </CardBody>
+                    </CardDark>
+
+                    {/* Peak Hours + Response Time */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        {/* Peak Hours */}
+                        {reportData.analytics.peakHours && (
+                            <CardDark className="border-l-4 border-l-amber-500">
+                                <CardHeader className="px-6 py-4 border-b border-[#E3E6EB]">
+                                    <h4 className="font-semibold text-[#1F2937] flex items-center gap-2">
+                                        <Clock size={18} className="text-amber-500" />
+                                        Peak Hours Analysis
+                                    </h4>
+                                </CardHeader>
+                                <CardBody className="p-6">
+                                    {reportData.analytics.peakHours.peakHour && (
+                                        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-4 text-center">
+                                            <p className="text-sm text-amber-700 font-medium">Highest Alert Hour</p>
+                                            <p className="text-3xl font-bold text-amber-600">{reportData.analytics.peakHours.peakHour.label}</p>
+                                            <p className="text-xs text-amber-600">{reportData.analytics.peakHours.peakHour.count} alerts ({reportData.analytics.peakHours.peakHour.percentage}%)</p>
+                                        </div>
+                                    )}
+                                    <div className="grid grid-cols-6 gap-1">
+                                        {reportData.analytics.peakHours.hourData?.slice(6, 18).map((h) => (
+                                            <div key={h.hour} className="text-center">
+                                                <div className="bg-gray-100 rounded-t-md overflow-hidden" style={{ height: 60 }}>
+                                                    <div
+                                                        className={`w-full ${
+                                                            h.count === reportData.analytics.peakHours.peakHour?.count && h.count > 0
+                                                                ? 'bg-amber-500' : 'bg-blue-400'
+                                                        }`}
+                                                        style={{
+                                                            height: `${Math.max(4, h.percentage * 2)}%`,
+                                                            marginTop: 'auto',
+                                                            position: 'relative',
+                                                            top: `${100 - Math.max(4, h.percentage * 2)}%`
+                                                        }}
+                                                    />
+                                                </div>
+                                                <p className="text-xs text-[#6B7280] mt-1">{h.label.slice(0, 2)}</p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <p className="text-xs text-[#6B7280] text-center mt-2">Showing 06:00 – 17:00 (working hours)</p>
+                                </CardBody>
+                            </CardDark>
+                        )}
+
+                        {/* Response Time Distribution */}
+                        {reportData.analytics.responseTimeDistribution && (
+                            <CardDark className="border-l-4 border-l-green-500">
+                                <CardHeader className="px-6 py-4 border-b border-[#E3E6EB]">
+                                    <h4 className="font-semibold text-[#1F2937] flex items-center gap-2">
+                                        <Clock size={18} className="text-green-500" />
+                                        Response Time Distribution
+                                    </h4>
+                                </CardHeader>
+                                <CardBody className="p-6">
+                                    <div className="space-y-3">
+                                        {[
+                                            { label: '< 5 minutes', count: reportData.analytics.responseTimeDistribution.under5min, color: 'bg-green-500' },
+                                            { label: '5–15 minutes', count: reportData.analytics.responseTimeDistribution.under15min, color: 'bg-blue-500' },
+                                            { label: '15–60 minutes', count: reportData.analytics.responseTimeDistribution.under60min, color: 'bg-yellow-500' },
+                                            { label: '> 60 minutes', count: reportData.analytics.responseTimeDistribution.over60min, color: 'bg-red-500' },
+                                        ].map((item, i) => {
+                                            const total = Object.values(reportData.analytics.responseTimeDistribution).reduce((s, v) => s + v, 0) || 1;
+                                            const pct = Math.round((item.count / total) * 100);
+                                            return (
+                                                <div key={i}>
+                                                    <div className="flex justify-between text-sm mb-1">
+                                                        <span className="text-[#4B5563]">{item.label}</span>
+                                                        <span className="font-medium text-[#1F2937]">{item.count} ({pct}%)</span>
+                                                    </div>
+                                                    <div className="h-3 bg-gray-100 rounded-full overflow-hidden">
+                                                        <div className={`h-full ${item.color} rounded-full transition-all`} style={{ width: `${pct}%` }} />
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </CardBody>
+                            </CardDark>
+                        )}
+                    </div>
+                </div>
+            )}
+        </div>
         );
     };
 
@@ -1012,7 +1380,109 @@ export const Reports = () => {
                         </div>
                     </CardBody>
                 </CardDark>
-            </div>
+
+            {/* ══ ANALYTICS INSIGHTS ══ */}
+            {reportData.analytics && (
+                <div className="space-y-6">
+                    <div className="flex items-center gap-3 pt-4">
+                        <div className="p-2 rounded-lg bg-gradient-to-br from-purple-500 to-indigo-600 shadow-lg">
+                            <Brain size={20} className="text-white" />
+                        </div>
+                        <div>
+                            <h3 className="text-xl font-bold text-[#1F2937]">Analytics Insights</h3>
+                            <p className="text-sm text-[#6B7280]">Weighted scoring formula &amp; automated recommendations</p>
+                        </div>
+                    </div>
+
+                    {/* Grade + Formula */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <CardDark className="border-l-4 border-l-indigo-500">
+                            <CardBody className="p-6 text-center">
+                                <Award size={32} className="text-indigo-500 mx-auto mb-3" />
+                                <p className="text-sm text-[#6B7280] mb-2">Compliance Grade</p>
+                                <div className={`inline-flex items-center justify-center w-24 h-24 rounded-full text-5xl font-black ${
+                                    reportData.analytics.gradeColor === 'green' ? 'bg-green-100 text-green-600 border-4 border-green-300' :
+                                    reportData.analytics.gradeColor === 'blue' ? 'bg-blue-100 text-blue-600 border-4 border-blue-300' :
+                                    reportData.analytics.gradeColor === 'yellow' ? 'bg-yellow-100 text-yellow-600 border-4 border-yellow-300' :
+                                    reportData.analytics.gradeColor === 'orange' ? 'bg-orange-100 text-orange-600 border-4 border-orange-300' :
+                                    'bg-red-100 text-red-600 border-4 border-red-300'
+                                }`}>
+                                    {reportData.analytics.grade}
+                                </div>
+                                <p className="text-sm text-[#4B5563] mt-3 font-medium">
+                                    {reportData.analytics.grade === 'A' ? 'Excellent Compliance' :
+                                     reportData.analytics.grade === 'B' ? 'Good Compliance' :
+                                     reportData.analytics.grade === 'C' ? 'Acceptable — Needs Attention' :
+                                     reportData.analytics.grade === 'D' ? 'Below Standard' : 'Critical — Immediate Action Needed'}
+                                </p>
+                            </CardBody>
+                        </CardDark>
+
+                        <CardDark className="border-l-4 border-l-purple-500">
+                            <CardHeader className="px-6 py-4 border-b border-[#E3E6EB]">
+                                <h4 className="font-semibold text-[#1F2937] flex items-center gap-2">
+                                    <Brain size={18} className="text-purple-600" />
+                                    Safety Score Formula Breakdown
+                                </h4>
+                            </CardHeader>
+                            <CardBody className="p-6">
+                                <p className="text-xs text-[#6B7280] mb-4 bg-[#EEF1F4] p-3 rounded-lg border border-[#E3E6EB] font-mono">
+                                    {reportData.analytics.formula}
+                                </p>
+                                {reportData.analytics.weights && (
+                                    <div className="space-y-3">
+                                        {Object.entries(reportData.analytics.weights).map(([key, w]) => (
+                                            <div key={key}>
+                                                <div className="flex justify-between text-sm mb-1">
+                                                    <span className="text-[#4B5563]">{key.replace(/([A-Z])/g, ' $1').trim()} ({w.value}% × {w.weight})</span>
+                                                    <span className="font-bold text-[#1F2937]">+{w.contribution}</span>
+                                                </div>
+                                                <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                                                    <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${w.value}%` }} />
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </CardBody>
+                        </CardDark>
+                    </div>
+
+                    {/* Recommendations */}
+                    {reportData.analytics.recommendations?.length > 0 && (
+                        <CardDark className="border-l-4 border-l-amber-500">
+                            <CardHeader className="px-6 py-4 border-b border-[#E3E6EB]">
+                                <h4 className="font-semibold text-[#1F2937] flex items-center gap-2">
+                                    <Zap size={18} className="text-amber-500" />
+                                    Automated Recommendations
+                                </h4>
+                            </CardHeader>
+                            <CardBody className="p-6">
+                                <div className="space-y-3">
+                                    {reportData.analytics.recommendations.map((rec, i) => (
+                                        <div key={i} className={`p-4 rounded-lg border ${
+                                            rec.priority === 'Critical' ? 'bg-red-50 border-red-200' :
+                                            rec.priority === 'High' ? 'bg-orange-50 border-orange-200' : 'bg-green-50 border-green-200'
+                                        }`}>
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${
+                                                    rec.priority === 'Critical' ? 'bg-red-100 text-red-700' :
+                                                    rec.priority === 'High' ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'
+                                                }`}>
+                                                    {rec.priority}
+                                                </span>
+                                                <span className="font-semibold text-sm text-[#1F2937]">{rec.area}</span>
+                                            </div>
+                                            <p className="text-sm text-[#4B5563]">{rec.message}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            </CardBody>
+                        </CardDark>
+                    )}
+                </div>
+            )}
+        </div>
         );
     };
 

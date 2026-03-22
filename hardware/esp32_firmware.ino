@@ -112,8 +112,8 @@ const int FLAT_CONSECUTIVE_THRESHOLD = 3;  // ~6 seconds at 2s interval
 bool flatAlertSent = false;
 
 // Simulated GPS coordinates (QCU) — for demo/testing
-float currentLat = 14.7000;
-float currentLon = 121.0326;
+float currentLat = 14.700598;
+float currentLon = 121.032460;
 bool gpsValid = true;
 
 // ============================================
