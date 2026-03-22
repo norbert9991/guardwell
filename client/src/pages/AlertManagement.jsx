@@ -57,22 +57,26 @@ export const AlertManagement = () => {
         try {
             const response = await alertsApi.getAll();
             setAlerts(response.data);
+            setIsLoading(false);
 
-            // Check which acknowledged/resolved alerts have linked incidents
+            // Check linked incidents in the background (non-blocking)
             const acknowledged = response.data.filter(a => a.status === 'Acknowledged' || a.status === 'Resolved');
-            const incidentChecks = {};
-            for (const a of acknowledged) {
-                try {
-                    const res = await alertsApi.getLinkedIncident(a.id);
-                    if (res.data.hasIncident) {
-                        incidentChecks[a.id] = res.data.incident;
-                    }
-                } catch { /* skip */ }
+            if (acknowledged.length > 0) {
+                const incidentChecks = {};
+                await Promise.all(
+                    acknowledged.map(async (a) => {
+                        try {
+                            const res = await alertsApi.getLinkedIncident(a.id);
+                            if (res.data.hasIncident) {
+                                incidentChecks[a.id] = res.data.incident;
+                            }
+                        } catch (e) { /* skip */ }
+                    })
+                );
+                setAlertIncidentMap(prev => ({ ...prev, ...incidentChecks }));
             }
-            setAlertIncidentMap(prev => ({ ...prev, ...incidentChecks }));
         } catch (error) {
             console.error('Failed to fetch alerts:', error);
-        } finally {
             setIsLoading(false);
         }
     }, []);

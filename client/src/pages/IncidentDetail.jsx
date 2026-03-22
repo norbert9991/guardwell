@@ -47,7 +47,7 @@ export const IncidentDetail = () => {
                     try {
                         const alertRes = await alertsApi.getById(response.data.alertId);
                         setLinkedAlert(alertRes.data);
-                    } catch { /* alert may have been deleted */ }
+                    } catch (e) { /* alert may have been deleted */ }
                 }
             } catch (err) {
                 console.error('Failed to fetch incident:', err);
