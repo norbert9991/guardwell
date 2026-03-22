@@ -110,19 +110,6 @@ float currentLat = 0.0;
 float currentLon = 0.0;
 bool gpsValid = false;
 
-// Simulated GPS fallback (Quezon City University — slightly offset from DEV-001)
-const float SIMULATED_LAT = 14.7001;
-const float SIMULATED_LON = 121.0327;
-bool usingSimulatedGPS = false;
-
-// Flat orientation emergency detection
-bool flatEmergencyTriggered = false;
-unsigned long flatStartTime = 0;
-bool deviceIsFlat = false;
-const unsigned long FLAT_EMERGENCY_DELAY = 5000;  // 5 seconds of flat+stationary before emergency
-unsigned long lastFlatEmergencyTime = 0;
-const unsigned long FLAT_EMERGENCY_COOLDOWN = 30000;  // 30 second cooldown between flat emergencies
-
 // ============================================
 // RGB LED STATE MACHINE
 // ============================================
@@ -248,21 +235,12 @@ void setup() {
   Serial.print("[5/5] WiFi... ");
   connectToWiFi();
   
-  // Apply simulated GPS if no real fix yet
-  if (!gpsValid) {
-    currentLat = SIMULATED_LAT;
-    currentLon = SIMULATED_LON;
-    gpsValid = true;
-    usingSimulatedGPS = true;
-    Serial.println("📍 Using SIMULATED GPS: QCU (14.7001, 121.0327)");
-  }
-
   Serial.println("\n✅ Setup complete!");
   Serial.println("📡 GPS acquiring satellites...");
   Serial.println("💡 RGB LED active\n");
 
-  // Start with idle (green) since we have simulated GPS
-  setLedState(LED_IDLE);
+  // Start with GPS waiting state (yellow) or idle (green)
+  setLedState(gpsValid ? LED_IDLE : LED_GPS_WAIT);
 }
 
 // ============================================
@@ -281,11 +259,6 @@ void loop() {
   
   if (gpsConnected) {
     handleGPS();
-  }
-
-  // Check for flat orientation emergency
-  if (mpuConnected) {
-    checkFlatEmergency();
   }
 
   // Handle RGB LED effects (non-blocking)
@@ -346,10 +319,6 @@ void handleGPS() {
     currentLat = gps.location.lat();
     currentLon = gps.location.lng();
     gpsValid = true;
-    if (usingSimulatedGPS) {
-      usingSimulatedGPS = false;
-      Serial.println("📡 Switched to REAL GPS fix!");
-    }
 
     if (millis() - lastGeofenceCheck >= 5000) {
       lastGeofenceCheck = millis();
@@ -671,62 +640,6 @@ void triggerAlert(int duration) {
 }
 
 // ============================================
-// FLAT ORIENTATION EMERGENCY DETECTION
-// Triggers when device is flat (Z-axis dominant)
-// and gyroscope shows stationary (near-zero rotation)
-// for FLAT_EMERGENCY_DELAY milliseconds
-// ============================================
-void checkFlatEmergency() {
-  sensors_event_t a, g, t;
-  mpu.getEvent(&a, &g, &t);
-
-  float ax = a.acceleration.x;
-  float ay = a.acceleration.y;
-  float az = a.acceleration.z;
-  float gx = g.gyro.x;
-  float gy = g.gyro.y;
-  float gz = g.gyro.z;
-
-  float absX = fabs(ax), absY = fabs(ay), absZ = fabs(az);
-  float rotMag = sqrt(gx * gx + gy * gy + gz * gz);
-
-  // Flat = Z-axis dominant and positive (face up), Stationary = gyro magnitude < 5
-  bool isFlat = (absZ > absX && absZ > absY && az > 0);
-  bool isStationary = (rotMag < 5.0);
-
-  if (isFlat && isStationary) {
-    if (!deviceIsFlat) {
-      // Just became flat — start timing
-      deviceIsFlat = true;
-      flatStartTime = millis();
-    } else if (!flatEmergencyTriggered &&
-               (millis() - flatStartTime >= FLAT_EMERGENCY_DELAY) &&
-               (millis() - lastFlatEmergencyTime >= FLAT_EMERGENCY_COOLDOWN)) {
-      // Flat + stationary for long enough — TRIGGER EMERGENCY
-      flatEmergencyTriggered = true;
-      lastFlatEmergencyTime = millis();
-
-      Serial.println("\n🚨 ============================================");
-      Serial.println("🚨  FLAT ORIENTATION EMERGENCY DETECTED!");
-      Serial.printf("🚨  Accel: X=%.1f Y=%.1f Z=%.1f  GyroMag=%.1f\n", ax, ay, az, rotMag);
-      Serial.println("🚨  Worker may have fallen or device dropped!");
-      Serial.println("🚨 ============================================\n");
-
-      // Sound buzzer alarm
-      setLedState(LED_EMERGENCY);
-      triggerAlert(2000);  // 2 second buzzer burst
-
-      // Send flat emergency to server
-      sendFlatEmergencyAlert();
-    }
-  } else {
-    // Not flat anymore — reset
-    deviceIsFlat = false;
-    flatEmergencyTriggered = false;
-  }
-}
-
-// ============================================
 // SENSOR READINGS
 // ============================================
 void readAndSendSensorData() {
@@ -783,10 +696,6 @@ void readAndSendSensorData() {
   }
   doc["battery"] = 85;
   doc["rssi"] = WiFi.RSSI();
-  doc["simulated_gps"] = usingSimulatedGPS;
-  if (flatEmergencyTriggered) {
-    doc["flat_emergency"] = true;
-  }
 
   String payload;
   serializeJson(doc, payload);
@@ -818,18 +727,6 @@ void sendVoiceAlert(String alertType) {
   doc["voice_command"] = lastVoiceCommand;
   doc["latitude"] = currentLat;
   doc["longitude"] = currentLon;
-  String payload;
-  serializeJson(doc, payload);
-  sendToServer(payload);
-}
-
-void sendFlatEmergencyAlert() {
-  StaticJsonDocument<256> doc;
-  doc["device_id"] = DEVICE_ID;
-  doc["flat_emergency"] = true;
-  doc["latitude"] = currentLat;
-  doc["longitude"] = currentLon;
-  doc["gps_valid"] = gpsValid;
   String payload;
   serializeJson(doc, payload);
   sendToServer(payload);

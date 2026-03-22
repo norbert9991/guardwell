@@ -45,8 +45,7 @@ const processSensorData = async (data, io) => {
             gpsSpeed: data.gps_speed || null,
             gpsValid: data.gps_valid || false,
             geofenceViolation: data.geofence_violation || false,
-            gpsChars: data.gps_chars || 0,
-            flatEmergency: data.flat_emergency || false
+            gpsChars: data.gps_chars || 0
         });
 
         // Update device last communication
@@ -105,19 +104,6 @@ const processSensorData = async (data, io) => {
                 threshold: '100m radius'
             });
             console.log(`📍 Geofence Alert: Worker left safe zone from ${data.device_id}`);
-        }
-
-        // Flat orientation emergency (device is flat + stationary — possible fall/collapse)
-        if (data.flat_emergency) {
-            alerts.push({
-                type: 'Flat Orientation Emergency',
-                severity: 'Critical',
-                deviceId: data.device_id,
-                workerId,
-                triggerValue: 'Device flat and stationary — possible fall',
-                threshold: 'Flat + Stationary for 5s'
-            });
-            console.log(`🚨 Flat Emergency: Device ${data.device_id} is flat and stationary`);
         }
 
         // Temperature check
@@ -224,7 +210,7 @@ const processSensorData = async (data, io) => {
                 });
 
                 // Queue emergency buzzer for all other devices (Emergency Button or Voice Alert)
-                if (alert.type === 'Emergency Button' || alert.type.startsWith('Voice Alert') || alert.type === 'Flat Orientation Emergency') {
+                if (alert.type === 'Emergency Button' || alert.type.startsWith('Voice Alert')) {
                     await queueEmergencyBuzzer(data.device_id, workerName, alert.type);
                 }
 
@@ -282,7 +268,6 @@ const processSensorData = async (data, io) => {
             gps_speed: data.gps_speed,
             gps_valid: data.gps_valid,
             geofence_violation: data.geofence_violation,
-            flat_emergency: data.flat_emergency || false,
             gps_chars: data.gps_chars,
             satellites: data.satellites || 0,
             worker_id: workerId,

@@ -128,12 +128,6 @@ const SensorData = sequelize.define('SensorData', {
         type: DataTypes.INTEGER,
         allowNull: true,
         comment: 'GPS chars processed (debug)'
-    },
-    // Flat orientation emergency
-    flatEmergency: {
-        type: DataTypes.BOOLEAN,
-        defaultValue: false,
-        comment: 'Device is flat and stationary - possible fall/collapse'
     }
 }, {
     tableName: 'sensor_data',
