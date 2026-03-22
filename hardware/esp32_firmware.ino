@@ -106,6 +106,11 @@ bool gpsConnected = false;
 String lastVoiceCommand = "none";
 bool voiceAlertTriggered = false;
 
+// Flat orientation detection (possible fall / incapacitation)
+int flatConsecutiveCount = 0;
+const int FLAT_CONSECUTIVE_THRESHOLD = 3;  // ~6 seconds at 2s interval
+bool flatAlertSent = false;
+
 float currentLat = 0.0;
 float currentLon = 0.0;
 bool gpsValid = false;
@@ -390,6 +395,10 @@ void handleTouchSensor() {
       nudgeActive = false;
       Serial.println("✅ NUDGE ACKNOWLEDGED by touch sensor");
 
+      // Reset flat alert (worker is conscious and responsive)
+      flatConsecutiveCount = 0;
+      flatAlertSent = false;
+
       // Confirmation: short beep + green flash
       digitalWrite(BUZZER, HIGH);
       setRGB(0, 1, 0);  // Green flash
@@ -405,6 +414,11 @@ void handleTouchSensor() {
       digitalWrite(BUZZER, HIGH);
       setLedState(LED_EMERGENCY);
       Serial.println("🚨 EMERGENCY!");
+
+      // Reset flat alert state
+      flatConsecutiveCount = 0;
+      flatAlertSent = false;
+
       sendEmergencyAlert();
       delay(1000);
     }
@@ -652,6 +666,7 @@ void readAndSendSensorData() {
 
   float ax=0, ay=0, az=0, gx=0, gy=0, gz=0;
   bool fallDetected = false;
+  bool flatOrientationAlert = false;
 
   if (mpuConnected) {
     sensors_event_t a, g, t;
@@ -659,6 +674,42 @@ void readAndSendSensorData() {
     ax = a.acceleration.x; ay = a.acceleration.y; az = a.acceleration.z;
     gx = g.gyro.x; gy = g.gyro.y; gz = g.gyro.z;
     if (sqrt(ax*ax + ay*ay + az*az) > 25.0) fallDetected = true;
+
+    // --- Flat orientation detection (possible fall / incapacitation) ---
+    float absX = fabs(ax), absY = fabs(ay), absZ = fabs(az);
+    float gyroMag = sqrt(gx*gx + gy*gy + gz*gz);
+    bool isFlat = (absZ > absX && absZ > absY && az > 0);  // Face-up flat
+    bool isStationary = (gyroMag < 5.0);  // Low rotation = not moving
+
+    if (isFlat && isStationary) {
+      flatConsecutiveCount++;
+      Serial.printf("[FLAT] Flat detected (%d/%d)\n", flatConsecutiveCount, FLAT_CONSECUTIVE_THRESHOLD);
+
+      if (flatConsecutiveCount >= FLAT_CONSECUTIVE_THRESHOLD && !flatAlertSent) {
+        flatAlertSent = true;
+        flatOrientationAlert = true;
+
+        Serial.println("\n🚨 ============================================");
+        Serial.println("🚨  FLAT ORIENTATION EMERGENCY!");
+        Serial.println("🚨  Worker may have fallen or be incapacitated");
+        Serial.printf("🚨  Accel: X=%.2f Y=%.2f Z=%.2f  Gyro: %.2f\n", ax, ay, az, gyroMag);
+        Serial.println("🚨 ============================================\n");
+
+        // Sound buzzer alarm
+        setLedState(LED_EMERGENCY);
+        triggerAlert(1500);  // 1.5 second buzzer burst
+
+        // Send flat orientation emergency to server
+        sendFlatOrientationAlert();
+      }
+    } else {
+      // Not flat anymore — reset counter
+      if (flatConsecutiveCount > 0) {
+        Serial.println("[FLAT] Orientation changed — counter reset");
+      }
+      flatConsecutiveCount = 0;
+      flatAlertSent = false;
+    }
   }
 
   // Status output
@@ -685,6 +736,7 @@ void readAndSendSensorData() {
   doc["accel_x"] = ax; doc["accel_y"] = ay; doc["accel_z"] = az;
   doc["gyro_x"] = gx; doc["gyro_y"] = gy; doc["gyro_z"] = gz;
   if (fallDetected) doc["fall_detected"] = true;
+  if (flatOrientationAlert) doc["flat_orientation"] = true;
   doc["latitude"] = currentLat;
   doc["longitude"] = currentLon;
   doc["gps_valid"] = gpsValid;
@@ -739,6 +791,18 @@ void sendGeofenceViolation(float distance) {
   doc["latitude"] = currentLat;
   doc["longitude"] = currentLon;
   doc["distance_from_center"] = distance;
+  String payload;
+  serializeJson(doc, payload);
+  sendToServer(payload);
+}
+
+void sendFlatOrientationAlert() {
+  StaticJsonDocument<256> doc;
+  doc["device_id"] = DEVICE_ID;
+  doc["flat_orientation"] = true;
+  doc["latitude"] = currentLat;
+  doc["longitude"] = currentLon;
+  doc["gps_valid"] = gpsValid;
   String payload;
   serializeJson(doc, payload);
   sendToServer(payload);

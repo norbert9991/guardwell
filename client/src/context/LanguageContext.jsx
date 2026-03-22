@@ -95,6 +95,7 @@ const translations = {
     'live.battery': { en: 'Battery', fil: 'Baterya' },
     'live.signal': { en: 'Signal', fil: 'Signal' },
     'live.motionStatus': { en: 'Motion Status', fil: 'Katayuan ng Galaw' },
+    'live.flatOrientation': { en: 'Flat Orientation Alert', fil: 'Alerto sa Patag na Oryentasyon' },
     'live.orientation': { en: 'Orientation', fil: 'Oryentasyon' },
     'live.rotation': { en: 'Rotation', fil: 'Pag-ikot' },
     'live.gpsStatus': { en: 'GPS Status', fil: 'Katayuan ng GPS' },

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Activity, Thermometer, Wind, Droplets, Battery, Signal, User, Shield, Radio, AlertTriangle, CheckCircle, X, Eye, Clock, Bell, ShieldCheck, Mic, Map, Grid, MapPin, Globe, Layers, Navigation2 } from 'lucide-react';
+import { Activity, Thermometer, Wind, Droplets, Battery, Signal, User, Shield, Radio, AlertTriangle, CheckCircle, X, Eye, Clock, Bell, ShieldCheck, Mic, Map, Grid, MapPin, Globe, Layers, Navigation2, Smartphone } from 'lucide-react';
 import { CardDark, CardBody } from '../components/ui/Card';
 import { MetricCard } from '../components/ui/MetricCard';
 import { Badge } from '../components/ui/Badge';
@@ -66,9 +66,12 @@ export const LiveMonitoring = () => {
         // Check for geofence violation
         const geofenceViolation = realTimeData.geofence_violation || false;
 
+        // Check for flat orientation alert
+        const flatOrientation = realTimeData.flat_orientation || false;
+
         // Determine status based on sensor readings and SOS state
         let status = 'normal';
-        if (hasSosActive || emergencyPressed || voiceAlertActive || geofenceViolation || realTimeData.temperature >= 50 || realTimeData.gas_level >= 400) {
+        if (hasSosActive || emergencyPressed || voiceAlertActive || geofenceViolation || flatOrientation || realTimeData.temperature >= 50 || realTimeData.gas_level >= 400) {
             status = 'critical';
         } else if (realTimeData.temperature >= 40 || realTimeData.gas_level >= 200) {
             status = 'warning';
@@ -110,7 +113,8 @@ export const LiveMonitoring = () => {
                 gpsValid: realTimeData.gps_valid || false,
                 satellites: realTimeData.satellites || 0,
                 geofenceViolation: geofenceViolation,
-                gpsChars: realTimeData.gps_chars || 0
+                gpsChars: realTimeData.gps_chars || 0,
+                flatOrientation: flatOrientation
             },
             status: Object.keys(realTimeData).length > 0 ? status : 'offline',
             lastUpdate: realTimeData.createdAt || 'No data'
@@ -736,6 +740,35 @@ export const LiveMonitoring = () => {
                                             </span>
                                             <p className="text-purple-300 text-sm">
                                                 {getVoiceCommandDisplay(worker.sensors.voiceAlertType).english}
+                                            </p>
+                                        </div>
+                                        <Button
+                                            size="sm"
+                                            variant="success"
+                                            className="w-full bg-green-600 hover:bg-green-700"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleMarkSafe(worker.id, worker.name, worker.device);
+                                            }}
+                                        >
+                                            <ShieldCheck size={16} className="mr-2" />
+                                            Mark as Safe
+                                        </Button>
+                                    </div>
+                                )}
+
+                                {/* Flat Orientation Alert Indicator */}
+                                {worker.sensors.flatOrientation && !markedSafe[worker.id] && (
+                                    <div className="mb-4 p-3 bg-orange-500/20 border-2 border-orange-500 rounded-lg animate-pulse">
+                                        <div className="flex items-center justify-center gap-2 mb-2">
+                                            <Smartphone className="h-6 w-6 text-orange-400" />
+                                            <span className="text-orange-400 font-bold text-lg tracking-wider">
+                                                ⚠️ FLAT ORIENTATION
+                                            </span>
+                                        </div>
+                                        <div className="text-center mb-3">
+                                            <p className="text-orange-300 text-sm">
+                                                Device is flat/horizontal — worker may have fallen
                                             </p>
                                         </div>
                                         <Button

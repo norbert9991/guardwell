@@ -169,6 +169,19 @@ const processSensorData = async (data, io) => {
             }
         }
 
+        // Flat orientation detection (worker lying flat — possible fall/incapacitation)
+        if (data.flat_orientation) {
+            alerts.push({
+                type: 'Flat Orientation Detected',
+                severity: 'Critical',
+                deviceId: data.device_id,
+                workerId,
+                triggerValue: 'Device flat (face-up) while stationary',
+                threshold: '3 consecutive readings (~6s)'
+            });
+            console.log(`📱 Flat Orientation Alert: Worker may be incapacitated — ${data.device_id}`);
+        }
+
         // Low battery
         if (data.battery && data.battery <= THRESHOLDS.battery.low) {
             alerts.push({
@@ -209,8 +222,8 @@ const processSensorData = async (data, io) => {
                     timestamp: new Date().toISOString()
                 });
 
-                // Queue emergency buzzer for all other devices (Emergency Button or Voice Alert)
-                if (alert.type === 'Emergency Button' || alert.type.startsWith('Voice Alert')) {
+                // Queue emergency buzzer for all other devices (Emergency Button, Voice Alert, or Flat Orientation)
+                if (alert.type === 'Emergency Button' || alert.type.startsWith('Voice Alert') || alert.type === 'Flat Orientation Detected') {
                     await queueEmergencyBuzzer(data.device_id, workerName, alert.type);
                 }
 
@@ -268,6 +281,7 @@ const processSensorData = async (data, io) => {
             gps_speed: data.gps_speed,
             gps_valid: data.gps_valid,
             geofence_violation: data.geofence_violation,
+            flat_orientation: data.flat_orientation || false,
             gps_chars: data.gps_chars,
             satellites: data.satellites || 0,
             worker_id: workerId,

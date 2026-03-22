@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { AlertTriangle, User, Radio, Clock, CheckCircle, Phone, Shield, Mic, Loader2 } from 'lucide-react';
+import { AlertTriangle, User, Radio, Clock, CheckCircle, Phone, Shield, Mic, Loader2, Smartphone } from 'lucide-react';
 import { Button } from './ui/Button';
 import { useSocket } from '../context/SocketContext';
 import { useAuth } from '../context/AuthContext';
@@ -45,6 +45,7 @@ export const GlobalEmergencyAlert = () => {
     // Determine alert category for styling
     const getAlertCategory = (type) => {
         if (type?.includes('Voice Alert')) return 'voice';     // INMP441 human detection
+        if (type?.includes('Flat Orientation')) return 'flat'; // Flat orientation detection
         return 'emergency';                                     // Emergency Button, Gas, Fall, etc.
     };
 
@@ -60,6 +61,17 @@ export const GlobalEmergencyAlert = () => {
             gradientFrom: 'from-purple-900/40',
             gradientTo: 'to-purple-800/20',
             shadowColor: 'shadow-purple-500/20',
+        },
+        flat: {
+            iconBg: 'bg-orange-500/30',
+            iconColor: 'text-orange-400',
+            textColor: 'text-orange-400',
+            badgeBg: 'bg-orange-500/20 border-orange-500',
+            badgeText: 'text-orange-300',
+            borderColor: 'border-orange-500',
+            gradientFrom: 'from-orange-900/40',
+            gradientTo: 'to-orange-800/20',
+            shadowColor: 'shadow-orange-500/20',
         },
         emergency: {
             iconBg: 'bg-red-500/30',
@@ -78,6 +90,7 @@ export const GlobalEmergencyAlert = () => {
     const getCategoryIcon = (category) => {
         switch (category) {
             case 'voice': return <Mic className="h-9 w-9 text-purple-400" />;
+            case 'flat':  return <Smartphone className="h-9 w-9 text-orange-400" />;
             default:      return <User className="h-9 w-9 text-red-400" />;
         }
     };
@@ -92,6 +105,9 @@ export const GlobalEmergencyAlert = () => {
                 const cmd = emergency.voice_command.split('_')[0];
                 return `Worker called: "${cmd.charAt(0).toUpperCase() + cmd.slice(1)}"`;
             }
+        }
+        if (category === 'flat') {
+            return 'Worker device detected in flat/horizontal position — possible fall or incapacitation';
         }
         return null;
     };
