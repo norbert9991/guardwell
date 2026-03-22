@@ -637,26 +637,28 @@ export const LiveMonitoring = () => {
                                             </div>
                                             <div className="flex items-center justify-between">
                                                 <span className={`text-xs px-2 py-0.5 rounded ${
-                                                    hasValidGPS
-                                                        ? 'bg-green-50 text-green-600'
-                                                        : 'bg-yellow-50 text-yellow-600'
+                                                    worker.status === 'offline'
+                                                        ? 'bg-gray-100 text-gray-500'
+                                                        : hasValidGPS
+                                                            ? 'bg-green-50 text-green-600'
+                                                            : 'bg-yellow-50 text-yellow-600'
                                                 }`}>
-                                                    {hasValidGPS ? '✓ GPS Fix' : '⏳ No GPS'}
+                                                    {worker.status === 'offline' ? '⏻ Offline' : hasValidGPS ? '✓ GPS Fix' : '⏳ No GPS'}
                                                 </span>
                                                 <button
                                                     onClick={() => setFocusDeviceId(worker.device)}
-                                                    disabled={!hasValidGPS}
+                                                    disabled={!hasValidGPS || worker.status === 'offline'}
                                                     className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-all flex items-center gap-1.5 ${
-                                                        hasValidGPS
+                                                        hasValidGPS && worker.status !== 'offline'
                                                             ? 'bg-[#6FA3D8] text-white hover:bg-[#5A8FC4] cursor-pointer'
                                                             : 'bg-[#E3E6EB] text-[#9CA3AF] cursor-not-allowed'
                                                     }`}
                                                 >
                                                     <MapPin size={12} />
-                                                    Locate
+                                                    {worker.status === 'offline' ? 'Offline' : 'Locate'}
                                                 </button>
                                             </div>
-                                            {hasValidGPS && (
+                                            {hasValidGPS && worker.status !== 'offline' && (
                                                 <div className="mt-2 text-xs text-[#6B7280] font-mono">
                                                     {parseFloat(worker.sensors.latitude).toFixed(6)}, {parseFloat(worker.sensors.longitude).toFixed(6)}
                                                 </div>

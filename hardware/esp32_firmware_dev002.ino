@@ -111,9 +111,10 @@ int flatConsecutiveCount = 0;
 const int FLAT_CONSECUTIVE_THRESHOLD = 3;  // ~6 seconds at 2s interval
 bool flatAlertSent = false;
 
-float currentLat = 0.0;
-float currentLon = 0.0;
-bool gpsValid = false;
+// Simulated GPS coordinates (QCU) — for demo/testing
+float currentLat = 14.7000;
+float currentLon = 121.0326;
+bool gpsValid = true;
 
 // ============================================
 // RGB LED STATE MACHINE
