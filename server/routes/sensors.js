@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { SensorData, Alert, Device, Worker, EmergencyContact } = require('../models');
+const { Op } = require('sequelize');
 const emailService = require('../services/emailService');
 
 // Thresholds for alerts
@@ -194,8 +195,50 @@ const processSensorData = async (data, io) => {
             });
         }
 
-        // Create alerts in database and emit via Socket.io
+        // ============================================
+        // ALERT DEDUPLICATION
+        // Prevent duplicate alerts for the same device+type within a cooldown window.
+        // If an unresolved alert of the same type already exists for this device
+        // within the cooldown, skip creating a new one.
+        // ============================================
+        const ALERT_COOLDOWNS = {
+            'Emergency Button':           1 * 60 * 1000,   // 1 minute
+            'Voice Alert - Human Detected': 1 * 60 * 1000, // 1 minute
+            'Flat Orientation Detected':  1 * 60 * 1000,   // 1 minute
+            'Fall Detected':              1 * 60 * 1000,   // 1 minute
+            'High Temperature':           2 * 60 * 1000,   // 2 minutes
+            'Gas Detection':              2 * 60 * 1000,   // 2 minutes
+            'Geofence Violation':         2 * 60 * 1000,   // 2 minutes
+            'Low Battery':               10 * 60 * 1000,   // 10 minutes
+        };
+
+        // Filter out duplicate alerts
+        const deduplicatedAlerts = [];
         for (const alertData of alerts) {
+            const cooldownMs = ALERT_COOLDOWNS[alertData.type] || 5 * 60 * 1000;
+            const cooldownTime = new Date(Date.now() - cooldownMs);
+
+            // Check if a recent unresolved alert of the same type+device exists
+            const existingAlert = await Alert.findOne({
+                where: {
+                    type: alertData.type,
+                    deviceId: alertData.deviceId,
+                    status: { [Op.in]: ['Pending', 'Acknowledged'] },
+                    createdAt: { [Op.gt]: cooldownTime }
+                },
+                order: [['createdAt', 'DESC']]
+            });
+
+            if (existingAlert) {
+                console.log(`⏭️  Skipping duplicate alert: ${alertData.type} for ${alertData.deviceId} (existing #${existingAlert.id}, ${Math.round((Date.now() - new Date(existingAlert.createdAt).getTime()) / 1000)}s ago)`);
+                continue;
+            }
+
+            deduplicatedAlerts.push(alertData);
+        }
+
+        // Create alerts in database and emit via Socket.io
+        for (const alertData of deduplicatedAlerts) {
             const alert = await Alert.create(alertData);
 
             // Emit alert to all connected clients

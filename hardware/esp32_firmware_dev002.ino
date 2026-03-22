@@ -663,7 +663,10 @@ void readAndSendSensorData() {
   if (isnan(temp)) temp = 0.0;
   if (isnan(hum)) hum = 0.0;
 
-  int gasPPM = map(analogRead(MQ2PIN), 0, 4095, 0, 1000); 
+  // MQ2 DISABLED — sensor draws too much current on 9V battery,
+  // causing brownouts and false critical alerts. Uncomment when using proper PSU.
+  // int gasPPM = map(analogRead(MQ2PIN), 0, 4095, 0, 1000); 
+  int gasPPM = 0;  // Disabled — no gas reading
 
   float ax=0, ay=0, az=0, gx=0, gy=0, gz=0;
   bool fallDetected = false;
