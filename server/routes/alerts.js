@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { Alert, Worker } = require('../models');
+const { Alert, Worker, Incident } = require('../models');
 const { sequelize } = require('../config/database');
 const { Op } = require('sequelize');
 
@@ -93,6 +93,37 @@ router.post('/:id/acknowledge', async (req, res) => {
             include: [{ model: Worker, as: 'worker' }]
         });
 
+        // Auto-create incident for Critical alerts
+        let autoIncident = null;
+        if (existingAlert.severity === 'Critical') {
+            // Check if incident already exists for this alert
+            const existingIncident = await Incident.findOne({ where: { alertId: existingAlert.id } });
+            if (!existingIncident) {
+                const alertTypeToIncidentType = {
+                    'High Temperature': 'Environmental Hazard',
+                    'Gas Detection': 'Chemical Exposure',
+                    'Fall Detected': 'Major Injury',
+                    'Emergency Button': 'Near Miss',
+                    'Voice Alert': 'Near Miss',
+                    'Flat Orientation Detected': 'Major Injury',
+                    'Loud Noise Detected': 'Environmental Hazard',
+                };
+
+                autoIncident = await Incident.create({
+                    title: `[Auto] ${existingAlert.type} — Alert #${existingAlert.id}`,
+                    type: alertTypeToIncidentType[existingAlert.type] || 'Near Miss',
+                    severity: existingAlert.severity,
+                    workerId: existingAlert.workerId || null,
+                    workerName: alert.worker?.fullName || 'Unknown Worker',
+                    location: 'Workplace',
+                    description: `Auto-generated incident from Critical Alert #${existingAlert.id}\n\nAlert Type: ${existingAlert.type}\nTrigger Value: ${existingAlert.triggerValue || 'N/A'}\nThreshold: ${existingAlert.threshold || 'N/A'}\nDevice: ${existingAlert.deviceId || 'N/A'}\nAcknowledged By: ${acknowledgedBy || 'System'}`,
+                    alertId: existingAlert.id,
+                    status: 'Open'
+                });
+                console.log(`📋 Auto-created Incident #${autoIncident.id} from Critical Alert #${existingAlert.id}`);
+            }
+        }
+
         // Broadcast update
         req.io.emit('emergency_status_updated', {
             alertId: req.params.id,
@@ -100,10 +131,12 @@ router.post('/:id/acknowledge', async (req, res) => {
             acknowledgedBy: alert.acknowledgedBy,
             acknowledgedAt: alert.acknowledgedAt,
             responseTimeMs: alert.responseTimeMs,
-            alert
+            alert,
+            autoIncidentCreated: !!autoIncident,
+            incidentId: autoIncident?.id || null
         });
 
-        res.json(alert);
+        res.json({ ...alert.toJSON(), autoIncidentCreated: !!autoIncident, incidentId: autoIncident?.id || null });
     } catch (error) {
         console.error('Error acknowledging alert:', error);
         res.status(500).json({ error: 'Failed to acknowledge alert' });
@@ -262,5 +295,21 @@ router.patch('/:id/archive', async (req, res) => {
     }
 });
 
-module.exports = router;
+// Check if alert has linked incident
+router.get('/:id/incident', async (req, res) => {
+    try {
+        const incident = await Incident.findOne({
+            where: { alertId: req.params.id }
+        });
+        if (incident) {
+            res.json({ hasIncident: true, incident });
+        } else {
+            res.json({ hasIncident: false, incident: null });
+        }
+    } catch (error) {
+        console.error('Error checking linked incident:', error);
+        res.status(500).json({ error: 'Failed to check linked incident' });
+    }
+});
 
+module.exports = router;

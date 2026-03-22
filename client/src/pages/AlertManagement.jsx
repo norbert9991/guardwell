@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { AlertTriangle, Clock, User, CheckCircle, Bell, XCircle, Filter, Calendar, Search, X, FileText, Plus } from 'lucide-react';
+import { AlertTriangle, Clock, User, CheckCircle, Bell, XCircle, Filter, Calendar, Search, X, FileText, Plus, Link } from 'lucide-react';
 import { CardDark, CardBody, CardHeader } from '../components/ui/Card';
 import { MetricCard } from '../components/ui/MetricCard';
 import { Button } from '../components/ui/Button';
@@ -40,6 +40,9 @@ export const AlertManagement = () => {
         alertId: null
     });
 
+    // Track which alerts have linked incidents
+    const [alertIncidentMap, setAlertIncidentMap] = useState({});
+
     // Advanced filters
     const [showFilters, setShowFilters] = useState(false);
     const [severityFilter, setSeverityFilter] = useState('all');
@@ -54,6 +57,19 @@ export const AlertManagement = () => {
         try {
             const response = await alertsApi.getAll();
             setAlerts(response.data);
+
+            // Check which acknowledged/resolved alerts have linked incidents
+            const acknowledged = response.data.filter(a => a.status === 'Acknowledged' || a.status === 'Resolved');
+            const incidentChecks = {};
+            for (const a of acknowledged) {
+                try {
+                    const res = await alertsApi.getLinkedIncident(a.id);
+                    if (res.data.hasIncident) {
+                        incidentChecks[a.id] = res.data.incident;
+                    }
+                } catch { /* skip */ }
+            }
+            setAlertIncidentMap(prev => ({ ...prev, ...incidentChecks }));
         } catch (error) {
             console.error('Failed to fetch alerts:', error);
         } finally {
@@ -103,10 +119,21 @@ export const AlertManagement = () => {
             toast.success('Alert acknowledged successfully');
             setShowAcknowledgeConfirm(false);
 
-            // Store the acknowledged alert and prompt for incident creation
-            setAcknowledgedAlert(alertToAction);
-            setShowCreateIncidentPrompt(true);
-            setAlertToAction(null);
+            // Check if server auto-created an incident (Critical alerts)
+            if (response.data.autoIncidentCreated) {
+                toast.success(`Incident report auto-created for Critical alert (Incident #${response.data.incidentId})`);
+                // Update the incident map
+                setAlertIncidentMap(prev => ({
+                    ...prev,
+                    [alertId]: { id: response.data.incidentId }
+                }));
+                setAlertToAction(null);
+            } else {
+                // Non-critical: prompt to create incident manually
+                setAcknowledgedAlert(alertToAction);
+                setShowCreateIncidentPrompt(true);
+                setAlertToAction(null);
+            }
         } catch (error) {
             console.error('Failed to acknowledge alert:', error);
             toast.error('Failed to acknowledge alert. Please try again.');
@@ -154,6 +181,15 @@ export const AlertManagement = () => {
         try {
             await incidentsApi.create(incidentFormData);
             toast.success('Incident report created successfully!');
+            // Track the created incident
+            if (acknowledgedAlert?.id) {
+                try {
+                    const res = await alertsApi.getLinkedIncident(acknowledgedAlert.id);
+                    if (res.data.hasIncident) {
+                        setAlertIncidentMap(prev => ({ ...prev, [acknowledgedAlert.id]: res.data.incident }));
+                    }
+                } catch { /* skip */ }
+            }
             setShowIncidentForm(false);
             setAcknowledgedAlert(null);
             setIncidentFormData({
@@ -508,7 +544,14 @@ export const AlertManagement = () => {
                                             </div>
                                         </div>
                                     </div>
-                                    <div className="flex gap-2 ml-4">
+                                    <div className="flex gap-2 ml-4 flex-wrap items-center">
+                                        {/* Incident Created indicator */}
+                                        {alertIncidentMap[alert.id] && (
+                                            <span className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded-full flex items-center gap-1 font-medium">
+                                                <Link size={12} />
+                                                Incident #{alertIncidentMap[alert.id].id}
+                                            </span>
+                                        )}
                                         <Button size="sm" variant="outline" onClick={() => setSelectedAlert(alert)}>View Details</Button>
                                         {alert.status === 'Pending' && (
                                             <Button
@@ -519,6 +562,29 @@ export const AlertManagement = () => {
                                                 disabled={isSubmitting}
                                             >
                                                 Acknowledge
+                                            </Button>
+                                        )}
+                                        {alert.status === 'Acknowledged' && !alertIncidentMap[alert.id] && (
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                icon={<Plus size={16} />}
+                                                onClick={() => {
+                                                    setAcknowledgedAlert(alert);
+                                                    setIncidentFormData({
+                                                        title: `Alert: ${alert.type}`,
+                                                        type: mapAlertTypeToIncidentType(alert.type),
+                                                        severity: alert.severity || 'Medium',
+                                                        workerName: alert.worker?.fullName || 'Unknown Worker',
+                                                        workerId: alert.workerId || null,
+                                                        location: 'Workplace',
+                                                        description: `Auto-generated from Alert #${alert.id}\n\nAlert Type: ${alert.type}\nTrigger Value: ${alert.triggerValue || 'N/A'}\nThreshold: ${alert.threshold || 'N/A'}\nDevice: ${alert.deviceId || 'N/A'}`,
+                                                        alertId: alert.id
+                                                    });
+                                                    setShowIncidentForm(true);
+                                                }}
+                                            >
+                                                Create Incident
                                             </Button>
                                         )}
                                         {alert.status === 'Acknowledged' && (

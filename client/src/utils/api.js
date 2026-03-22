@@ -91,7 +91,8 @@ export const alertsApi = {
     assign: (id, assignedTo) => api.post(`/alerts/${id}/assign`, { assignedTo }),
     resolve: (id, notes) => api.post(`/alerts/${id}/resolve`, { notes }),
     updateNotes: (id, notes) => api.patch(`/alerts/${id}/notes`, { notes }),
-    archive: (id) => api.patch(`/alerts/${id}/archive`)
+    archive: (id) => api.patch(`/alerts/${id}/archive`),
+    getLinkedIncident: (id) => api.get(`/alerts/${id}/incident`)
 };
 
 // ======================

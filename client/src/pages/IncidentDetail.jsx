@@ -2,14 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
     ArrowLeft, FileText, AlertTriangle, Clock, User, MapPin,
-    CheckCircle, Plus, MessageSquare, Activity, XCircle, Archive
+    CheckCircle, Plus, MessageSquare, Activity, XCircle, Archive, Link
 } from 'lucide-react';
 import { CardDark, CardBody, CardHeader } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Badge, SeverityBadge, StatusBadge } from '../components/ui/Badge';
 import { Modal } from '../components/ui/Modal';
 import { ConfirmationModal } from '../components/ui/ConfirmationModal';
-import { incidentsApi } from '../utils/api';
+import { incidentsApi, alertsApi } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 
 export const IncidentDetail = () => {
@@ -19,6 +19,7 @@ export const IncidentDetail = () => {
     const [incident, setIncident] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [linkedAlert, setLinkedAlert] = useState(null);
 
     // Modal states
     const [showAddNoteModal, setShowAddNoteModal] = useState(false);
@@ -40,6 +41,14 @@ export const IncidentDetail = () => {
                 const response = await incidentsApi.getById(id);
                 setIncident(response.data);
                 setNewStatus(response.data.status);
+
+                // Fetch linked alert if alertId exists
+                if (response.data.alertId) {
+                    try {
+                        const alertRes = await alertsApi.getById(response.data.alertId);
+                        setLinkedAlert(alertRes.data);
+                    } catch { /* alert may have been deleted */ }
+                }
             } catch (err) {
                 console.error('Failed to fetch incident:', err);
                 setError('Failed to load incident details');
@@ -166,6 +175,50 @@ export const IncidentDetail = () => {
                     <StatusBadge status={incident.status} />
                 </div>
             </div>
+
+            {/* Linked Alert Banner */}
+            {incident.alertId && linkedAlert && (
+                <CardDark className="border-l-4 border-l-blue-500">
+                    <CardBody className="p-4">
+                        <div className="flex items-center gap-3 mb-2">
+                            <Link size={18} className="text-blue-500" />
+                            <h3 className="font-semibold text-[#1F2937]">Linked Alert #{linkedAlert.id}</h3>
+                            <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${
+                                linkedAlert.severity === 'Critical' ? 'bg-red-100 text-red-700' :
+                                linkedAlert.severity === 'High' ? 'bg-orange-100 text-orange-700' :
+                                linkedAlert.severity === 'Medium' ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'
+                            }`}>
+                                {linkedAlert.severity}
+                            </span>
+                            <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${
+                                linkedAlert.status === 'Resolved' ? 'bg-green-100 text-green-700' :
+                                linkedAlert.status === 'Acknowledged' ? 'bg-blue-100 text-blue-700' : 'bg-yellow-100 text-yellow-700'
+                            }`}>
+                                {linkedAlert.status}
+                            </span>
+                        </div>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                            <div>
+                                <p className="text-[#6B7280]">Alert Type</p>
+                                <p className="text-[#1F2937] font-medium">{linkedAlert.type}</p>
+                            </div>
+                            <div>
+                                <p className="text-[#6B7280]">Device</p>
+                                <p className="text-[#1F2937] font-medium">{linkedAlert.deviceId || 'N/A'}</p>
+                            </div>
+                            <div>
+                                <p className="text-[#6B7280]">Trigger Value</p>
+                                <p className="text-red-500 font-medium">{linkedAlert.triggerValue || 'N/A'}</p>
+                            </div>
+                            <div>
+                                <p className="text-[#6B7280]">Alert Created</p>
+                                <p className="text-[#1F2937] font-medium">{formatDate(linkedAlert.createdAt)}</p>
+                            </div>
+                        </div>
+                        <p className="text-xs text-[#6B7280] mt-2 italic">This incident was created from the alert above.</p>
+                    </CardBody>
+                </CardDark>
+            )}
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Main Content */}
