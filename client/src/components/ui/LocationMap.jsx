@@ -1,5 +1,5 @@
-import React, { useEffect, useRef, useMemo } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, Circle, Polygon, Tooltip, useMap } from 'react-leaflet';
+import React, { useEffect, useRef, useMemo, useState, useCallback } from 'react';
+import { MapContainer, TileLayer, Marker, Popup, Circle, Polygon, Tooltip, useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
@@ -28,7 +28,8 @@ const icons = {
     normal: createIcon('blue'),
     warning: createIcon('orange'),
     critical: createIcon('red'),
-    outside: createIcon('violet')
+    outside: createIcon('violet'),
+    pin: createIcon('green'),
 };
 
 // ── Hazardous zone bounding box around the coordinate ──
@@ -53,6 +54,17 @@ const TILE_LAYERS = {
     },
 };
 
+// ── Helper: convert decimal degrees to DMS format ──
+function toDMS(decimal, isLat) {
+    const abs = Math.abs(decimal);
+    const d = Math.floor(abs);
+    const mFloat = (abs - d) * 60;
+    const m = Math.floor(mFloat);
+    const s = ((mFloat - m) * 60).toFixed(1);
+    const dir = isLat ? (decimal >= 0 ? 'N' : 'S') : (decimal >= 0 ? 'E' : 'W');
+    return `${d}°${m}'${s}"${dir}`;
+}
+
 // ── Component to fly to a focused device ──
 function FocusController({ focusDeviceId, workers, markerRefs, geofenceCenter }) {
     const map = useMap();
@@ -65,18 +77,14 @@ function FocusController({ focusDeviceId, workers, markerRefs, geofenceCenter })
             const lat = parseFloat(worker.sensors.latitude);
             const lng = parseFloat(worker.sensors.longitude);
             if (lat !== 0 || lng !== 0) {
-                // If device is outside geofence, zoom out more so user can see both
-                // the geofence boundary and the device position
                 const isOutside = worker.sensors?.geofenceViolation;
                 if (isOutside && geofenceCenter) {
-                    // Fit bounds to show both the device and the geofence center
                     const bounds = L.latLngBounds([geofenceCenter, [lat, lng]]);
                     map.flyToBounds(bounds.pad(0.3), { duration: 1.2, maxZoom: 17 });
                 } else {
                     map.flyTo([lat, lng], 19, { duration: 1.2 });
                 }
 
-                // Open the marker popup after the fly animation
                 setTimeout(() => {
                     const ref = markerRefs.current?.[focusDeviceId];
                     if (ref) ref.openPopup();
@@ -109,6 +117,16 @@ function FitAllController({ workers, trigger, geofenceCenter }) {
     return null;
 }
 
+// ── Click-to-Pin controller ──
+function ClickPinController({ onPin }) {
+    useMapEvents({
+        click(e) {
+            onPin([e.latlng.lat, e.latlng.lng]);
+        },
+    });
+    return null;
+}
+
 // ── Hazardous Zone Overlay ──
 function HazardousZoneOverlay() {
     return (
@@ -137,20 +155,22 @@ export function LocationMap({
     geofenceCenter,
     geofenceRadius = 100,
     mapStyle = 'satellite',
-    focusDeviceId = null,    // deviceId to fly to
-    onMarkerClick = null,    // callback(deviceId)
-    fitAllTrigger = 0,       // increment to trigger fit-all
+    focusDeviceId = null,
+    onMarkerClick = null,
+    fitAllTrigger = 0,
 }) {
     const mapCenter = geofenceCenter || FACILITY_CENTER;
     const tileConfig = TILE_LAYERS[mapStyle] || TILE_LAYERS.satellite;
     const markerRefs = useRef({});
+    const pinRef = useRef(null);
+    const [pinnedPosition, setPinnedPosition] = useState(null);
+    const [copied, setCopied] = useState(false);
 
     // Show only workers with VALID, non-zero GPS coordinates
     const workersWithGPS = useMemo(() =>
         workers.filter(w => {
             const lat = parseFloat(w.sensors?.latitude);
             const lng = parseFloat(w.sensors?.longitude);
-            // Must have coordinates, must not be (0,0), and should have valid GPS
             return w.sensors?.latitude != null &&
                    w.sensors?.longitude != null &&
                    !(lat === 0 && lng === 0) &&
@@ -164,8 +184,32 @@ export function LocationMap({
         return icons.normal;
     };
 
+    const handlePin = useCallback((pos) => {
+        setPinnedPosition(pos);
+        setCopied(false);
+        setTimeout(() => {
+            if (pinRef.current) pinRef.current.openPopup();
+        }, 50);
+    }, []);
+
+    const handleCopyCoords = useCallback(() => {
+        if (!pinnedPosition) return;
+        const text = `${pinnedPosition[0].toFixed(6)}, ${pinnedPosition[1].toFixed(6)}`;
+        navigator.clipboard.writeText(text).then(() => {
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        });
+    }, [pinnedPosition]);
+
     return (
-        <div className="w-full h-[500px] rounded-xl overflow-hidden border border-[#E3E6EB] shadow-md">
+        <div className="w-full h-[500px] rounded-xl overflow-hidden border border-[#E3E6EB] shadow-md relative">
+            {/* Hint overlay */}
+            <div className="absolute top-2 left-1/2 -translate-x-1/2 z-[1000] pointer-events-none">
+                <div className="bg-black/60 text-white text-xs px-3 py-1.5 rounded-full backdrop-blur-sm">
+                    📌 Click anywhere to pin &amp; see coordinates
+                </div>
+            </div>
+
             <MapContainer
                 center={mapCenter}
                 zoom={18}
@@ -179,6 +223,9 @@ export function LocationMap({
                     url={tileConfig.url}
                     maxZoom={tileConfig.maxZoom}
                 />
+
+                {/* Click-to-pin handler */}
+                <ClickPinController onPin={handlePin} />
 
                 {/* Geofence Circle */}
                 <Circle
@@ -196,7 +243,7 @@ export function LocationMap({
                 {/* Hazardous Zone Overlay */}
                 <HazardousZoneOverlay />
 
-                {/* Facility Center Marker (non-GPS reference point) */}
+                {/* Facility Center Marker */}
                 <Marker position={FACILITY_CENTER} icon={icons.normal} opacity={0.5}>
                     <Popup>
                         <div className="text-sm" style={{ minWidth: 180 }}>
@@ -212,6 +259,50 @@ export function LocationMap({
                         </div>
                     </Popup>
                 </Marker>
+
+                {/* Pinned Location Marker (green) */}
+                {pinnedPosition && (
+                    <Marker position={pinnedPosition} icon={icons.pin} ref={pinRef}>
+                        <Popup>
+                            <div style={{ minWidth: 220, fontFamily: 'system-ui, sans-serif' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                                    <strong style={{ fontSize: 14, color: '#166534' }}>📌 Pinned Location</strong>
+                                    <button
+                                        onClick={() => setPinnedPosition(null)}
+                                        style={{
+                                            background: 'none', border: 'none', cursor: 'pointer',
+                                            fontSize: 18, color: '#9ca3af', padding: '0 4px', lineHeight: 1
+                                        }}
+                                        title="Remove pin"
+                                    >×</button>
+                                </div>
+                                <hr style={{ margin: '6px 0', borderColor: '#e2e8f0' }} />
+                                <div style={{ color: '#334155', fontSize: 13, lineHeight: 1.6 }}>
+                                    <div style={{ fontWeight: 600 }}>Decimal:</div>
+                                    <div style={{ fontFamily: 'monospace', fontSize: 12, color: '#1e293b' }}>
+                                        {pinnedPosition[0].toFixed(6)}, {pinnedPosition[1].toFixed(6)}
+                                    </div>
+                                    <div style={{ fontWeight: 600, marginTop: 6 }}>DMS:</div>
+                                    <div style={{ fontFamily: 'monospace', fontSize: 12, color: '#1e293b' }}>
+                                        {toDMS(pinnedPosition[0], true)} {toDMS(pinnedPosition[1], false)}
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={handleCopyCoords}
+                                    style={{
+                                        marginTop: 8, width: '100%', padding: '6px 12px',
+                                        background: copied ? '#16a34a' : '#2563eb',
+                                        color: '#fff', border: 'none', borderRadius: 6,
+                                        cursor: 'pointer', fontSize: 12, fontWeight: 600,
+                                        transition: 'background 0.2s'
+                                    }}
+                                >
+                                    {copied ? '✓ Copied!' : '📋 Copy Coordinates'}
+                                </button>
+                            </div>
+                        </Popup>
+                    </Marker>
+                )}
 
                 {/* Worker Markers — only real GPS data */}
                 {workersWithGPS.map((worker) => (
