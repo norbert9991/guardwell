@@ -6,14 +6,15 @@
 #include <Adafruit_MPU6050.h>
 #include <Adafruit_Sensor.h>
 #include <ArduinoJson.h>
-#include "DFRobot_DF2301Q.h"
+#include <driver/i2s_std.h>
+#include <math.h>
 #include <TinyGPS++.h>
 
 // ============================================
 // CONFIGURATION — DEV-002
 // ============================================
-const char* WIFI_SSID = "norbert";
-const char* WIFI_PASSWORD = "999999999";
+const char* WIFI_SSID = "infi";
+const char* WIFI_PASSWORD = "12345678";
 const char* SERVER_URL = "https://guardwell.onrender.com/api/sensors/data";
 const char* NUDGE_URL  = "https://guardwell.onrender.com/api/sensors/nudge/DEV-002";
 const char* NUDGE_ACK  = "https://guardwell.onrender.com/api/sensors/nudge/DEV-002/ack";
@@ -39,9 +40,17 @@ const float GEOFENCE_RADIUS_METERS = 100.0;
 #define RGB_GREEN   12
 #define RGB_BLUE    14
 
-// Shared I2C Bus (Voice Sensor + MPU6050)
+// I2C Bus (MPU6050)
 #define I2C_SDA     21
 #define I2C_SCL     22 
+
+// INMP441 I2S Microphone
+#define I2S_WS      25
+#define I2S_SCK     26
+#define I2S_SD      32
+
+// I2S channel handle (new standard driver API)
+i2s_chan_handle_t i2s_rx_handle = NULL;
 
 // GPS (UART - Serial2)
 #define GPS_RX      16  // ESP32 receives from GPS TX
@@ -53,7 +62,35 @@ const float GEOFENCE_RADIUS_METERS = 100.0;
 DHT dht(DHTPIN, DHTTYPE);
 Adafruit_MPU6050 mpu;
 TinyGPSPlus gps;
-DFRobot_DF2301Q_I2C voiceSensor;  // I2C mode!
+// INMP441 Sound Classification (replaces DFRobot Voice Sensor)
+// FFT parameters
+#define FFT_SIZE       256
+#define SAMPLE_RATE    16000
+#define HALF_FFT       (FFT_SIZE / 2)
+
+// Audio buffers
+int16_t i2sBuffer[FFT_SIZE];
+float vReal[FFT_SIZE];
+float vImag[FFT_SIZE];
+float magnitudes[HALF_FFT];
+
+// Hann window (precomputed in setup)
+float hannWindow[FFT_SIZE];
+
+// --- TUNABLE THRESHOLDS ---
+// Adjust these for your specific industrial environment!
+// Current: HIGH SENSITIVITY for detecting human voice at a distance
+float VOICE_BAND_RATIO_THRESHOLD = 0.30;  // Min ratio of voice-band energy to total (lower = more sensitive)
+float SFM_THRESHOLD              = 0.50;  // Max spectral flatness for human voice (higher = more sensitive)
+float RMS_THRESHOLD              = 200.0; // Min RMS amplitude to consider (lower = picks up quieter sounds)
+float ONSET_THRESHOLD            = 1.0;   // Effectively disabled — spectral features (SFM+BandR) handle classification
+unsigned long DETECTION_COOLDOWN = 3000;  // Cooldown between detections (ms)
+
+// Running state
+float baselineRMS = 0.0;
+unsigned long lastDetectionTime = 0;
+bool soundAlertTriggered = false;
+
 
 // ============================================
 // VARIABLES
@@ -63,16 +100,28 @@ unsigned long buzzerStartTime = 0;
 unsigned long lastSendTime = 0;
 const unsigned long SEND_INTERVAL = 2000;
 bool mpuConnected = false;
-bool voiceConnected = false;
+bool micConnected = false;
 bool gpsConnected = false;
 
 String lastVoiceCommand = "none";
-uint8_t lastVoiceCommandID = 0;
 bool voiceAlertTriggered = false;
 
 float currentLat = 0.0;
 float currentLon = 0.0;
 bool gpsValid = false;
+
+// Simulated GPS fallback (Quezon City University — slightly offset from DEV-001)
+const float SIMULATED_LAT = 14.7001;
+const float SIMULATED_LON = 121.0327;
+bool usingSimulatedGPS = false;
+
+// Flat orientation emergency detection
+bool flatEmergencyTriggered = false;
+unsigned long flatStartTime = 0;
+bool deviceIsFlat = false;
+const unsigned long FLAT_EMERGENCY_DELAY = 5000;  // 5 seconds of flat+stationary before emergency
+unsigned long lastFlatEmergencyTime = 0;
+const unsigned long FLAT_EMERGENCY_COOLDOWN = 30000;  // 30 second cooldown between flat emergencies
 
 // ============================================
 // RGB LED STATE MACHINE
@@ -93,6 +142,7 @@ bool ledBlinkOn = false;
 int ledBlinkCount = 0;
 const int NUDGE_BLINK_CYCLES = 10;  // Blue blinks when nudge received
 bool nudgeActive = false;
+bool nudgePending = false;  // true = waiting for worker to tap touch sensor to acknowledge
 bool insideGeofence = true;
 unsigned long lastGeofenceCheck = 0;
 
@@ -104,10 +154,11 @@ void setup() {
   delay(2000);
 
   Serial.println("\n========================================");
-  Serial.println(" GuardWell ESP32 — DEV-002");
+  Serial.println(" GuardWell ESP32 — DEV-002 (INMP441 + FFT)");
   Serial.println("========================================");
+  Serial.println("INMP441 I2S Mic (pins 25, 26, 32):");
+  Serial.println("  - WS=25, SCK=26, SD=32");
   Serial.println("I2C Bus (pins 21, 22):");
-  Serial.println("  - Voice Sensor (I2C)");
   Serial.println("  - MPU6050");
   Serial.println("GPS UART (pins 16, 17):");
   Serial.println("  - GPS TX → GPIO 16");
@@ -166,19 +217,20 @@ void setup() {
     mpuConnected = true;
   }
 
-  // === 4. Voice Sensor (I2C) ===
-  Serial.print("[3/5] Voice Sensor (I2C)... ");
-  delay(200);
-  if (!voiceSensor.begin()) {
-    Serial.println("❌ Check C→21, D→22");
-    voiceConnected = false;
-  } else {
+  // === 4. INMP441 Microphone (I2S) ===
+  Serial.print("[3/5] INMP441 Mic (I2S)... ");
+  micConnected = initINMP441();
+  if (micConnected) {
     Serial.println("✅");
-    // I2C mode uses different methods - basic settings work by default
-    voiceSensor.setVolume(7);
-    voiceSensor.setMuteMode(0);
-    voiceSensor.setWakeTime(20);
-    voiceConnected = true;
+    // Precompute Hann window
+    for (int i = 0; i < FFT_SIZE; i++) {
+      hannWindow[i] = 0.5 * (1.0 - cos(2.0 * PI * i / (FFT_SIZE - 1)));
+    }
+    Serial.printf("     FFT: %d pts @ %d Hz, Nyquist: %d Hz\n", FFT_SIZE, SAMPLE_RATE, SAMPLE_RATE / 2);
+    Serial.printf("     Thresholds: BandRatio>%.2f, SFM<%.2f, RMS>%.0f\n",
+                  VOICE_BAND_RATIO_THRESHOLD, SFM_THRESHOLD, RMS_THRESHOLD);
+  } else {
+    Serial.println("❌ I2S init failed");
   }
 
   // === 5. DHT ===
@@ -196,12 +248,21 @@ void setup() {
   Serial.print("[5/5] WiFi... ");
   connectToWiFi();
   
+  // Apply simulated GPS if no real fix yet
+  if (!gpsValid) {
+    currentLat = SIMULATED_LAT;
+    currentLon = SIMULATED_LON;
+    gpsValid = true;
+    usingSimulatedGPS = true;
+    Serial.println("📍 Using SIMULATED GPS: QCU (14.7001, 121.0327)");
+  }
+
   Serial.println("\n✅ Setup complete!");
   Serial.println("📡 GPS acquiring satellites...");
   Serial.println("💡 RGB LED active\n");
 
-  // Start with GPS waiting state (yellow) or idle (green)
-  setLedState(gpsValid ? LED_IDLE : LED_GPS_WAIT);
+  // Start with idle (green) since we have simulated GPS
+  setLedState(LED_IDLE);
 }
 
 // ============================================
@@ -214,12 +275,17 @@ void loop() {
 
   handleTouchSensor();
   
-  if (voiceConnected) {
-    handleVoiceRecognition();
+  if (micConnected) {
+    handleSoundDetection();
   }
   
   if (gpsConnected) {
     handleGPS();
+  }
+
+  // Check for flat orientation emergency
+  if (mpuConnected) {
+    checkFlatEmergency();
   }
 
   // Handle RGB LED effects (non-blocking)
@@ -280,6 +346,10 @@ void handleGPS() {
     currentLat = gps.location.lat();
     currentLon = gps.location.lng();
     gpsValid = true;
+    if (usingSimulatedGPS) {
+      usingSimulatedGPS = false;
+      Serial.println("📡 Switched to REAL GPS fix!");
+    }
 
     if (millis() - lastGeofenceCheck >= 5000) {
       lastGeofenceCheck = millis();
@@ -337,75 +407,259 @@ void connectToWiFi() {
 }
 
 // ============================================
-// TOUCH SENSOR
+// TOUCH SENSOR (Dual mode: Nudge ACK or Emergency)
 // ============================================
 void handleTouchSensor() {
   if (digitalRead(TOUCHPIN) == HIGH && !buzzerActive) {
     buzzerActive = true;
     buzzerStartTime = millis();
-    digitalWrite(BUZZER, HIGH);
-    setLedState(LED_EMERGENCY);
-    Serial.println("🚨 EMERGENCY!");
-    sendEmergencyAlert();
-    delay(1000);
+
+    if (nudgePending) {
+      // --- NUDGE ACKNOWLEDGE MODE ---
+      // Worker tapped touch sensor to respond to nudge
+      nudgePending = false;
+      nudgeActive = false;
+      Serial.println("✅ NUDGE ACKNOWLEDGED by touch sensor");
+
+      // Confirmation: short beep + green flash
+      digitalWrite(BUZZER, HIGH);
+      setRGB(0, 1, 0);  // Green flash
+      delay(300);
+      digitalWrite(BUZZER, LOW);
+      setLedState(LED_IDLE);  // Return to green steady
+
+      // Send acknowledgment to server
+      acknowledgeNudge();
+    } else {
+      // --- EMERGENCY MODE ---
+      // No pending nudge, so this is an emergency button press
+      digitalWrite(BUZZER, HIGH);
+      setLedState(LED_EMERGENCY);
+      Serial.println("🚨 EMERGENCY!");
+      sendEmergencyAlert();
+      delay(1000);
+    }
   }
 }
 
 // ============================================
-// VOICE RECOGNITION (I2C)
+// INMP441 I2S INITIALIZATION (New Standard Driver API)
+// Uses i2s_std.h — compatible with analogRead()
 // ============================================
-void handleVoiceRecognition() {
-  uint8_t cmdID = voiceSensor.getCMDID();
-  
-  if (cmdID != 0) {
-    lastVoiceCommandID = cmdID;
-    Serial.printf("🎤 Voice: %d\n", cmdID);
-    
-    switch(cmdID) {
-      case 2:
-        lastVoiceCommand = "test_buzzer";
-        triggerAlert(100); 
-        break;
-      case 5:
-        lastVoiceCommand = "tulong_help";
-        voiceAlertTriggered = true;
-        triggerAlert(500);
-        sendVoiceAlert("help");
-        break;
-      case 6:
-        lastVoiceCommand = "emergency";
-        voiceAlertTriggered = true;
-        triggerAlert(1000);
-        sendVoiceAlert("emergency");
-        break;
-      case 7:
-        lastVoiceCommand = "aray_shock";
-        voiceAlertTriggered = true;
-        triggerAlert(800);
-        sendVoiceAlert("fall_shock");
-        break;
-      case 8:
-        lastVoiceCommand = "tawag_call";
-        voiceAlertTriggered = true;
-        triggerAlert(600);
-        sendVoiceAlert("call_nurse");
-        break;
-      case 10:
-        lastVoiceCommand = "cancel";
-        voiceAlertTriggered = false;
-        digitalWrite(BUZZER, LOW);
-        buzzerActive = false;
-        break;
-      case 11:
-        lastVoiceCommand = "sakit_pain";
-        voiceAlertTriggered = true;
-        triggerAlert(700);
-        sendVoiceAlert("pain");
-        break;
-      default:
-        lastVoiceCommand = "unknown_" + String(cmdID);
-        break;
+bool initINMP441() {
+  // 1. Configure the I2S channel
+  i2s_chan_config_t chan_cfg = I2S_CHANNEL_DEFAULT_CONFIG(I2S_NUM_0, I2S_ROLE_MASTER);
+  chan_cfg.dma_desc_num = 8;
+  chan_cfg.dma_frame_num = FFT_SIZE;
+
+  esp_err_t err = i2s_new_channel(&chan_cfg, NULL, &i2s_rx_handle);  // RX only
+  if (err != ESP_OK) {
+    Serial.printf("I2S new channel failed: %d\n", err);
+    return false;
+  }
+
+  // 2. Configure standard mode for INMP441
+  i2s_std_config_t std_cfg = {
+    .clk_cfg  = I2S_STD_CLK_DEFAULT_CONFIG(SAMPLE_RATE),
+    .slot_cfg = I2S_STD_PHILIPS_SLOT_DEFAULT_CONFIG(I2S_DATA_BIT_WIDTH_16BIT, I2S_SLOT_MODE_MONO),
+    .gpio_cfg = {
+      .mclk = I2S_GPIO_UNUSED,
+      .bclk = (gpio_num_t)I2S_SCK,
+      .ws   = (gpio_num_t)I2S_WS,
+      .dout = I2S_GPIO_UNUSED,
+      .din  = (gpio_num_t)I2S_SD,
+      .invert_flags = {
+        .mclk_inv = false,
+        .bclk_inv = false,
+        .ws_inv   = false,
+      },
+    },
+  };
+  // INMP441 outputs on left channel when L/R pin is LOW
+  std_cfg.slot_cfg.slot_mask = I2S_STD_SLOT_LEFT;
+
+  err = i2s_channel_init_std_mode(i2s_rx_handle, &std_cfg);
+  if (err != ESP_OK) {
+    Serial.printf("I2S init std mode failed: %d\n", err);
+    return false;
+  }
+
+  // 3. Enable the channel
+  err = i2s_channel_enable(i2s_rx_handle);
+  if (err != ESP_OK) {
+    Serial.printf("I2S channel enable failed: %d\n", err);
+    return false;
+  }
+
+  return true;
+}
+
+// ============================================
+// SIMPLE RADIX-2 FFT (in-place, no library needed)
+// ============================================
+void fftRadix2(float* real, float* imag, int n) {
+  // Bit-reversal permutation
+  int j = 0;
+  for (int i = 1; i < n - 1; i++) {
+    int bit = n >> 1;
+    while (j & bit) {
+      j ^= bit;
+      bit >>= 1;
     }
+    j ^= bit;
+    if (i < j) {
+      float tempR = real[i]; real[i] = real[j]; real[j] = tempR;
+      float tempI = imag[i]; imag[i] = imag[j]; imag[j] = tempI;
+    }
+  }
+
+  // Cooley-Tukey butterfly
+  for (int len = 2; len <= n; len <<= 1) {
+    float angle = -2.0 * PI / len;
+    float wR = cos(angle);
+    float wI = sin(angle);
+    for (int i = 0; i < n; i += len) {
+      float curR = 1.0, curI = 0.0;
+      for (int k = 0; k < len / 2; k++) {
+        float uR = real[i + k];
+        float uI = imag[i + k];
+        float vR = real[i + k + len/2] * curR - imag[i + k + len/2] * curI;
+        float vI = real[i + k + len/2] * curI + imag[i + k + len/2] * curR;
+        real[i + k] = uR + vR;
+        imag[i + k] = uI + vI;
+        real[i + k + len/2] = uR - vR;
+        imag[i + k + len/2] = uI - vI;
+        float newCurR = curR * wR - curI * wI;
+        float newCurI = curR * wI + curI * wR;
+        curR = newCurR;
+        curI = newCurI;
+      }
+    }
+  }
+}
+
+// ============================================
+// SOUND CLASSIFICATION (replaces Voice Recognition)
+// Distinguishes human voice from machinery noise
+// using spectral analysis (FFT) on INMP441 audio
+// ============================================
+void handleSoundDetection() {
+  // Read audio samples from INMP441 (new standard API)
+  size_t bytesIn = 0;
+  esp_err_t result = i2s_channel_read(i2s_rx_handle, i2sBuffer, sizeof(i2sBuffer), &bytesIn, 100);
+  if (result != ESP_OK || bytesIn == 0) return;
+
+  int samplesRead = bytesIn / sizeof(int16_t);
+  if (samplesRead < FFT_SIZE) return;
+
+  // --- 1. Compute RMS amplitude ---
+  float sumSquares = 0;
+  for (int i = 0; i < FFT_SIZE; i++) {
+    float sample = (float)i2sBuffer[i];
+    sumSquares += sample * sample;
+  }
+  float rms = sqrt(sumSquares / FFT_SIZE);
+
+  // Update baseline RMS (slow-moving average of ambient noise)
+  if (baselineRMS < 1.0) {
+    baselineRMS = rms;  // Initialize on first frame
+  } else {
+    baselineRMS = baselineRMS * 0.98 + rms * 0.02;  // Slow adaptation
+  }
+
+  // Skip analysis if too quiet (below noise floor)
+  if (rms < RMS_THRESHOLD) {
+    return;
+  }
+
+  // --- 2. Apply Hann window and prepare FFT input ---
+  for (int i = 0; i < FFT_SIZE; i++) {
+    vReal[i] = (float)i2sBuffer[i] * hannWindow[i];
+    vImag[i] = 0.0;
+  }
+
+  // --- 3. Run FFT ---
+  fftRadix2(vReal, vImag, FFT_SIZE);
+
+  // --- 4. Compute magnitude spectrum (first half only) ---
+  for (int i = 0; i < HALF_FFT; i++) {
+    magnitudes[i] = sqrt(vReal[i] * vReal[i] + vImag[i] * vImag[i]);
+  }
+
+  // --- 5. Calculate voice-band energy ratio ---
+  // Voice fundamental: 300 Hz - 3400 Hz
+  // Bin index = frequency * FFT_SIZE / SAMPLE_RATE
+  int voiceBinLow  = (int)(300.0  * FFT_SIZE / SAMPLE_RATE); // ~5
+  int voiceBinHigh = (int)(3400.0 * FFT_SIZE / SAMPLE_RATE); // ~54
+  
+  float voiceBandEnergy = 0;
+  float totalEnergy = 0;
+  for (int i = 1; i < HALF_FFT; i++) {  // Skip DC bin
+    float energy = magnitudes[i] * magnitudes[i];
+    totalEnergy += energy;
+    if (i >= voiceBinLow && i <= voiceBinHigh) {
+      voiceBandEnergy += energy;
+    }
+  }
+  
+  float voiceBandRatio = (totalEnergy > 0) ? (voiceBandEnergy / totalEnergy) : 0;
+
+  // --- 6. Calculate Spectral Flatness Measure (SFM) ---
+  // SFM = geometric_mean / arithmetic_mean
+  // Human voice → low SFM (tonal, peaked)
+  // Machinery → high SFM (noise-like, flat)
+  float logSum = 0;
+  float arithmeticSum = 0;
+  int validBins = 0;
+  
+  for (int i = voiceBinLow; i <= voiceBinHigh && i < HALF_FFT; i++) {
+    if (magnitudes[i] > 0.001) {
+      logSum += log(magnitudes[i]);
+      arithmeticSum += magnitudes[i];
+      validBins++;
+    }
+  }
+  
+  float sfm = 1.0; // Default to noise-like
+  if (validBins > 0 && arithmeticSum > 0) {
+    float geometricMean = exp(logSum / validBins);
+    float arithmeticMean = arithmeticSum / validBins;
+    sfm = geometricMean / arithmeticMean;
+  }
+
+  // --- 7. Onset detection (amplitude burst vs baseline) ---
+  float onsetRatio = (baselineRMS > 1.0) ? (rms / baselineRMS) : 1.0;
+
+  // --- 8. Decision logic ---
+  bool isHumanSound = (voiceBandRatio > VOICE_BAND_RATIO_THRESHOLD) &&
+                      (sfm < SFM_THRESHOLD) &&
+                      (onsetRatio > ONSET_THRESHOLD);
+
+  // Debug output (every analysis frame)
+  static unsigned long lastDebugPrint = 0;
+  if (millis() - lastDebugPrint > 500) {
+    lastDebugPrint = millis();
+    Serial.printf("[MIC] RMS:%.0f BL:%.0f Onset:%.1f BandR:%.2f SFM:%.3f %s\n",
+                  rms, baselineRMS, onsetRatio, voiceBandRatio, sfm,
+                  isHumanSound ? "<< HUMAN" : "");
+  }
+
+  // --- 9. Trigger with cooldown ---
+  if (isHumanSound && (millis() - lastDetectionTime > DETECTION_COOLDOWN)) {
+    lastDetectionTime = millis();
+
+    Serial.println("\n🎤 ============================================");
+    Serial.println("🎤  HUMAN SOUND DETECTED IN INDUSTRIAL ZONE!");
+    Serial.printf("🎤  RMS=%.0f, BandRatio=%.2f, SFM=%.3f, Onset=%.1f\n",
+                  rms, voiceBandRatio, sfm, onsetRatio);
+    Serial.println("🎤 ============================================\n");
+
+    // Activate buzzer alert
+    lastVoiceCommand = "human_detected";
+    voiceAlertTriggered = true;
+    soundAlertTriggered = true;
+    triggerAlert(800);  // 800ms buzzer burst
+    sendVoiceAlert("human_distress");
   }
 }
 
@@ -414,6 +668,62 @@ void triggerAlert(int duration) {
   delay(duration);
   digitalWrite(BUZZER, LOW);
   delay(100);
+}
+
+// ============================================
+// FLAT ORIENTATION EMERGENCY DETECTION
+// Triggers when device is flat (Z-axis dominant)
+// and gyroscope shows stationary (near-zero rotation)
+// for FLAT_EMERGENCY_DELAY milliseconds
+// ============================================
+void checkFlatEmergency() {
+  sensors_event_t a, g, t;
+  mpu.getEvent(&a, &g, &t);
+
+  float ax = a.acceleration.x;
+  float ay = a.acceleration.y;
+  float az = a.acceleration.z;
+  float gx = g.gyro.x;
+  float gy = g.gyro.y;
+  float gz = g.gyro.z;
+
+  float absX = fabs(ax), absY = fabs(ay), absZ = fabs(az);
+  float rotMag = sqrt(gx * gx + gy * gy + gz * gz);
+
+  // Flat = Z-axis dominant and positive (face up), Stationary = gyro magnitude < 5
+  bool isFlat = (absZ > absX && absZ > absY && az > 0);
+  bool isStationary = (rotMag < 5.0);
+
+  if (isFlat && isStationary) {
+    if (!deviceIsFlat) {
+      // Just became flat — start timing
+      deviceIsFlat = true;
+      flatStartTime = millis();
+    } else if (!flatEmergencyTriggered &&
+               (millis() - flatStartTime >= FLAT_EMERGENCY_DELAY) &&
+               (millis() - lastFlatEmergencyTime >= FLAT_EMERGENCY_COOLDOWN)) {
+      // Flat + stationary for long enough — TRIGGER EMERGENCY
+      flatEmergencyTriggered = true;
+      lastFlatEmergencyTime = millis();
+
+      Serial.println("\n🚨 ============================================");
+      Serial.println("🚨  FLAT ORIENTATION EMERGENCY DETECTED!");
+      Serial.printf("🚨  Accel: X=%.1f Y=%.1f Z=%.1f  GyroMag=%.1f\n", ax, ay, az, rotMag);
+      Serial.println("🚨  Worker may have fallen or device dropped!");
+      Serial.println("🚨 ============================================\n");
+
+      // Sound buzzer alarm
+      setLedState(LED_EMERGENCY);
+      triggerAlert(2000);  // 2 second buzzer burst
+
+      // Send flat emergency to server
+      sendFlatEmergencyAlert();
+    }
+  } else {
+    // Not flat anymore — reset
+    deviceIsFlat = false;
+    flatEmergencyTriggered = false;
+  }
 }
 
 // ============================================
@@ -454,8 +764,11 @@ void readAndSendSensorData() {
   doc["humidity"] = hum;
   doc["gas_level"] = gasPPM;
   doc["voice_command"] = lastVoiceCommand;
-  doc["voice_command_id"] = lastVoiceCommandID;
   doc["voice_alert"] = voiceAlertTriggered;
+  if (soundAlertTriggered) {
+    doc["alert_type"] = "human_distress";
+    soundAlertTriggered = false;
+  }
   doc["accel_x"] = ax; doc["accel_y"] = ay; doc["accel_z"] = az;
   doc["gyro_x"] = gx; doc["gyro_y"] = gy; doc["gyro_z"] = gz;
   if (fallDetected) doc["fall_detected"] = true;
@@ -470,6 +783,10 @@ void readAndSendSensorData() {
   }
   doc["battery"] = 85;
   doc["rssi"] = WiFi.RSSI();
+  doc["simulated_gps"] = usingSimulatedGPS;
+  if (flatEmergencyTriggered) {
+    doc["flat_emergency"] = true;
+  }
 
   String payload;
   serializeJson(doc, payload);
@@ -501,6 +818,18 @@ void sendVoiceAlert(String alertType) {
   doc["voice_command"] = lastVoiceCommand;
   doc["latitude"] = currentLat;
   doc["longitude"] = currentLon;
+  String payload;
+  serializeJson(doc, payload);
+  sendToServer(payload);
+}
+
+void sendFlatEmergencyAlert() {
+  StaticJsonDocument<256> doc;
+  doc["device_id"] = DEVICE_ID;
+  doc["flat_emergency"] = true;
+  doc["latitude"] = currentLat;
+  doc["longitude"] = currentLon;
+  doc["gps_valid"] = gpsValid;
   String payload;
   serializeJson(doc, payload);
   sendToServer(payload);
@@ -652,14 +981,15 @@ void checkForNudge() {
     if (!err && doc["nudge"].as<bool>() == true) {
       String msg = doc["message"] | "Alert";
       Serial.printf("📢 NUDGE RECEIVED: %s\n", msg.c_str());
+      Serial.println("   → Tap touch sensor to acknowledge (touch = ack, NOT emergency)");
 
-      // Blue blink + short buzzer beep
+      // Blue blink + short buzzer beep to alert the worker
       nudgeActive = true;
+      nudgePending = true;  // Wait for worker to tap touch sensor
       setLedState(LED_NUDGE);
       triggerAlert(200);  // Short beep
 
-      // Acknowledge the nudge
-      acknowledgeNudge();
+      // DO NOT auto-acknowledge — worker must tap touch sensor
     }
   }
 

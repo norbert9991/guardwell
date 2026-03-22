@@ -66,9 +66,12 @@ export const LiveMonitoring = () => {
         // Check for geofence violation
         const geofenceViolation = realTimeData.geofence_violation || false;
 
+        // Check for flat orientation emergency
+        const flatEmergency = realTimeData.flat_emergency || false;
+
         // Determine status based on sensor readings and SOS state
         let status = 'normal';
-        if (hasSosActive || emergencyPressed || voiceAlertActive || geofenceViolation || realTimeData.temperature >= 50 || realTimeData.gas_level >= 400) {
+        if (hasSosActive || emergencyPressed || voiceAlertActive || geofenceViolation || flatEmergency || realTimeData.temperature >= 50 || realTimeData.gas_level >= 400) {
             status = 'critical';
         } else if (realTimeData.temperature >= 40 || realTimeData.gas_level >= 200) {
             status = 'warning';
@@ -110,6 +113,7 @@ export const LiveMonitoring = () => {
                 gpsValid: realTimeData.gps_valid || false,
                 satellites: realTimeData.satellites || 0,
                 geofenceViolation: geofenceViolation,
+                flatEmergency: flatEmergency,
                 gpsChars: realTimeData.gps_chars || 0
             },
             status: Object.keys(realTimeData).length > 0 ? status : 'offline',
@@ -738,6 +742,29 @@ export const LiveMonitoring = () => {
                                                 {getVoiceCommandDisplay(worker.sensors.voiceAlertType).english}
                                             </p>
                                         </div>
+                                        <Button
+                                            size="sm"
+                                            variant="success"
+                                            className="w-full bg-green-600 hover:bg-green-700"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleMarkSafe(worker.id, worker.name, worker.device);
+                                            }}
+                                        >
+                                            <ShieldCheck size={16} className="mr-2" />
+                                            Mark as Safe
+                                        </Button>
+                                    </div>
+                                )}
+
+                                {/* Flat Orientation Emergency Indicator */}
+                                {worker.sensors.flatEmergency && !markedSafe[worker.id] && (
+                                    <div className="mb-4 p-3 bg-orange-500/20 border-2 border-orange-500 rounded-lg animate-pulse">
+                                        <div className="flex items-center justify-center gap-2 mb-2">
+                                            <Activity className="h-6 w-6 text-orange-500" />
+                                            <span className="text-orange-500 font-bold text-lg tracking-wider">FLAT EMERGENCY</span>
+                                        </div>
+                                        <p className="text-center text-sm text-orange-400 mb-2">Device is flat and stationary — possible fall</p>
                                         <Button
                                             size="sm"
                                             variant="success"
