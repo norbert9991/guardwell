@@ -20,6 +20,7 @@ const contactsRouter = require('./routes/contacts');
 const authRouter = require('./routes/auth');
 const usersRouter = require('./routes/users');
 const reportsRouter = require('./routes/reports');
+const voiceRouter = require('./routes/voice');
 
 const app = express();
 const server = http.createServer(app);
@@ -278,6 +279,7 @@ app.use('/api/alerts', alertsRouter);
 app.use('/api/incidents', incidentsRouter);
 app.use('/api/contacts', contactsRouter);
 app.use('/api/reports', reportsRouter);
+app.use('/api/voice', voiceRouter);
 
 // Socket.io connection handling
 io.on('connection', (socket) => {

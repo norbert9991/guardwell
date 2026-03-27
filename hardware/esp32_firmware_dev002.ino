@@ -9,6 +9,7 @@
 #include <driver/i2s_std.h>
 #include <math.h>
 #include <TinyGPS++.h>
+#include <base64.h>
 
 // ============================================
 // CONFIGURATION — DEV-002
@@ -19,6 +20,7 @@ const char* SERVER_URL = "https://guardwell.onrender.com/api/sensors/data";
 const char* NUDGE_URL  = "https://guardwell.onrender.com/api/sensors/nudge/DEV-002";
 const char* NUDGE_ACK  = "https://guardwell.onrender.com/api/sensors/nudge/DEV-002/ack";
 const char* EMERGENCY_BUZZER_URL = "https://guardwell.onrender.com/api/sensors/emergency-buzzer/DEV-002";
+const char* VOICE_API_URL = "https://guardwell.onrender.com/api/voice/process";
 const char* DEVICE_ID = "DEV-002";
 
 // Geofence
@@ -62,29 +64,22 @@ i2s_chan_handle_t i2s_rx_handle = NULL;
 DHT dht(DHTPIN, DHTTYPE);
 Adafruit_MPU6050 mpu;
 TinyGPSPlus gps;
-// INMP441 Sound Classification (replaces DFRobot Voice Sensor)
-// FFT parameters
-#define FFT_SIZE       256
-#define SAMPLE_RATE    16000
-#define HALF_FFT       (FFT_SIZE / 2)
 
-// Audio buffers
-int16_t i2sBuffer[FFT_SIZE];
-float vReal[FFT_SIZE];
-float vImag[FFT_SIZE];
-float magnitudes[HALF_FFT];
+// INMP441 AI Voice Recognition Pipeline
+// Audio monitoring + 3-second recording → Server (Whisper STT + Claude intent)
+#define SAMPLE_RATE         16000
+#define MONITOR_SAMPLES     512       // Quick reads for amplitude monitoring
+#define RECORD_DURATION_SEC 3
+#define RECORD_SAMPLES      (SAMPLE_RATE * RECORD_DURATION_SEC)  // 48000 samples
+#define RECORD_BYTES        (RECORD_SAMPLES * 2)                 // 96000 bytes (16-bit)
+#define WAV_HEADER_SIZE     44
 
-// Hann window (precomputed in setup)
-float hannWindow[FFT_SIZE];
+// Small buffer for amplitude monitoring (stack-safe)
+int16_t monitorBuffer[MONITOR_SAMPLES];
 
 // --- TUNABLE THRESHOLDS ---
-// Adjust these for your specific industrial environment!
-// Current: HIGH SENSITIVITY for detecting human voice at a distance
-float VOICE_BAND_RATIO_THRESHOLD = 0.30;  // Min ratio of voice-band energy to total (lower = more sensitive)
-float SFM_THRESHOLD              = 0.50;  // Max spectral flatness for human voice (higher = more sensitive)
-float RMS_THRESHOLD              = 200.0; // Min RMS amplitude to consider (lower = picks up quieter sounds)
-float ONSET_THRESHOLD            = 1.0;   // Effectively disabled — spectral features (SFM+BandR) handle classification
-unsigned long DETECTION_COOLDOWN = 3000;  // Cooldown between detections (ms)
+float RMS_THRESHOLD              = 500.0;   // Min RMS to trigger voice recording
+unsigned long DETECTION_COOLDOWN = 10000;   // 10s cooldown between voice recordings (API calls are expensive)
 
 // Running state
 float baselineRMS = 0.0;
@@ -104,6 +99,7 @@ bool micConnected = false;
 bool gpsConnected = false;
 
 String lastVoiceCommand = "none";
+String lastAlertType = "";
 bool voiceAlertTriggered = false;
 
 // Flat orientation detection (possible fall / incapacitation)
@@ -125,7 +121,8 @@ enum LEDState {
   LED_NUDGE,      // Blue blink - received nudge from website
   LED_EMERGENCY,  // Rapid red flash - SOS active
   LED_GEOFENCE,   // Purple (red+blue) - geofence violation
-  LED_GPS_WAIT    // Yellow (red+green) - GPS acquiring
+  LED_GPS_WAIT,   // Yellow (red+green) - GPS acquiring
+  LED_LISTENING   // Cyan (green+blue) - recording voice for AI
 };
 
 LEDState currentLedState = LED_IDLE;
@@ -147,7 +144,7 @@ void setup() {
   delay(2000);
 
   Serial.println("\n========================================");
-  Serial.println(" GuardWell ESP32 — DEV-002 (INMP441 + FFT)");
+  Serial.println(" GuardWell ESP32 — DEV-002 (INMP441 + AI Voice)");
   Serial.println("========================================");
   Serial.println("INMP441 I2S Mic (pins 25, 26, 32):");
   Serial.println("  - WS=25, SCK=26, SD=32");
@@ -215,13 +212,9 @@ void setup() {
   micConnected = initINMP441();
   if (micConnected) {
     Serial.println("✅");
-    // Precompute Hann window
-    for (int i = 0; i < FFT_SIZE; i++) {
-      hannWindow[i] = 0.5 * (1.0 - cos(2.0 * PI * i / (FFT_SIZE - 1)));
-    }
-    Serial.printf("     FFT: %d pts @ %d Hz, Nyquist: %d Hz\n", FFT_SIZE, SAMPLE_RATE, SAMPLE_RATE / 2);
-    Serial.printf("     Thresholds: BandRatio>%.2f, SFM<%.2f, RMS>%.0f\n",
-                  VOICE_BAND_RATIO_THRESHOLD, SFM_THRESHOLD, RMS_THRESHOLD);
+    Serial.printf("     AI Voice Pipeline: %dHz, %ds recording, threshold RMS>%.0f\n",
+                  SAMPLE_RATE, RECORD_DURATION_SEC, RMS_THRESHOLD);
+    Serial.println("     Pipeline: INMP441 → WAV → Base64 → Whisper STT → Claude Intent");
   } else {
     Serial.println("❌ I2S init failed");
   }
@@ -434,7 +427,7 @@ bool initINMP441() {
   // 1. Configure the I2S channel
   i2s_chan_config_t chan_cfg = I2S_CHANNEL_DEFAULT_CONFIG(I2S_NUM_0, I2S_ROLE_MASTER);
   chan_cfg.dma_desc_num = 8;
-  chan_cfg.dma_frame_num = FFT_SIZE;
+  chan_cfg.dma_frame_num = MONITOR_SAMPLES;
 
   esp_err_t err = i2s_new_channel(&chan_cfg, NULL, &i2s_rx_handle);  // RX only
   if (err != ESP_OK) {
@@ -479,171 +472,300 @@ bool initINMP441() {
 }
 
 // ============================================
-// SIMPLE RADIX-2 FFT (in-place, no library needed)
+// AI VOICE RECOGNITION PIPELINE
+// Stage 1: Monitor audio level (lightweight, runs every loop)
+// Stage 2: Record 3s of audio when triggered
+// Stage 3: WAV encode → Base64 → POST to server
+// Stage 4: Parse intent from Claude → dispatch action
 // ============================================
-void fftRadix2(float* real, float* imag, int n) {
-  // Bit-reversal permutation
-  int j = 0;
-  for (int i = 1; i < n - 1; i++) {
-    int bit = n >> 1;
-    while (j & bit) {
-      j ^= bit;
-      bit >>= 1;
-    }
-    j ^= bit;
-    if (i < j) {
-      float tempR = real[i]; real[i] = real[j]; real[j] = tempR;
-      float tempI = imag[i]; imag[i] = imag[j]; imag[j] = tempI;
-    }
-  }
 
-  // Cooley-Tukey butterfly
-  for (int len = 2; len <= n; len <<= 1) {
-    float angle = -2.0 * PI / len;
-    float wR = cos(angle);
-    float wI = sin(angle);
-    for (int i = 0; i < n; i += len) {
-      float curR = 1.0, curI = 0.0;
-      for (int k = 0; k < len / 2; k++) {
-        float uR = real[i + k];
-        float uI = imag[i + k];
-        float vR = real[i + k + len/2] * curR - imag[i + k + len/2] * curI;
-        float vI = real[i + k + len/2] * curI + imag[i + k + len/2] * curR;
-        real[i + k] = uR + vR;
-        imag[i + k] = uI + vI;
-        real[i + k + len/2] = uR - vR;
-        imag[i + k + len/2] = uI - vI;
-        float newCurR = curR * wR - curI * wI;
-        float newCurI = curR * wI + curI * wR;
-        curR = newCurR;
-        curI = newCurI;
-      }
-    }
-  }
-}
-
-// ============================================
-// SOUND CLASSIFICATION (replaces Voice Recognition)
-// Distinguishes human voice from machinery noise
-// using spectral analysis (FFT) on INMP441 audio
-// ============================================
+// --- Stage 1: Audio Level Monitoring ---
+// Continuously reads small I2S chunks and checks RMS amplitude.
+// When loud enough, triggers the full recording pipeline.
 void handleSoundDetection() {
-  // Read audio samples from INMP441 (new standard API)
+  // Read a small chunk for amplitude monitoring
   size_t bytesIn = 0;
-  esp_err_t result = i2s_channel_read(i2s_rx_handle, i2sBuffer, sizeof(i2sBuffer), &bytesIn, 100);
+  esp_err_t result = i2s_channel_read(i2s_rx_handle, monitorBuffer, sizeof(monitorBuffer), &bytesIn, 100);
   if (result != ESP_OK || bytesIn == 0) return;
 
   int samplesRead = bytesIn / sizeof(int16_t);
-  if (samplesRead < FFT_SIZE) return;
+  if (samplesRead < 10) return;
 
-  // --- 1. Compute RMS amplitude ---
+  // Compute RMS amplitude
   float sumSquares = 0;
-  for (int i = 0; i < FFT_SIZE; i++) {
-    float sample = (float)i2sBuffer[i];
+  for (int i = 0; i < samplesRead; i++) {
+    float sample = (float)monitorBuffer[i];
     sumSquares += sample * sample;
   }
-  float rms = sqrt(sumSquares / FFT_SIZE);
+  float rms = sqrt(sumSquares / samplesRead);
 
   // Update baseline RMS (slow-moving average of ambient noise)
   if (baselineRMS < 1.0) {
-    baselineRMS = rms;  // Initialize on first frame
+    baselineRMS = rms;
   } else {
-    baselineRMS = baselineRMS * 0.98 + rms * 0.02;  // Slow adaptation
+    baselineRMS = baselineRMS * 0.98 + rms * 0.02;
   }
 
-  // Skip analysis if too quiet (below noise floor)
-  if (rms < RMS_THRESHOLD) {
-    return;
-  }
-
-  // --- 2. Apply Hann window and prepare FFT input ---
-  for (int i = 0; i < FFT_SIZE; i++) {
-    vReal[i] = (float)i2sBuffer[i] * hannWindow[i];
-    vImag[i] = 0.0;
-  }
-
-  // --- 3. Run FFT ---
-  fftRadix2(vReal, vImag, FFT_SIZE);
-
-  // --- 4. Compute magnitude spectrum (first half only) ---
-  for (int i = 0; i < HALF_FFT; i++) {
-    magnitudes[i] = sqrt(vReal[i] * vReal[i] + vImag[i] * vImag[i]);
-  }
-
-  // --- 5. Calculate voice-band energy ratio ---
-  // Voice fundamental: 300 Hz - 3400 Hz
-  // Bin index = frequency * FFT_SIZE / SAMPLE_RATE
-  int voiceBinLow  = (int)(300.0  * FFT_SIZE / SAMPLE_RATE); // ~5
-  int voiceBinHigh = (int)(3400.0 * FFT_SIZE / SAMPLE_RATE); // ~54
-  
-  float voiceBandEnergy = 0;
-  float totalEnergy = 0;
-  for (int i = 1; i < HALF_FFT; i++) {  // Skip DC bin
-    float energy = magnitudes[i] * magnitudes[i];
-    totalEnergy += energy;
-    if (i >= voiceBinLow && i <= voiceBinHigh) {
-      voiceBandEnergy += energy;
-    }
-  }
-  
-  float voiceBandRatio = (totalEnergy > 0) ? (voiceBandEnergy / totalEnergy) : 0;
-
-  // --- 6. Calculate Spectral Flatness Measure (SFM) ---
-  // SFM = geometric_mean / arithmetic_mean
-  // Human voice → low SFM (tonal, peaked)
-  // Machinery → high SFM (noise-like, flat)
-  float logSum = 0;
-  float arithmeticSum = 0;
-  int validBins = 0;
-  
-  for (int i = voiceBinLow; i <= voiceBinHigh && i < HALF_FFT; i++) {
-    if (magnitudes[i] > 0.001) {
-      logSum += log(magnitudes[i]);
-      arithmeticSum += magnitudes[i];
-      validBins++;
-    }
-  }
-  
-  float sfm = 1.0; // Default to noise-like
-  if (validBins > 0 && arithmeticSum > 0) {
-    float geometricMean = exp(logSum / validBins);
-    float arithmeticMean = arithmeticSum / validBins;
-    sfm = geometricMean / arithmeticMean;
-  }
-
-  // --- 7. Onset detection (amplitude burst vs baseline) ---
-  float onsetRatio = (baselineRMS > 1.0) ? (rms / baselineRMS) : 1.0;
-
-  // --- 8. Decision logic ---
-  bool isHumanSound = (voiceBandRatio > VOICE_BAND_RATIO_THRESHOLD) &&
-                      (sfm < SFM_THRESHOLD) &&
-                      (onsetRatio > ONSET_THRESHOLD);
-
-  // Debug output (every analysis frame)
+  // Debug output (throttled)
   static unsigned long lastDebugPrint = 0;
-  if (millis() - lastDebugPrint > 500) {
+  if (millis() - lastDebugPrint > 2000) {
     lastDebugPrint = millis();
-    Serial.printf("[MIC] RMS:%.0f BL:%.0f Onset:%.1f BandR:%.2f SFM:%.3f %s\n",
-                  rms, baselineRMS, onsetRatio, voiceBandRatio, sfm,
-                  isHumanSound ? "<< HUMAN" : "");
+    Serial.printf("[MIC] RMS:%.0f BL:%.0f (threshold:%.0f)\n", rms, baselineRMS, RMS_THRESHOLD);
   }
 
-  // --- 9. Trigger with cooldown ---
-  if (isHumanSound && (millis() - lastDetectionTime > DETECTION_COOLDOWN)) {
+  // Check if loud enough AND cooldown has passed
+  if (rms > RMS_THRESHOLD && (millis() - lastDetectionTime > DETECTION_COOLDOWN)) {
     lastDetectionTime = millis();
 
     Serial.println("\n🎤 ============================================");
-    Serial.println("🎤  HUMAN SOUND DETECTED IN INDUSTRIAL ZONE!");
-    Serial.printf("🎤  RMS=%.0f, BandRatio=%.2f, SFM=%.3f, Onset=%.1f\n",
-                  rms, voiceBandRatio, sfm, onsetRatio);
+    Serial.printf("🎤  SOUND DETECTED! RMS=%.0f (threshold=%.0f)\n", rms, RMS_THRESHOLD);
+    Serial.println("🎤  Starting 3-second voice recording...");
     Serial.println("🎤 ============================================\n");
 
-    // Activate buzzer alert
-    lastVoiceCommand = "human_detected";
+    // Trigger the full AI voice pipeline
+    recordAndProcessVoice();
+  }
+}
+
+// --- Stage 2: Record 3 seconds of audio ---
+void recordAndProcessVoice() {
+  // Show cyan LED while recording
+  setLedState(LED_LISTENING);
+
+  // Heap-allocate the recording buffer (96KB + 44 bytes WAV header)
+  uint32_t totalBytes = WAV_HEADER_SIZE + RECORD_BYTES;
+  uint8_t* wavBuffer = (uint8_t*)heap_caps_malloc(totalBytes, MALLOC_CAP_8BIT);
+
+  if (!wavBuffer) {
+    Serial.println("❌ Failed to allocate recording buffer! (need ~96KB free heap)");
+    Serial.printf("   Free heap: %d bytes\n", ESP.getFreeHeap());
+    setLedState(LED_IDLE);
+    return;
+  }
+
+  Serial.printf("📼 Recording %d seconds @ %dHz (buffer: %d bytes, free heap: %d)\n",
+                RECORD_DURATION_SEC, SAMPLE_RATE, totalBytes, ESP.getFreeHeap());
+
+  // Write WAV header (will be filled with correct sizes after recording)
+  writeWAVHeader(wavBuffer, RECORD_BYTES);
+
+  // Record audio into the buffer after the WAV header
+  uint8_t* audioData = wavBuffer + WAV_HEADER_SIZE;
+  uint32_t bytesRecorded = 0;
+  unsigned long recordStart = millis();
+
+  while (bytesRecorded < RECORD_BYTES) {
+    size_t bytesIn = 0;
+    uint32_t bytesRemaining = RECORD_BYTES - bytesRecorded;
+    uint32_t readSize = min(bytesRemaining, (uint32_t)sizeof(monitorBuffer));
+
+    esp_err_t result = i2s_channel_read(i2s_rx_handle, audioData + bytesRecorded, readSize, &bytesIn, 1000);
+    if (result != ESP_OK) {
+      Serial.printf("❌ I2S read error at byte %d: %d\n", bytesRecorded, result);
+      break;
+    }
+    bytesRecorded += bytesIn;
+
+    // Progress indicator
+    if (bytesRecorded % (RECORD_BYTES / 3) < readSize) {
+      Serial.printf("   Recording... %d%%\n", (int)(100.0 * bytesRecorded / RECORD_BYTES));
+    }
+  }
+
+  unsigned long recordTime = millis() - recordStart;
+  Serial.printf("✅ Recorded %d bytes in %dms\n", bytesRecorded, recordTime);
+
+  // Process the audio with AI
+  processAudioWithAI(wavBuffer, WAV_HEADER_SIZE + bytesRecorded);
+
+  // Free the buffer
+  free(wavBuffer);
+
+  // Return to idle LED
+  setLedState(LED_IDLE);
+}
+
+// --- WAV Header Writer ---
+void writeWAVHeader(uint8_t* buffer, uint32_t dataSize) {
+  uint32_t fileSize = dataSize + 36;  // Total file size minus 8
+
+  // RIFF header
+  buffer[0] = 'R'; buffer[1] = 'I'; buffer[2] = 'F'; buffer[3] = 'F';
+  buffer[4] = fileSize & 0xFF;
+  buffer[5] = (fileSize >> 8) & 0xFF;
+  buffer[6] = (fileSize >> 16) & 0xFF;
+  buffer[7] = (fileSize >> 24) & 0xFF;
+  buffer[8] = 'W'; buffer[9] = 'A'; buffer[10] = 'V'; buffer[11] = 'E';
+
+  // fmt subchunk
+  buffer[12] = 'f'; buffer[13] = 'm'; buffer[14] = 't'; buffer[15] = ' ';
+  buffer[16] = 16; buffer[17] = 0; buffer[18] = 0; buffer[19] = 0;  // Subchunk1Size (16 for PCM)
+  buffer[20] = 1; buffer[21] = 0;  // AudioFormat (1 = PCM)
+  buffer[22] = 1; buffer[23] = 0;  // NumChannels (1 = mono)
+
+  // SampleRate
+  buffer[24] = SAMPLE_RATE & 0xFF;
+  buffer[25] = (SAMPLE_RATE >> 8) & 0xFF;
+  buffer[26] = (SAMPLE_RATE >> 16) & 0xFF;
+  buffer[27] = (SAMPLE_RATE >> 24) & 0xFF;
+
+  // ByteRate = SampleRate * NumChannels * BitsPerSample/8
+  uint32_t byteRate = SAMPLE_RATE * 1 * 2;  // 16-bit mono
+  buffer[28] = byteRate & 0xFF;
+  buffer[29] = (byteRate >> 8) & 0xFF;
+  buffer[30] = (byteRate >> 16) & 0xFF;
+  buffer[31] = (byteRate >> 24) & 0xFF;
+
+  buffer[32] = 2; buffer[33] = 0;  // BlockAlign = NumChannels * BitsPerSample/8
+  buffer[34] = 16; buffer[35] = 0; // BitsPerSample
+
+  // data subchunk
+  buffer[36] = 'd'; buffer[37] = 'a'; buffer[38] = 't'; buffer[39] = 'a';
+  buffer[40] = dataSize & 0xFF;
+  buffer[41] = (dataSize >> 8) & 0xFF;
+  buffer[42] = (dataSize >> 16) & 0xFF;
+  buffer[43] = (dataSize >> 24) & 0xFF;
+}
+
+// --- Stage 3: Base64 encode and POST to server ---
+void processAudioWithAI(uint8_t* wavBuffer, uint32_t wavSize) {
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("❌ WiFi not connected — cannot send audio for AI processing");
+    return;
+  }
+
+  Serial.printf("📡 Encoding %d bytes to base64...\n", wavSize);
+
+  // Base64 encode the WAV data
+  String base64Audio = base64::encode(wavBuffer, wavSize);
+  Serial.printf("📡 Base64 size: %d chars\n", base64Audio.length());
+
+  // Build JSON payload
+  // Use DynamicJsonDocument for large payloads
+  DynamicJsonDocument doc(base64Audio.length() + 512);
+  doc["device_id"] = DEVICE_ID;
+  doc["audio_b64"] = base64Audio;
+
+  String payload;
+  serializeJson(doc, payload);
+
+  // Free the JSON doc early to reclaim memory
+  doc.clear();
+
+  Serial.printf("📡 Sending to AI voice endpoint (%d bytes)...\n", payload.length());
+
+  // POST to server
+  WiFiClientSecure client;
+  client.setInsecure();  // Skip certificate verification (Render uses valid certs)
+
+  HTTPClient http;
+  http.begin(client, VOICE_API_URL);
+  http.addHeader("Content-Type", "application/json");
+  http.setTimeout(30000);  // 30s timeout for Whisper + Claude round-trip
+
+  int httpCode = http.POST(payload);
+  payload = "";  // Free memory
+
+  if (httpCode == 200) {
+    String response = http.getString();
+    Serial.printf("✅ AI Response: %s\n", response.c_str());
+
+    // Parse the response
+    StaticJsonDocument<512> respDoc;
+    DeserializationError err = deserializeJson(respDoc, response);
+
+    if (!err) {
+      const char* intent = respDoc["intent"] | "unknown";
+      float confidence = respDoc["confidence"] | 0.0;
+      const char* transcription = respDoc["transcription"] | "";
+      const char* language = respDoc["language"] | "unknown";
+
+      Serial.printf("\n🧠 ============================================\n");
+      Serial.printf("🧠  VOICE AI RESULT\n");
+      Serial.printf("🧠  Transcription: \"%s\"\n", transcription);
+      Serial.printf("🧠  Intent: %s (confidence: %.0f%%)\n", intent, confidence * 100);
+      Serial.printf("🧠  Language: %s\n", language);
+      Serial.printf("🧠 ============================================\n\n");
+
+      // Dispatch action based on intent
+      parseClaudeIntent(String(intent), confidence, String(transcription));
+    } else {
+      Serial.printf("❌ Failed to parse AI response: %s\n", err.c_str());
+    }
+  } else {
+    Serial.printf("❌ AI voice endpoint returned HTTP %d\n", httpCode);
+    if (httpCode > 0) {
+      String errorBody = http.getString();
+      Serial.printf("   Error: %s\n", errorBody.c_str());
+    }
+  }
+
+  http.end();
+}
+
+// --- Stage 4: Dispatch actions based on Claude's classified intent ---
+void parseClaudeIntent(String intent, float confidence, String transcription) {
+  // Only act on high-confidence intents
+  if (confidence < 0.7) {
+    Serial.printf("⚠️ Low confidence (%.0f%%) — ignoring intent: %s\n", confidence * 100, intent.c_str());
+    return;
+  }
+
+  if (intent == "emergency" || intent == "help") {
+    Serial.println("🚨 EMERGENCY VOICE INTENT — ACTIVATING ALERT!");
+    lastVoiceCommand = transcription.length() > 0 ? transcription : "voice_emergency";
+    lastAlertType = "voice_emergency";
     voiceAlertTriggered = true;
     soundAlertTriggered = true;
-    triggerAlert(800);  // 800ms buzzer burst
-    sendVoiceAlert("human_distress");
+    setLedState(LED_EMERGENCY);
+    triggerAlert(1500);  // 1.5s buzzer
+    sendVoiceAlert("voice_emergency");
+
+  } else if (intent == "fire") {
+    Serial.println("🔥 FIRE VOICE INTENT — ACTIVATING FIRE ALERT!");
+    lastVoiceCommand = transcription.length() > 0 ? transcription : "voice_fire";
+    lastAlertType = "voice_fire";
+    voiceAlertTriggered = true;
+    soundAlertTriggered = true;
+    setLedState(LED_EMERGENCY);
+    triggerAlert(2000);  // 2s buzzer for fire
+    sendVoiceAlert("voice_fire");
+
+  } else if (intent == "gas") {
+    Serial.println("☁️ GAS LEAK VOICE INTENT — ACTIVATING GAS ALERT!");
+    lastVoiceCommand = transcription.length() > 0 ? transcription : "voice_gas";
+    lastAlertType = "voice_gas";
+    voiceAlertTriggered = true;
+    soundAlertTriggered = true;
+    setLedState(LED_EMERGENCY);
+    triggerAlert(1500);
+    sendVoiceAlert("voice_gas");
+
+  } else if (intent == "medical") {
+    Serial.println("🏥 MEDICAL VOICE INTENT — ACTIVATING MEDICAL ALERT!");
+    lastVoiceCommand = transcription.length() > 0 ? transcription : "voice_medical";
+    lastAlertType = "voice_medical";
+    voiceAlertTriggered = true;
+    soundAlertTriggered = true;
+    setLedState(LED_EMERGENCY);
+    triggerAlert(1000);
+    sendVoiceAlert("voice_medical");
+
+  } else if (intent == "collapse") {
+    Serial.println("🏗️ COLLAPSE VOICE INTENT — ACTIVATING STRUCTURAL ALERT!");
+    lastVoiceCommand = transcription.length() > 0 ? transcription : "voice_collapse";
+    lastAlertType = "voice_collapse";
+    voiceAlertTriggered = true;
+    soundAlertTriggered = true;
+    setLedState(LED_EMERGENCY);
+    triggerAlert(1500);
+    sendVoiceAlert("voice_collapse");
+
+  } else if (intent == "safe" || intent == "none") {
+    Serial.println("✅ Safe/normal speech — no action needed");
+
+  } else {
+    Serial.printf("❓ Unknown intent: %s — no action taken\n", intent.c_str());
   }
 }
 
@@ -740,8 +862,9 @@ void readAndSendSensorData() {
   doc["voice_command"] = lastVoiceCommand;
   doc["voice_alert"] = voiceAlertTriggered;
   if (soundAlertTriggered) {
-    doc["alert_type"] = "human_distress";
+    doc["alert_type"] = lastAlertType.length() > 0 ? lastAlertType : "human_distress";
     soundAlertTriggered = false;
+    lastAlertType = "";
   }
   doc["accel_x"] = ax; doc["accel_y"] = ay; doc["accel_z"] = az;
   doc["gyro_x"] = gx; doc["gyro_y"] = gy; doc["gyro_z"] = gz;
@@ -858,6 +981,7 @@ void setLedState(LEDState newState) {
     case LED_EMERGENCY:  setRGB(1, 0, 0); break;  // Red (will flash)
     case LED_GEOFENCE:   setRGB(1, 0, 1); break;  // Purple (red+blue)
     case LED_GPS_WAIT:   setRGB(1, 1, 0); break;  // Yellow (red+green)
+    case LED_LISTENING:  setRGB(0, 1, 1); break;  // Cyan (green+blue) - recording
   }
 }
 
@@ -925,6 +1049,11 @@ void handleLEDEffects() {
       if (gpsValid) {
         setLedState(LED_IDLE);
       }
+      break;
+
+    case LED_LISTENING:
+      // Steady cyan while recording — no blinking
+      // (recording takes ~3 seconds, then returns to idle)
       break;
   }
 }

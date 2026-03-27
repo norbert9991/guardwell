@@ -12,9 +12,14 @@ const THRESHOLDS = {
     battery: { low: 20 }
 };
 
-// Voice alert type mapping (INMP441 human sound detection)
+// Voice alert type mapping (INMP441 AI voice recognition)
 const VOICE_ALERT_TYPES = {
-    human_distress: { name: 'Voice Alert - Human Detected', severity: 'Critical', tagalog: 'Tao Nakita' },
+    human_distress:   { name: 'Voice Alert - Human Detected',  severity: 'Critical', tagalog: 'Tao Nakita' },
+    voice_emergency:  { name: 'Voice Alert - Emergency',        severity: 'Critical', tagalog: 'Emergency / Tulong' },
+    voice_fire:       { name: 'Voice Alert - Fire',             severity: 'Critical', tagalog: 'Sunog / Fire' },
+    voice_gas:        { name: 'Voice Alert - Gas Leak',         severity: 'Critical', tagalog: 'Gas Leak / May Gas' },
+    voice_medical:    { name: 'Voice Alert - Medical',          severity: 'Critical', tagalog: 'Medical / Nasugatan' },
+    voice_collapse:   { name: 'Voice Alert - Collapse',         severity: 'Critical', tagalog: 'Gumuho / Collapse' },
 };
 
 // Process sensor data and check for alerts
