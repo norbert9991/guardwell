@@ -18,7 +18,8 @@ const Device = sequelize.define('Device', {
         allowNull: false
     },
     type: {
-        type: DataTypes.ENUM('Vest', 'Helmet', 'Band'),
+        type: DataTypes.ENUM('Wearable', 'Vest', 'Helmet', 'Band'),
+        defaultValue: 'Wearable',
         allowNull: false
     },
     workerId: {

@@ -142,10 +142,10 @@ int flatConsecutiveCount = 0;
 const int FLAT_CONSECUTIVE_THRESHOLD = 3;  // ~6 seconds at 2s interval
 bool flatAlertSent = false;
 
-// Simulated GPS coordinates (QCU) — for demo/testing
-float currentLat = 14.700598;
-float currentLon = 121.032460;
-bool gpsValid = true;
+// GPS coordinates — updated from real NEO-M8N data only
+float currentLat = 0.0;
+float currentLon = 0.0;
+bool gpsValid = false;  // stays false until GPS gets a real fix
 
 // ============================================
 // RGB LED STATE MACHINE
