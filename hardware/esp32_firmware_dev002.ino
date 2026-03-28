@@ -1,3 +1,24 @@
+/* ============================================================
+ *  GuardWell ESP32 Firmware — DEV-002
+ *  Edge Impulse Voice Recognition + Sensors
+ * ============================================================
+ *
+ *  Voice Recognition: Edge Impulse (GuardWell_inferencing)
+ *    - Keywords: "help" [0], "tulong" [1], noise/background [2+]
+ *    - Multi-tier detection: confidence → dominance → voting → cooldown
+ *    - I2S legacy driver on port 1 (compatible with Edge Impulse SDK)
+ *
+ *  Sensors: DHT22, MPU6050, GPS NEO-M8N
+ *  Actuators: RGB LED, Buzzer, Touch Sensor
+ *
+ *  Board: ESP32 Arduino Core 2.x
+ *  Required library: GuardWell_inferencing (install via Arduino)
+ * ============================================================ */
+
+// Save 10 KB RAM on devices with limited flash
+#define EIDSP_QUANTIZE_FILTERBANK   0
+
+/* ---------- Includes ---------------------------------------- */
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
 #include <HTTPClient.h>
@@ -6,10 +27,14 @@
 #include <Adafruit_MPU6050.h>
 #include <Adafruit_Sensor.h>
 #include <ArduinoJson.h>
-#include <driver/i2s_std.h>
 #include <math.h>
 #include <TinyGPS++.h>
-#include <base64.h>
+
+// Edge Impulse
+#include <GuardWell_inferencing.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "driver/i2s.h"
 
 // ============================================
 // CONFIGURATION — DEV-002
@@ -20,7 +45,6 @@ const char* SERVER_URL = "https://guardwell.onrender.com/api/sensors/data";
 const char* NUDGE_URL  = "https://guardwell.onrender.com/api/sensors/nudge/DEV-002";
 const char* NUDGE_ACK  = "https://guardwell.onrender.com/api/sensors/nudge/DEV-002/ack";
 const char* EMERGENCY_BUZZER_URL = "https://guardwell.onrender.com/api/sensors/emergency-buzzer/DEV-002";
-const char* VOICE_API_URL = "https://guardwell.onrender.com/api/voice/process";
 const char* DEVICE_ID = "DEV-002";
 
 // Geofence
@@ -33,7 +57,6 @@ const float GEOFENCE_RADIUS_METERS = 100.0;
 // ============================================
 #define DHTPIN      4
 #define DHTTYPE     DHT22
-#define MQ2PIN      34      
 #define TOUCHPIN    27
 #define BUZZER      18
 
@@ -44,15 +67,12 @@ const float GEOFENCE_RADIUS_METERS = 100.0;
 
 // I2C Bus (MPU6050)
 #define I2C_SDA     21
-#define I2C_SCL     22 
+#define I2C_SCL     22
 
 // INMP441 I2S Microphone
 #define I2S_WS      25
 #define I2S_SCK     26
 #define I2S_SD      32
-
-// I2S channel handle (new standard driver API)
-i2s_chan_handle_t i2s_rx_handle = NULL;
 
 // GPS (UART - Serial2)
 #define GPS_RX      16  // ESP32 receives from GPS TX
@@ -65,27 +85,43 @@ DHT dht(DHTPIN, DHTTYPE);
 Adafruit_MPU6050 mpu;
 TinyGPSPlus gps;
 
-// INMP441 AI Voice Recognition Pipeline
-// Audio monitoring + 3-second recording → Server (Whisper STT + Claude intent)
-#define SAMPLE_RATE         16000
-#define MONITOR_SAMPLES     512       // Quick reads for amplitude monitoring
-#define RECORD_DURATION_SEC 3
-#define RECORD_SAMPLES      (SAMPLE_RATE * RECORD_DURATION_SEC)  // 48000 samples
-#define RECORD_BYTES        (RECORD_SAMPLES * 2)                 // 96000 bytes (16-bit)
-#define WAV_HEADER_SIZE     44
+// ============================================
+// EDGE IMPULSE — TUNING
+// ============================================
+#define CONFIDENCE_THRESHOLD   0.75f
+#define VOTES_REQUIRED         3
+#define DOMINANCE_MARGIN       0.10f
+#define EI_COOLDOWN_MS         4000UL
+#define EI_HOLD_MS             2500UL
 
-// Small buffer for amplitude monitoring (stack-safe)
-int16_t monitorBuffer[MONITOR_SAMPLES];
+// ============================================
+// EDGE IMPULSE — AUDIO BUFFERS & STATE
+// ============================================
+typedef struct {
+    signed short *buffers[2];
+    unsigned char  buf_select;
+    unsigned char  buf_ready;
+    unsigned int   buf_count;
+    unsigned int   n_samples;
+} inference_t;
 
-// --- TUNABLE THRESHOLDS ---
-float RMS_THRESHOLD              = 500.0;   // Min RMS to trigger voice recording
-unsigned long DETECTION_COOLDOWN = 10000;   // 10s cooldown between voice recordings (API calls are expensive)
+static inference_t      inference;
+static const uint32_t   ei_sample_buffer_size = 2048;
+static signed short     eiSampleBuffer[ei_sample_buffer_size];
+static bool             debug_nn          = false;
+static int              ei_print_results  = -(EI_CLASSIFIER_SLICES_PER_MODEL_WINDOW);
+static bool             ei_record_status  = true;
 
-// Running state
-float baselineRMS = 0.0;
-unsigned long lastDetectionTime = 0;
-bool soundAlertTriggered = false;
+// Detection state
+static int           eiLastDetected   = -1;
+static unsigned long eiLedHoldUntil   = 0;
+static unsigned long eiCooldownUntil  = 0;
+static int           eiHelpVotes      = 0;
+static int           eiTulongVotes    = 0;
 
+// Flag: EI inference task sets this when a keyword is confirmed
+static volatile bool eiHelpDetected   = false;
+static volatile bool eiTulongDetected = false;
 
 // ============================================
 // VARIABLES
@@ -95,12 +131,11 @@ unsigned long buzzerStartTime = 0;
 unsigned long lastSendTime = 0;
 const unsigned long SEND_INTERVAL = 2000;
 bool mpuConnected = false;
-bool micConnected = false;
 bool gpsConnected = false;
 
 String lastVoiceCommand = "none";
-String lastAlertType = "";
 bool voiceAlertTriggered = false;
+bool soundAlertTriggered = false;
 
 // Flat orientation detection (possible fall / incapacitation)
 int flatConsecutiveCount = 0;
@@ -121,8 +156,7 @@ enum LEDState {
   LED_NUDGE,      // Blue blink - received nudge from website
   LED_EMERGENCY,  // Rapid red flash - SOS active
   LED_GEOFENCE,   // Purple (red+blue) - geofence violation
-  LED_GPS_WAIT,   // Yellow (red+green) - GPS acquiring
-  LED_LISTENING   // Cyan (green+blue) - recording voice for AI
+  LED_GPS_WAIT    // Yellow (red+green) - GPS acquiring
 };
 
 LEDState currentLedState = LED_IDLE;
@@ -130,11 +164,170 @@ unsigned long ledStateStart = 0;
 unsigned long ledBlinkTimer = 0;
 bool ledBlinkOn = false;
 int ledBlinkCount = 0;
-const int NUDGE_BLINK_CYCLES = 10;  // Blue blinks when nudge received
+const int NUDGE_BLINK_CYCLES = 10;
 bool nudgeActive = false;
-bool nudgePending = false;  // true = waiting for worker to tap touch sensor to acknowledge
+bool nudgePending = false;
 bool insideGeofence = true;
 unsigned long lastGeofenceCheck = 0;
+
+// ============================================
+// FORWARD DECLARATIONS — Edge Impulse I2S
+// ============================================
+static void audio_inference_callback(uint32_t n_bytes);
+static void capture_samples(void *arg);
+static bool microphone_inference_start(uint32_t n_samples);
+static bool microphone_inference_record(void);
+static int  microphone_audio_signal_get_data(size_t offset, size_t length, float *out_ptr);
+static void microphone_inference_end(void);
+static int  i2s_init(uint32_t sampling_rate);
+static int  i2s_deinit(void);
+
+// ============================================
+// FORWARD DECLARATIONS — Firmware functions
+// ============================================
+void setRGB(bool r, bool g, bool b);
+void setLedState(LEDState newState);
+void handleLEDEffects();
+void triggerAlert(int duration);
+void sendVoiceAlert(String alertType);
+
+// ============================================
+// EDGE IMPULSE — INFERENCE TASK (runs on core 0)
+// Continuously reads audio and runs classifier
+// ============================================
+void eiInferenceTask(void *param) {
+  ei_printf("[EI] Inference task started on core %d\n", xPortGetCoreID());
+
+  while (true) {
+    // 1. Record the next audio slice
+    if (!microphone_inference_record()) {
+      ei_printf("[EI-ERR] Failed to record audio slice\n");
+      vTaskDelay(pdMS_TO_TICKS(10));
+      continue;
+    }
+
+    // 2. Prepare signal descriptor
+    signal_t signal;
+    signal.total_length = EI_CLASSIFIER_SLICE_SIZE;
+    signal.get_data     = &microphone_audio_signal_get_data;
+
+    // 3. Run classifier
+    ei_impulse_result_t result = {0};
+    EI_IMPULSE_ERROR r = run_classifier_continuous(&signal, &result, debug_nn);
+    if (r != EI_IMPULSE_OK) {
+      ei_printf("[EI-ERR] Classifier failed (%d)\n", r);
+      vTaskDelay(pdMS_TO_TICKS(10));
+      continue;
+    }
+
+    // 4. Multi-tier detection logic
+    float confHelp   = result.classification[0].value;
+    float confTulong = result.classification[1].value;
+
+    // A) Find best & second-best across ALL classes
+    int   bestIdx  = 0;
+    float bestConf = 0.0f;
+    for (size_t ix = 0; ix < EI_CLASSIFIER_LABEL_COUNT; ix++) {
+      if (result.classification[ix].value > bestConf) {
+        bestConf = result.classification[ix].value;
+        bestIdx  = (int)ix;
+      }
+    }
+    float secondConf = 0.0f;
+    for (size_t ix = 0; ix < EI_CLASSIFIER_LABEL_COUNT; ix++) {
+      if ((int)ix == bestIdx) continue;
+      if (result.classification[ix].value > secondConf)
+        secondConf = result.classification[ix].value;
+    }
+    float lead = bestConf - secondConf;
+
+    // B) Threshold + dominance
+    bool helpDominant   = (bestIdx == 0) && (bestConf >= CONFIDENCE_THRESHOLD)
+                                         && (lead     >= DOMINANCE_MARGIN);
+    bool tulongDominant = (bestIdx == 1) && (bestConf >= CONFIDENCE_THRESHOLD)
+                                         && (lead     >= DOMINANCE_MARGIN);
+
+    // C) Cooldown guard
+    bool inCooldown = (millis() < eiCooldownUntil);
+    if (inCooldown) {
+      eiHelpVotes   = 0;
+      eiTulongVotes = 0;
+    }
+
+    // D) Vote accumulation
+    if (!inCooldown) {
+      if (helpDominant) {
+        eiHelpVotes++;
+        eiTulongVotes = 0;
+      } else if (tulongDominant) {
+        eiTulongVotes++;
+        eiHelpVotes   = 0;
+      } else {
+        eiHelpVotes   = 0;
+        eiTulongVotes = 0;
+      }
+    }
+
+    // E) Fire when votes threshold reached
+    if (!inCooldown && eiHelpVotes >= VOTES_REQUIRED) {
+      ei_printf(">>> HELP CONFIRMED! conf=%.2f lead=%.2f votes=%d\n",
+                bestConf, lead, eiHelpVotes);
+      eiHelpVotes     = 0;
+      eiTulongVotes   = 0;
+      eiLastDetected  = 0;
+      eiLedHoldUntil  = millis() + EI_HOLD_MS;
+      eiCooldownUntil = millis() + EI_COOLDOWN_MS;
+      eiHelpDetected  = true;   // Signal to main loop
+    }
+    else if (!inCooldown && eiTulongVotes >= VOTES_REQUIRED) {
+      ei_printf(">>> TULONG CONFIRMED! conf=%.2f lead=%.2f votes=%d\n",
+                bestConf, lead, eiTulongVotes);
+      eiHelpVotes     = 0;
+      eiTulongVotes   = 0;
+      eiLastDetected  = 1;
+      eiLedHoldUntil  = millis() + EI_HOLD_MS;
+      eiCooldownUntil = millis() + EI_COOLDOWN_MS;
+      eiTulongDetected = true;  // Signal to main loop
+    }
+    else {
+      if (millis() > eiLedHoldUntil) {
+        eiLastDetected = -1;
+      }
+      // Vote progress debug
+      if ((eiHelpVotes > 0 || eiTulongVotes > 0) && !inCooldown) {
+        ei_printf("[VOTE] help=%d/%d (%.2f)  tulong=%d/%d (%.2f)  2nd=%.2f lead=%.2f\n",
+                  eiHelpVotes,   VOTES_REQUIRED, confHelp,
+                  eiTulongVotes, VOTES_REQUIRED, confTulong,
+                  secondConf, lead);
+      }
+    }
+
+    // Periodic full results print
+    if (++ei_print_results >= (EI_CLASSIFIER_SLICES_PER_MODEL_WINDOW)) {
+      ei_printf("[%6lu ms] DSP:%d ms  Class:%d ms  Anomaly:%d ms%s\n",
+                millis(),
+                result.timing.dsp,
+                result.timing.classification,
+                result.timing.anomaly,
+                inCooldown ? "  *** COOLDOWN ***" : "");
+
+      for (size_t ix = 0; ix < EI_CLASSIFIER_LABEL_COUNT; ix++) {
+        ei_printf("  [%d] %-10s %.4f%s\n",
+                  (int)ix,
+                  result.classification[ix].label,
+                  result.classification[ix].value,
+                  result.classification[ix].value >= CONFIDENCE_THRESHOLD ? " <<" : "");
+      }
+#if EI_CLASSIFIER_HAS_ANOMALY == 1
+      ei_printf("    anomaly score: ");
+      ei_printf_float(result.anomaly);
+      ei_printf("\n");
+#endif
+      ei_printf("\n");
+      ei_print_results = 0;
+    }
+  }
+}
 
 // ============================================
 // SETUP
@@ -144,7 +337,8 @@ void setup() {
   delay(2000);
 
   Serial.println("\n========================================");
-  Serial.println(" GuardWell ESP32 — DEV-002 (INMP441 + AI Voice)");
+  Serial.println(" GuardWell ESP32 — DEV-002");
+  Serial.println(" Edge Impulse Voice Recognition");
   Serial.println("========================================");
   Serial.println("INMP441 I2S Mic (pins 25, 26, 32):");
   Serial.println("  - WS=25, SCK=26, SD=32");
@@ -162,16 +356,14 @@ void setup() {
   pinMode(RGB_RED, OUTPUT);
   pinMode(RGB_GREEN, OUTPUT);
   pinMode(RGB_BLUE, OUTPUT);
-  pinMode(MQ2PIN, INPUT);
   digitalWrite(BUZZER, LOW);
-  setRGB(0, 0, 0); // Start with LED off
+  setRGB(0, 0, 0);
 
-  // === 1. GPS (UART Serial2) - First to avoid conflicts ===
-  Serial.print("[1/5] GPS NEO-M8N... ");
+  // === 1. GPS (UART Serial2) ===
+  Serial.print("[1/4] GPS NEO-M8N... ");
   Serial2.begin(9600, SERIAL_8N1, GPS_RX, GPS_TX);
   delay(500);
-  
-  // Quick test
+
   int charCount = 0;
   unsigned long testStart = millis();
   while (millis() - testStart < 1000) {
@@ -180,22 +372,21 @@ void setup() {
       charCount++;
     }
   }
-  
+
   if (charCount > 0) {
     Serial.printf("✅ (%d chars/sec)\n", charCount);
   } else {
     Serial.println("⚡ Started (waiting for data)");
   }
   gpsConnected = true;
-  Serial.printf("     Geofence: %.4f, %.4f (R=%.0fm)\n", 
+  Serial.printf("     Geofence: %.4f, %.4f (R=%.0fm)\n",
                 FACILITY_LAT, FACILITY_LON, GEOFENCE_RADIUS_METERS);
 
-  // === 2. I2C Bus ===
+  // === 2. I2C Bus + MPU6050 ===
   Wire.begin(I2C_SDA, I2C_SCL);
   delay(100);
 
-  // === 3. MPU6050 (I2C) ===
-  Serial.print("[2/5] MPU6050 (I2C)... ");
+  Serial.print("[2/4] MPU6050 (I2C)... ");
   if (!mpu.begin()) {
     Serial.println("❌");
     mpuConnected = false;
@@ -207,20 +398,8 @@ void setup() {
     mpuConnected = true;
   }
 
-  // === 4. INMP441 Microphone (I2S) ===
-  Serial.print("[3/5] INMP441 Mic (I2S)... ");
-  micConnected = initINMP441();
-  if (micConnected) {
-    Serial.println("✅");
-    Serial.printf("     AI Voice Pipeline: %dHz, %ds recording, threshold RMS>%.0f\n",
-                  SAMPLE_RATE, RECORD_DURATION_SEC, RMS_THRESHOLD);
-    Serial.println("     Pipeline: INMP441 → WAV → Base64 → Whisper STT → Claude Intent");
-  } else {
-    Serial.println("❌ I2S init failed");
-  }
-
-  // === 5. DHT ===
-  Serial.print("[4/5] DHT Sensor... ");
+  // === 3. DHT ===
+  Serial.print("[3/4] DHT Sensor... ");
   dht.begin();
   delay(2000);
   float testTemp = dht.readTemperature();
@@ -230,20 +409,43 @@ void setup() {
     Serial.printf("✅ %.1f°C\n", testTemp);
   }
 
-  // === 6. WiFi ===
-  Serial.print("[5/5] WiFi... ");
+  // === 4. WiFi ===
+  Serial.print("[4/4] WiFi... ");
   connectToWiFi();
-  
+
+  // === Edge Impulse — Init ===
+  Serial.println("\n[EI] Initializing Edge Impulse...");
+  ei_printf("     Interval : "); ei_printf_float((float)EI_CLASSIFIER_INTERVAL_MS); ei_printf(" ms\n");
+  ei_printf("     Frame sz : %d samples\n", EI_CLASSIFIER_DSP_INPUT_FRAME_SIZE);
+  ei_printf("     Classes  : %d\n", sizeof(ei_classifier_inferencing_categories) /
+                                    sizeof(ei_classifier_inferencing_categories[0]));
+  ei_printf("     Threshold: %.2f  Margin: %.2f  Votes: %d\n",
+            CONFIDENCE_THRESHOLD, DOMINANCE_MARGIN, VOTES_REQUIRED);
+
+  run_classifier_init();
+
+  if (microphone_inference_start(EI_CLASSIFIER_SLICE_SIZE) == false) {
+    ei_printf("[ERR] Could not allocate audio buffer (size %d)\r\n",
+              EI_CLASSIFIER_RAW_SAMPLE_COUNT);
+    while (true) {
+      setRGB(1, 0, 0); delay(200); setRGB(0, 0, 0); delay(200);
+    }
+  }
+
+  // Launch EI inference on core 0 (main loop runs on core 1)
+  xTaskCreatePinnedToCore(eiInferenceTask, "EI_Inference",
+                          1024 * 16, NULL, 8, NULL, 0);
+
   Serial.println("\n✅ Setup complete!");
   Serial.println("📡 GPS acquiring satellites...");
+  Serial.println("🎤 Edge Impulse listening...");
   Serial.println("💡 RGB LED active\n");
 
-  // Start with GPS waiting state (yellow) or idle (green)
   setLedState(gpsValid ? LED_IDLE : LED_GPS_WAIT);
 }
 
 // ============================================
-// LOOP
+// LOOP (runs on core 1 — sensors, WiFi, GPS)
 // ============================================
 void loop() {
   if (WiFi.status() != WL_CONNECTED) {
@@ -251,41 +453,62 @@ void loop() {
   }
 
   handleTouchSensor();
-  
-  if (micConnected) {
-    handleSoundDetection();
+
+  // Check for EI voice detections (set by inference task on core 0)
+  if (eiHelpDetected) {
+    eiHelpDetected = false;
+    lastVoiceCommand = "help";
+    voiceAlertTriggered = true;
+    soundAlertTriggered = true;
+
+    Serial.println("\n🎤 ============================================");
+    Serial.println("🎤  KEYWORD DETECTED: HELP");
+    Serial.println("🎤 ============================================\n");
+
+    setLedState(LED_EMERGENCY);
+    triggerAlert(800);
+    sendVoiceAlert("help");
   }
-  
+
+  if (eiTulongDetected) {
+    eiTulongDetected = false;
+    lastVoiceCommand = "tulong";
+    voiceAlertTriggered = true;
+    soundAlertTriggered = true;
+
+    Serial.println("\n🎤 ============================================");
+    Serial.println("🎤  KEYWORD DETECTED: TULONG");
+    Serial.println("🎤 ============================================\n");
+
+    setLedState(LED_EMERGENCY);
+    triggerAlert(800);
+    sendVoiceAlert("tulong");
+  }
+
   if (gpsConnected) {
     handleGPS();
   }
 
-  // Handle RGB LED effects (non-blocking)
   handleLEDEffects();
 
   // GPS debug
   static unsigned long lastDebug = 0;
   if (millis() - lastDebug > 10000 && !gpsValid && gpsConnected) {
     lastDebug = millis();
-    Serial.printf("[GPS] chars=%lu, valid=%s\n", 
-                 (unsigned long)gps.charsProcessed(), 
+    Serial.printf("[GPS] chars=%lu, valid=%s\n",
+                 (unsigned long)gps.charsProcessed(),
                  gps.location.isValid() ? "YES" : "NO");
   }
 
   if (millis() - lastSendTime >= SEND_INTERVAL) {
     lastSendTime = millis();
 
-    // Red blink while sending
     setLedState(LED_SENDING);
     readAndSendSensorData();
 
-    // Poll for nudges from the website
     checkForNudge();
-
-    // Poll for emergency buzzer from other devices
     checkForEmergencyBuzzer();
 
-    // Return to appropriate idle state
     if (nudgeActive) {
       // Nudge blink takes priority
     } else if (!insideGeofence) {
@@ -357,9 +580,9 @@ float calculateDistance(float lat1, float lon1, float lat2, float lon2) {
 // ============================================
 void connectToWiFi() {
   if (WiFi.status() == WL_CONNECTED) return;
-  
+
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-  
+
   int attempts = 0;
   while (WiFi.status() != WL_CONNECTED && attempts < 20) {
     delay(500);
@@ -383,33 +606,25 @@ void handleTouchSensor() {
     buzzerStartTime = millis();
 
     if (nudgePending) {
-      // --- NUDGE ACKNOWLEDGE MODE ---
-      // Worker tapped touch sensor to respond to nudge
       nudgePending = false;
       nudgeActive = false;
       Serial.println("✅ NUDGE ACKNOWLEDGED by touch sensor");
 
-      // Reset flat alert (worker is conscious and responsive)
       flatConsecutiveCount = 0;
       flatAlertSent = false;
 
-      // Confirmation: short beep + green flash
       digitalWrite(BUZZER, HIGH);
-      setRGB(0, 1, 0);  // Green flash
+      setRGB(0, 1, 0);
       delay(300);
       digitalWrite(BUZZER, LOW);
-      setLedState(LED_IDLE);  // Return to green steady
+      setLedState(LED_IDLE);
 
-      // Send acknowledgment to server
       acknowledgeNudge();
     } else {
-      // --- EMERGENCY MODE ---
-      // No pending nudge, so this is an emergency button press
       digitalWrite(BUZZER, HIGH);
       setLedState(LED_EMERGENCY);
       Serial.println("🚨 EMERGENCY!");
 
-      // Reset flat alert state
       flatConsecutiveCount = 0;
       flatAlertSent = false;
 
@@ -420,355 +635,8 @@ void handleTouchSensor() {
 }
 
 // ============================================
-// INMP441 I2S INITIALIZATION (New Standard Driver API)
-// Uses i2s_std.h — compatible with analogRead()
+// ALERT HELPER
 // ============================================
-bool initINMP441() {
-  // 1. Configure the I2S channel
-  i2s_chan_config_t chan_cfg = I2S_CHANNEL_DEFAULT_CONFIG(I2S_NUM_0, I2S_ROLE_MASTER);
-  chan_cfg.dma_desc_num = 8;
-  chan_cfg.dma_frame_num = MONITOR_SAMPLES;
-
-  esp_err_t err = i2s_new_channel(&chan_cfg, NULL, &i2s_rx_handle);  // RX only
-  if (err != ESP_OK) {
-    Serial.printf("I2S new channel failed: %d\n", err);
-    return false;
-  }
-
-  // 2. Configure standard mode for INMP441
-  i2s_std_config_t std_cfg = {
-    .clk_cfg  = I2S_STD_CLK_DEFAULT_CONFIG(SAMPLE_RATE),
-    .slot_cfg = I2S_STD_PHILIPS_SLOT_DEFAULT_CONFIG(I2S_DATA_BIT_WIDTH_16BIT, I2S_SLOT_MODE_MONO),
-    .gpio_cfg = {
-      .mclk = I2S_GPIO_UNUSED,
-      .bclk = (gpio_num_t)I2S_SCK,
-      .ws   = (gpio_num_t)I2S_WS,
-      .dout = I2S_GPIO_UNUSED,
-      .din  = (gpio_num_t)I2S_SD,
-      .invert_flags = {
-        .mclk_inv = false,
-        .bclk_inv = false,
-        .ws_inv   = false,
-      },
-    },
-  };
-  // INMP441 outputs on left channel when L/R pin is LOW
-  std_cfg.slot_cfg.slot_mask = I2S_STD_SLOT_LEFT;
-
-  err = i2s_channel_init_std_mode(i2s_rx_handle, &std_cfg);
-  if (err != ESP_OK) {
-    Serial.printf("I2S init std mode failed: %d\n", err);
-    return false;
-  }
-
-  // 3. Enable the channel
-  err = i2s_channel_enable(i2s_rx_handle);
-  if (err != ESP_OK) {
-    Serial.printf("I2S channel enable failed: %d\n", err);
-    return false;
-  }
-
-  return true;
-}
-
-// ============================================
-// AI VOICE RECOGNITION PIPELINE
-// Stage 1: Monitor audio level (lightweight, runs every loop)
-// Stage 2: Record 3s of audio when triggered
-// Stage 3: WAV encode → Base64 → POST to server
-// Stage 4: Parse intent from Claude → dispatch action
-// ============================================
-
-// --- Stage 1: Audio Level Monitoring ---
-// Continuously reads small I2S chunks and checks RMS amplitude.
-// When loud enough, triggers the full recording pipeline.
-void handleSoundDetection() {
-  // Read a small chunk for amplitude monitoring
-  size_t bytesIn = 0;
-  esp_err_t result = i2s_channel_read(i2s_rx_handle, monitorBuffer, sizeof(monitorBuffer), &bytesIn, 100);
-  if (result != ESP_OK || bytesIn == 0) return;
-
-  int samplesRead = bytesIn / sizeof(int16_t);
-  if (samplesRead < 10) return;
-
-  // Compute RMS amplitude
-  float sumSquares = 0;
-  for (int i = 0; i < samplesRead; i++) {
-    float sample = (float)monitorBuffer[i];
-    sumSquares += sample * sample;
-  }
-  float rms = sqrt(sumSquares / samplesRead);
-
-  // Update baseline RMS (slow-moving average of ambient noise)
-  if (baselineRMS < 1.0) {
-    baselineRMS = rms;
-  } else {
-    baselineRMS = baselineRMS * 0.98 + rms * 0.02;
-  }
-
-  // Debug output (throttled)
-  static unsigned long lastDebugPrint = 0;
-  if (millis() - lastDebugPrint > 2000) {
-    lastDebugPrint = millis();
-    Serial.printf("[MIC] RMS:%.0f BL:%.0f (threshold:%.0f)\n", rms, baselineRMS, RMS_THRESHOLD);
-  }
-
-  // Check if loud enough AND cooldown has passed
-  if (rms > RMS_THRESHOLD && (millis() - lastDetectionTime > DETECTION_COOLDOWN)) {
-    lastDetectionTime = millis();
-
-    Serial.println("\n🎤 ============================================");
-    Serial.printf("🎤  SOUND DETECTED! RMS=%.0f (threshold=%.0f)\n", rms, RMS_THRESHOLD);
-    Serial.println("🎤  Starting 3-second voice recording...");
-    Serial.println("🎤 ============================================\n");
-
-    // Trigger the full AI voice pipeline
-    recordAndProcessVoice();
-  }
-}
-
-// --- Stage 2: Record 3 seconds of audio ---
-void recordAndProcessVoice() {
-  // Show cyan LED while recording
-  setLedState(LED_LISTENING);
-
-  // Heap-allocate the recording buffer (96KB + 44 bytes WAV header)
-  uint32_t totalBytes = WAV_HEADER_SIZE + RECORD_BYTES;
-  uint8_t* wavBuffer = (uint8_t*)heap_caps_malloc(totalBytes, MALLOC_CAP_8BIT);
-
-  if (!wavBuffer) {
-    Serial.println("❌ Failed to allocate recording buffer! (need ~96KB free heap)");
-    Serial.printf("   Free heap: %d bytes\n", ESP.getFreeHeap());
-    setLedState(LED_IDLE);
-    return;
-  }
-
-  Serial.printf("📼 Recording %d seconds @ %dHz (buffer: %d bytes, free heap: %d)\n",
-                RECORD_DURATION_SEC, SAMPLE_RATE, totalBytes, ESP.getFreeHeap());
-
-  // Write WAV header (will be filled with correct sizes after recording)
-  writeWAVHeader(wavBuffer, RECORD_BYTES);
-
-  // Record audio into the buffer after the WAV header
-  uint8_t* audioData = wavBuffer + WAV_HEADER_SIZE;
-  uint32_t bytesRecorded = 0;
-  unsigned long recordStart = millis();
-
-  while (bytesRecorded < RECORD_BYTES) {
-    size_t bytesIn = 0;
-    uint32_t bytesRemaining = RECORD_BYTES - bytesRecorded;
-    uint32_t readSize = min(bytesRemaining, (uint32_t)sizeof(monitorBuffer));
-
-    esp_err_t result = i2s_channel_read(i2s_rx_handle, audioData + bytesRecorded, readSize, &bytesIn, 1000);
-    if (result != ESP_OK) {
-      Serial.printf("❌ I2S read error at byte %d: %d\n", bytesRecorded, result);
-      break;
-    }
-    bytesRecorded += bytesIn;
-
-    // Progress indicator
-    if (bytesRecorded % (RECORD_BYTES / 3) < readSize) {
-      Serial.printf("   Recording... %d%%\n", (int)(100.0 * bytesRecorded / RECORD_BYTES));
-    }
-  }
-
-  unsigned long recordTime = millis() - recordStart;
-  Serial.printf("✅ Recorded %d bytes in %dms\n", bytesRecorded, recordTime);
-
-  // Process the audio with AI
-  processAudioWithAI(wavBuffer, WAV_HEADER_SIZE + bytesRecorded);
-
-  // Free the buffer
-  free(wavBuffer);
-
-  // Return to idle LED
-  setLedState(LED_IDLE);
-}
-
-// --- WAV Header Writer ---
-void writeWAVHeader(uint8_t* buffer, uint32_t dataSize) {
-  uint32_t fileSize = dataSize + 36;  // Total file size minus 8
-
-  // RIFF header
-  buffer[0] = 'R'; buffer[1] = 'I'; buffer[2] = 'F'; buffer[3] = 'F';
-  buffer[4] = fileSize & 0xFF;
-  buffer[5] = (fileSize >> 8) & 0xFF;
-  buffer[6] = (fileSize >> 16) & 0xFF;
-  buffer[7] = (fileSize >> 24) & 0xFF;
-  buffer[8] = 'W'; buffer[9] = 'A'; buffer[10] = 'V'; buffer[11] = 'E';
-
-  // fmt subchunk
-  buffer[12] = 'f'; buffer[13] = 'm'; buffer[14] = 't'; buffer[15] = ' ';
-  buffer[16] = 16; buffer[17] = 0; buffer[18] = 0; buffer[19] = 0;  // Subchunk1Size (16 for PCM)
-  buffer[20] = 1; buffer[21] = 0;  // AudioFormat (1 = PCM)
-  buffer[22] = 1; buffer[23] = 0;  // NumChannels (1 = mono)
-
-  // SampleRate
-  buffer[24] = SAMPLE_RATE & 0xFF;
-  buffer[25] = (SAMPLE_RATE >> 8) & 0xFF;
-  buffer[26] = (SAMPLE_RATE >> 16) & 0xFF;
-  buffer[27] = (SAMPLE_RATE >> 24) & 0xFF;
-
-  // ByteRate = SampleRate * NumChannels * BitsPerSample/8
-  uint32_t byteRate = SAMPLE_RATE * 1 * 2;  // 16-bit mono
-  buffer[28] = byteRate & 0xFF;
-  buffer[29] = (byteRate >> 8) & 0xFF;
-  buffer[30] = (byteRate >> 16) & 0xFF;
-  buffer[31] = (byteRate >> 24) & 0xFF;
-
-  buffer[32] = 2; buffer[33] = 0;  // BlockAlign = NumChannels * BitsPerSample/8
-  buffer[34] = 16; buffer[35] = 0; // BitsPerSample
-
-  // data subchunk
-  buffer[36] = 'd'; buffer[37] = 'a'; buffer[38] = 't'; buffer[39] = 'a';
-  buffer[40] = dataSize & 0xFF;
-  buffer[41] = (dataSize >> 8) & 0xFF;
-  buffer[42] = (dataSize >> 16) & 0xFF;
-  buffer[43] = (dataSize >> 24) & 0xFF;
-}
-
-// --- Stage 3: Base64 encode and POST to server ---
-void processAudioWithAI(uint8_t* wavBuffer, uint32_t wavSize) {
-  if (WiFi.status() != WL_CONNECTED) {
-    Serial.println("❌ WiFi not connected — cannot send audio for AI processing");
-    return;
-  }
-
-  Serial.printf("📡 Encoding %d bytes to base64...\n", wavSize);
-
-  // Base64 encode the WAV data
-  String base64Audio = base64::encode(wavBuffer, wavSize);
-  Serial.printf("📡 Base64 size: %d chars\n", base64Audio.length());
-
-  // Build JSON payload
-  // Use DynamicJsonDocument for large payloads
-  DynamicJsonDocument doc(base64Audio.length() + 512);
-  doc["device_id"] = DEVICE_ID;
-  doc["audio_b64"] = base64Audio;
-
-  String payload;
-  serializeJson(doc, payload);
-
-  // Free the JSON doc early to reclaim memory
-  doc.clear();
-
-  Serial.printf("📡 Sending to AI voice endpoint (%d bytes)...\n", payload.length());
-
-  // POST to server
-  WiFiClientSecure client;
-  client.setInsecure();  // Skip certificate verification (Render uses valid certs)
-
-  HTTPClient http;
-  http.begin(client, VOICE_API_URL);
-  http.addHeader("Content-Type", "application/json");
-  http.setTimeout(30000);  // 30s timeout for Whisper + Claude round-trip
-
-  int httpCode = http.POST(payload);
-  payload = "";  // Free memory
-
-  if (httpCode == 200) {
-    String response = http.getString();
-    Serial.printf("✅ AI Response: %s\n", response.c_str());
-
-    // Parse the response
-    StaticJsonDocument<512> respDoc;
-    DeserializationError err = deserializeJson(respDoc, response);
-
-    if (!err) {
-      const char* intent = respDoc["intent"] | "unknown";
-      float confidence = respDoc["confidence"] | 0.0;
-      const char* transcription = respDoc["transcription"] | "";
-      const char* language = respDoc["language"] | "unknown";
-
-      Serial.printf("\n🧠 ============================================\n");
-      Serial.printf("🧠  VOICE AI RESULT\n");
-      Serial.printf("🧠  Transcription: \"%s\"\n", transcription);
-      Serial.printf("🧠  Intent: %s (confidence: %.0f%%)\n", intent, confidence * 100);
-      Serial.printf("🧠  Language: %s\n", language);
-      Serial.printf("🧠 ============================================\n\n");
-
-      // Dispatch action based on intent
-      parseClaudeIntent(String(intent), confidence, String(transcription));
-    } else {
-      Serial.printf("❌ Failed to parse AI response: %s\n", err.c_str());
-    }
-  } else {
-    Serial.printf("❌ AI voice endpoint returned HTTP %d\n", httpCode);
-    if (httpCode > 0) {
-      String errorBody = http.getString();
-      Serial.printf("   Error: %s\n", errorBody.c_str());
-    }
-  }
-
-  http.end();
-}
-
-// --- Stage 4: Dispatch actions based on Claude's classified intent ---
-void parseClaudeIntent(String intent, float confidence, String transcription) {
-  // Only act on high-confidence intents
-  if (confidence < 0.7) {
-    Serial.printf("⚠️ Low confidence (%.0f%%) — ignoring intent: %s\n", confidence * 100, intent.c_str());
-    return;
-  }
-
-  if (intent == "emergency" || intent == "help") {
-    Serial.println("🚨 EMERGENCY VOICE INTENT — ACTIVATING ALERT!");
-    lastVoiceCommand = transcription.length() > 0 ? transcription : "voice_emergency";
-    lastAlertType = "voice_emergency";
-    voiceAlertTriggered = true;
-    soundAlertTriggered = true;
-    setLedState(LED_EMERGENCY);
-    triggerAlert(1500);  // 1.5s buzzer
-    sendVoiceAlert("voice_emergency");
-
-  } else if (intent == "fire") {
-    Serial.println("🔥 FIRE VOICE INTENT — ACTIVATING FIRE ALERT!");
-    lastVoiceCommand = transcription.length() > 0 ? transcription : "voice_fire";
-    lastAlertType = "voice_fire";
-    voiceAlertTriggered = true;
-    soundAlertTriggered = true;
-    setLedState(LED_EMERGENCY);
-    triggerAlert(2000);  // 2s buzzer for fire
-    sendVoiceAlert("voice_fire");
-
-  } else if (intent == "gas") {
-    Serial.println("☁️ GAS LEAK VOICE INTENT — ACTIVATING GAS ALERT!");
-    lastVoiceCommand = transcription.length() > 0 ? transcription : "voice_gas";
-    lastAlertType = "voice_gas";
-    voiceAlertTriggered = true;
-    soundAlertTriggered = true;
-    setLedState(LED_EMERGENCY);
-    triggerAlert(1500);
-    sendVoiceAlert("voice_gas");
-
-  } else if (intent == "medical") {
-    Serial.println("🏥 MEDICAL VOICE INTENT — ACTIVATING MEDICAL ALERT!");
-    lastVoiceCommand = transcription.length() > 0 ? transcription : "voice_medical";
-    lastAlertType = "voice_medical";
-    voiceAlertTriggered = true;
-    soundAlertTriggered = true;
-    setLedState(LED_EMERGENCY);
-    triggerAlert(1000);
-    sendVoiceAlert("voice_medical");
-
-  } else if (intent == "collapse") {
-    Serial.println("🏗️ COLLAPSE VOICE INTENT — ACTIVATING STRUCTURAL ALERT!");
-    lastVoiceCommand = transcription.length() > 0 ? transcription : "voice_collapse";
-    lastAlertType = "voice_collapse";
-    voiceAlertTriggered = true;
-    soundAlertTriggered = true;
-    setLedState(LED_EMERGENCY);
-    triggerAlert(1500);
-    sendVoiceAlert("voice_collapse");
-
-  } else if (intent == "safe" || intent == "none") {
-    Serial.println("✅ Safe/normal speech — no action needed");
-
-  } else {
-    Serial.printf("❓ Unknown intent: %s — no action taken\n", intent.c_str());
-  }
-}
-
 void triggerAlert(int duration) {
   digitalWrite(BUZZER, HIGH);
   delay(duration);
@@ -785,11 +653,6 @@ void readAndSendSensorData() {
   if (isnan(temp)) temp = 0.0;
   if (isnan(hum)) hum = 0.0;
 
-  // MQ2 DISABLED — sensor draws too much current on 9V battery,
-  // causing brownouts and false critical alerts. Uncomment when using proper PSU.
-  // int gasPPM = map(analogRead(MQ2PIN), 0, 4095, 0, 1000); 
-  int gasPPM = 0;  // Disabled — no gas reading
-
   float ax=0, ay=0, az=0, gx=0, gy=0, gz=0;
   bool fallDetected = false;
   bool flatOrientationAlert = false;
@@ -801,16 +664,15 @@ void readAndSendSensorData() {
     gx = g.gyro.x; gy = g.gyro.y; gz = g.gyro.z;
     if (sqrt(ax*ax + ay*ay + az*az) > 25.0) fallDetected = true;
 
-    // --- Flat orientation detection (possible fall / incapacitation) ---
-    // Detects BOTH face-up flat AND upside-down flat
+    // Flat orientation detection
     float absX = fabs(ax), absY = fabs(ay), absZ = fabs(az);
     float gyroMag = sqrt(gx*gx + gy*gy + gz*gz);
-    bool isFlat = (absZ > absX && absZ > absY);  // Z-axis dominant = flat (face-up or upside-down)
-    bool isStationary = (gyroMag < 5.0);  // Low rotation = not moving
+    bool isFlat = (absZ > absX && absZ > absY);
+    bool isStationary = (gyroMag < 5.0);
 
     if (isFlat && isStationary) {
       flatConsecutiveCount++;
-      Serial.printf("[FLAT] Flat detected (%d/%d) az=%.2f gyro=%.2f\n", 
+      Serial.printf("[FLAT] Flat detected (%d/%d) az=%.2f gyro=%.2f\n",
                     flatConsecutiveCount, FLAT_CONSECUTIVE_THRESHOLD, az, gyroMag);
 
       if (flatConsecutiveCount >= FLAT_CONSECUTIVE_THRESHOLD && !flatAlertSent) {
@@ -822,20 +684,15 @@ void readAndSendSensorData() {
         Serial.printf("🚨  Accel: X=%.2f Y=%.2f Z=%.2f  Gyro: %.2f\n", ax, ay, az, gyroMag);
         Serial.println("🚨 ============================================\n");
 
-        // Sound buzzer alarm
         setLedState(LED_EMERGENCY);
-        triggerAlert(1500);  // 1.5 second buzzer burst
-
-        // Send flat orientation emergency to server
+        triggerAlert(1500);
         sendFlatOrientationAlert();
       }
 
-      // Keep flat flag true as long as device is flat AND alert has been sent
       if (flatAlertSent) {
         flatOrientationAlert = true;
       }
     } else {
-      // Not flat anymore — reset counter
       if (flatConsecutiveCount > 0) {
         Serial.println("[FLAT] Orientation changed — counter reset");
       }
@@ -845,9 +702,9 @@ void readAndSendSensorData() {
   }
 
   // Status output
-  Serial.printf("T:%.1f H:%.1f G:%d ", temp, hum, gasPPM);
+  Serial.printf("T:%.1f H:%.1f ", temp, hum);
   if (gpsValid) {
-    Serial.printf("GPS:%.5f,%.5f %s\n", currentLat, currentLon, 
+    Serial.printf("GPS:%.5f,%.5f %s\n", currentLat, currentLon,
                   insideGeofence ? "IN" : "OUT");
   } else {
     Serial.printf("GPS:wait(%lu)\n", (unsigned long)gps.charsProcessed());
@@ -858,13 +715,12 @@ void readAndSendSensorData() {
   doc["device_id"] = DEVICE_ID;
   doc["temperature"] = temp;
   doc["humidity"] = hum;
-  doc["gas_level"] = gasPPM;
+  doc["gas_level"] = 0;  // MQ2 removed
   doc["voice_command"] = lastVoiceCommand;
   doc["voice_alert"] = voiceAlertTriggered;
   if (soundAlertTriggered) {
-    doc["alert_type"] = lastAlertType.length() > 0 ? lastAlertType : "human_distress";
+    doc["alert_type"] = lastVoiceCommand;  // "help" or "tulong"
     soundAlertTriggered = false;
-    lastAlertType = "";
   }
   doc["accel_x"] = ax; doc["accel_y"] = ay; doc["accel_z"] = az;
   doc["gyro_x"] = gx; doc["gyro_y"] = gy; doc["gyro_z"] = gz;
@@ -885,7 +741,7 @@ void readAndSendSensorData() {
   String payload;
   serializeJson(doc, payload);
   sendToServer(payload);
-  
+
   if (voiceAlertTriggered) voiceAlertTriggered = false;
 }
 
@@ -973,15 +829,13 @@ void setLedState(LEDState newState) {
   ledBlinkOn = true;
   ledBlinkCount = 0;
 
-  // Set initial color for the state
   switch (newState) {
-    case LED_IDLE:       setRGB(0, 1, 0); break;  // Green
-    case LED_SENDING:    setRGB(1, 0, 0); break;  // Red
-    case LED_NUDGE:      setRGB(0, 0, 1); break;  // Blue
-    case LED_EMERGENCY:  setRGB(1, 0, 0); break;  // Red (will flash)
-    case LED_GEOFENCE:   setRGB(1, 0, 1); break;  // Purple (red+blue)
-    case LED_GPS_WAIT:   setRGB(1, 1, 0); break;  // Yellow (red+green)
-    case LED_LISTENING:  setRGB(0, 1, 1); break;  // Cyan (green+blue) - recording
+    case LED_IDLE:       setRGB(0, 1, 0); break;
+    case LED_SENDING:    setRGB(1, 0, 0); break;
+    case LED_NUDGE:      setRGB(0, 0, 1); break;
+    case LED_EMERGENCY:  setRGB(1, 0, 0); break;
+    case LED_GEOFENCE:   setRGB(1, 0, 1); break;
+    case LED_GPS_WAIT:   setRGB(1, 1, 0); break;
   }
 }
 
@@ -990,11 +844,9 @@ void handleLEDEffects() {
 
   switch (currentLedState) {
     case LED_IDLE:
-      // Steady green — no blinking
       break;
 
     case LED_SENDING:
-      // Quick red blink (100ms on/100ms off)
       if (now - ledBlinkTimer >= 100) {
         ledBlinkTimer = now;
         ledBlinkOn = !ledBlinkOn;
@@ -1003,7 +855,6 @@ void handleLEDEffects() {
       break;
 
     case LED_NUDGE:
-      // Blue blink (300ms on/300ms off) for NUDGE_BLINK_CYCLES
       if (now - ledBlinkTimer >= 300) {
         ledBlinkTimer = now;
         ledBlinkOn = !ledBlinkOn;
@@ -1017,43 +868,33 @@ void handleLEDEffects() {
       break;
 
     case LED_EMERGENCY:
-      // Rapid red flash (80ms on/80ms off)
       if (now - ledBlinkTimer >= 80) {
         ledBlinkTimer = now;
         ledBlinkOn = !ledBlinkOn;
         setRGB(ledBlinkOn, 0, 0);
       }
-      // Auto-return to idle after 10 seconds
       if (now - ledStateStart >= 10000) {
         setLedState(LED_IDLE);
       }
       break;
 
     case LED_GEOFENCE:
-      // Purple pulse (500ms on/500ms off)
       if (now - ledBlinkTimer >= 500) {
         ledBlinkTimer = now;
         ledBlinkOn = !ledBlinkOn;
-        setRGB(ledBlinkOn, 0, ledBlinkOn);  // Purple = red + blue
+        setRGB(ledBlinkOn, 0, ledBlinkOn);
       }
       break;
 
     case LED_GPS_WAIT:
-      // Slow yellow pulse (1000ms on/1000ms off)
       if (now - ledBlinkTimer >= 1000) {
         ledBlinkTimer = now;
         ledBlinkOn = !ledBlinkOn;
-        setRGB(ledBlinkOn, ledBlinkOn, 0);  // Yellow = red + green
+        setRGB(ledBlinkOn, ledBlinkOn, 0);
       }
-      // Switch to green when GPS locks
       if (gpsValid) {
         setLedState(LED_IDLE);
       }
-      break;
-
-    case LED_LISTENING:
-      // Steady cyan while recording — no blinking
-      // (recording takes ~3 seconds, then returns to idle)
       break;
   }
 }
@@ -1083,13 +924,10 @@ void checkForNudge() {
       Serial.printf("📢 NUDGE RECEIVED: %s\n", msg.c_str());
       Serial.println("   → Tap touch sensor to acknowledge (touch = ack, NOT emergency)");
 
-      // Blue blink + short buzzer beep to alert the worker
       nudgeActive = true;
-      nudgePending = true;  // Wait for worker to tap touch sensor
+      nudgePending = true;
       setLedState(LED_NUDGE);
-      triggerAlert(200);  // Short beep
-
-      // DO NOT auto-acknowledge — worker must tap touch sensor
+      triggerAlert(200);
     }
   }
 
@@ -1113,7 +951,6 @@ void acknowledgeNudge() {
 
 // ============================================
 // EMERGENCY BUZZER POLLING (Server → Device)
-// Checks if another device triggered an emergency
 // ============================================
 void checkForEmergencyBuzzer() {
   if (WiFi.status() != WL_CONNECTED) return;
@@ -1136,19 +973,165 @@ void checkForEmergencyBuzzer() {
       String sourceDevice = doc["sourceDevice"] | "unknown";
       String workerName = doc["workerName"] | "Unknown";
       String alertType = doc["type"] | "Emergency";
-      
-      Serial.printf("\n🚨 EMERGENCY BUZZER from %s (%s) — %s\n", 
+
+      Serial.printf("\n🚨 EMERGENCY BUZZER from %s (%s) — %s\n",
                     sourceDevice.c_str(), workerName.c_str(), alertType.c_str());
-      
-      // Activate buzzer for 5 seconds
+
       buzzerActive = true;
       buzzerStartTime = millis();
       digitalWrite(BUZZER, HIGH);
-      
-      // Rapid red LED flash
+
       setLedState(LED_EMERGENCY);
     }
   }
 
   http.end();
 }
+
+// ============================================
+// EDGE IMPULSE — I2S AUDIO INFRASTRUCTURE
+// (Legacy driver API on port 1 — required by EI SDK)
+// ============================================
+
+static void audio_inference_callback(uint32_t n_bytes) {
+  for (int i = 0; i < (int)(n_bytes >> 1); i++) {
+    inference.buffers[inference.buf_select][inference.buf_count++] = eiSampleBuffer[i];
+
+    if (inference.buf_count >= inference.n_samples) {
+      inference.buf_select ^= 1;
+      inference.buf_count   = 0;
+      inference.buf_ready   = 1;
+    }
+  }
+}
+
+static void capture_samples(void *arg) {
+  const int32_t i2s_bytes_to_read = (uint32_t)arg;
+  size_t bytes_read = i2s_bytes_to_read;
+
+  while (ei_record_status) {
+    i2s_read((i2s_port_t)1, (void *)eiSampleBuffer,
+             i2s_bytes_to_read, &bytes_read, 100);
+
+    if (bytes_read <= 0) {
+      ei_printf("[I2S] Read error: %d\n", (int)bytes_read);
+    } else {
+      if (bytes_read < (size_t)i2s_bytes_to_read) {
+        ei_printf("[I2S] Partial read (%d / %d)\n",
+                  (int)bytes_read, (int)i2s_bytes_to_read);
+      }
+
+      // Amplify — INMP441 output can be quiet
+      for (int x = 0; x < (int)(i2s_bytes_to_read / 2); x++) {
+        eiSampleBuffer[x] = (int16_t)(eiSampleBuffer[x]) * 8;
+      }
+
+      if (ei_record_status) {
+        audio_inference_callback(i2s_bytes_to_read);
+      } else {
+        break;
+      }
+    }
+  }
+  vTaskDelete(NULL);
+}
+
+static bool microphone_inference_start(uint32_t n_samples) {
+  inference.buffers[0] = (signed short *)malloc(n_samples * sizeof(signed short));
+  if (inference.buffers[0] == NULL) { return false; }
+
+  inference.buffers[1] = (signed short *)malloc(n_samples * sizeof(signed short));
+  if (inference.buffers[1] == NULL) { ei_free(inference.buffers[0]); return false; }
+
+  inference.buf_select = 0;
+  inference.buf_count  = 0;
+  inference.n_samples  = n_samples;
+  inference.buf_ready  = 0;
+
+  if (i2s_init(EI_CLASSIFIER_FREQUENCY)) {
+    ei_printf("[I2S] Init failed!\n");
+  }
+
+  ei_sleep(100);
+  ei_record_status = true;
+
+  xTaskCreate(capture_samples, "CaptureSamples",
+              1024 * 32, (void *)(uintptr_t)ei_sample_buffer_size, 10, NULL);
+
+  return true;
+}
+
+static bool microphone_inference_record(void) {
+  if (inference.buf_ready == 1) {
+    ei_printf("[WARN] Buffer overrun — stale slice discarded\n");
+    inference.buf_ready = 0;
+  }
+
+  while (inference.buf_ready == 0) {
+    delay(1);
+  }
+  inference.buf_ready = 0;
+  return true;
+}
+
+static int microphone_audio_signal_get_data(size_t offset, size_t length, float *out_ptr) {
+  numpy::int16_to_float(
+      &inference.buffers[inference.buf_select ^ 1][offset],
+      out_ptr,
+      length);
+  return 0;
+}
+
+static void microphone_inference_end(void) {
+  i2s_deinit();
+  ei_free(inference.buffers[0]);
+  ei_free(inference.buffers[1]);
+}
+
+static int i2s_init(uint32_t sampling_rate) {
+  i2s_config_t i2s_config = {
+      .mode             = (i2s_mode_t)(I2S_MODE_MASTER | I2S_MODE_RX | I2S_MODE_TX),
+      .sample_rate      = sampling_rate,
+      .bits_per_sample  = (i2s_bits_per_sample_t)16,
+      .channel_format   = I2S_CHANNEL_FMT_ONLY_LEFT,
+      .communication_format = I2S_COMM_FORMAT_I2S,
+      .intr_alloc_flags = 0,
+      .dma_buf_count    = 8,
+      .dma_buf_len      = 512,
+      .use_apll         = false,
+      .tx_desc_auto_clear = false,
+      .fixed_mclk       = -1,
+  };
+
+  i2s_pin_config_t pin_config = {
+      .bck_io_num   = I2S_SCK,
+      .ws_io_num    = I2S_WS,
+      .data_out_num = I2S_PIN_NO_CHANGE,
+      .data_in_num  = I2S_SD,
+  };
+
+  esp_err_t ret = 0;
+
+  ret = i2s_driver_install((i2s_port_t)1, &i2s_config, 0, NULL);
+  if (ret != ESP_OK) { ei_printf("[I2S] Driver install failed: %d\n", ret); return (int)ret; }
+
+  ret = i2s_set_pin((i2s_port_t)1, &pin_config);
+  if (ret != ESP_OK) { ei_printf("[I2S] Set pin failed: %d\n", ret); return (int)ret; }
+
+  ret = i2s_zero_dma_buffer((i2s_port_t)1);
+  if (ret != ESP_OK) { ei_printf("[I2S] DMA zero failed: %d\n", ret); return (int)ret; }
+
+  return int(ret);
+}
+
+static int i2s_deinit(void) {
+  i2s_driver_uninstall((i2s_port_t)1);
+  return 0;
+}
+
+// ============================================
+// SAFETY CHECK — ensure correct model type
+// ============================================
+#if !defined(EI_CLASSIFIER_SENSOR) || EI_CLASSIFIER_SENSOR != EI_CLASSIFIER_SENSOR_MICROPHONE
+#error "This sketch requires a microphone-based Edge Impulse model."
+#endif

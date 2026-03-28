@@ -12,14 +12,11 @@ const THRESHOLDS = {
     battery: { low: 20 }
 };
 
-// Voice alert type mapping (INMP441 AI voice recognition)
+// Voice alert type mapping (INMP441 — Edge Impulse keyword detection)
 const VOICE_ALERT_TYPES = {
-    human_distress:   { name: 'Voice Alert - Human Detected',  severity: 'Critical', tagalog: 'Tao Nakita' },
-    voice_emergency:  { name: 'Voice Alert - Emergency',        severity: 'Critical', tagalog: 'Emergency / Tulong' },
-    voice_fire:       { name: 'Voice Alert - Fire',             severity: 'Critical', tagalog: 'Sunog / Fire' },
-    voice_gas:        { name: 'Voice Alert - Gas Leak',         severity: 'Critical', tagalog: 'Gas Leak / May Gas' },
-    voice_medical:    { name: 'Voice Alert - Medical',          severity: 'Critical', tagalog: 'Medical / Nasugatan' },
-    voice_collapse:   { name: 'Voice Alert - Collapse',         severity: 'Critical', tagalog: 'Gumuho / Collapse' },
+    human_distress: { name: 'Voice Alert - Human Detected', severity: 'Critical', tagalog: 'Tao Nakita' },
+    help:           { name: 'Voice Alert - Help',           severity: 'Critical', tagalog: 'Help' },
+    tulong:         { name: 'Voice Alert - Tulong',         severity: 'Critical', tagalog: 'Tulong' },
 };
 
 // Process sensor data and check for alerts
@@ -83,7 +80,7 @@ const processSensorData = async (data, io) => {
             });
         }
 
-        // Voice alert (INMP441 human sound detection)
+        // Voice alert (INMP441 — Edge Impulse keyword detection: "help", "tulong", human_distress)
         if (data.voice_alert && data.alert_type) {
             const voiceAlertInfo = VOICE_ALERT_TYPES[data.alert_type];
             if (voiceAlertInfo) {
@@ -92,10 +89,13 @@ const processSensorData = async (data, io) => {
                     severity: voiceAlertInfo.severity,
                     deviceId: data.device_id,
                     workerId,
-                    triggerValue: `Voice Command: "${voiceAlertInfo.tagalog}"`,
-                    threshold: 'Voice Triggered'
+                    triggerValue: `Keyword Detected: "${voiceAlertInfo.tagalog}"`,
+                    threshold: 'Edge Impulse AI'
                 });
-                console.log(`🎤 Voice Alert: ${voiceAlertInfo.tagalog} (${data.alert_type}) from ${data.device_id}`);
+                console.log(`🎤 Voice Keyword: "${voiceAlertInfo.tagalog}" (${data.alert_type}) from ${data.device_id}`);
+            } else {
+                // Unknown alert type — still log it
+                console.warn(`🎤 Unknown voice alert type: ${data.alert_type} from ${data.device_id}`);
             }
         }
 
@@ -209,6 +209,8 @@ const processSensorData = async (data, io) => {
         const ALERT_COOLDOWNS = {
             'Emergency Button':           1 * 60 * 1000,   // 1 minute
             'Voice Alert - Human Detected': 1 * 60 * 1000, // 1 minute
+            'Voice Alert - Help':         1 * 60 * 1000,   // 1 minute
+            'Voice Alert - Tulong':       1 * 60 * 1000,   // 1 minute
             'Flat Orientation Detected':  1 * 60 * 1000,   // 1 minute
             'Fall Detected':              1 * 60 * 1000,   // 1 minute
             'High Temperature':           2 * 60 * 1000,   // 2 minutes
@@ -267,6 +269,10 @@ const processSensorData = async (data, io) => {
                     device: data.device_id,
                     voice_command: data.voice_command || null,
                     voice_alert_type: data.alert_type || null,
+                    // GPS location for emergency response
+                    latitude: data.latitude || null,
+                    longitude: data.longitude || null,
+                    gps_valid: data.gps_valid || false,
                     timestamp: new Date().toISOString()
                 });
 

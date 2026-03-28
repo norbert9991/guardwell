@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { AlertTriangle, User, Radio, Clock, CheckCircle, Phone, Shield, Mic, Loader2, Smartphone } from 'lucide-react';
+import { AlertTriangle, User, Radio, Clock, CheckCircle, Phone, Shield, Mic, Loader2, Smartphone, MapPin } from 'lucide-react';
 import { Button } from './ui/Button';
 import { useSocket } from '../context/SocketContext';
 import { useAuth } from '../context/AuthContext';
@@ -44,9 +44,9 @@ export const GlobalEmergencyAlert = () => {
 
     // Determine alert category for styling
     const getAlertCategory = (type) => {
-        if (type?.includes('Voice Alert')) return 'voice';     // INMP441 human detection
-        if (type?.includes('Flat Orientation')) return 'flat'; // Flat orientation detection
-        return 'emergency';                                     // Emergency Button, Gas, Fall, etc.
+        if (type?.startsWith('Voice Alert')) return 'voice';  // All EI keyword detections
+        if (type?.includes('Flat Orientation')) return 'flat';
+        return 'emergency';
     };
 
     // Category-specific styles
@@ -98,9 +98,19 @@ export const GlobalEmergencyAlert = () => {
     // Human-readable description for voice alerts
     const getAlertDescription = (emergency, category) => {
         if (category === 'voice') {
+            // Edge Impulse keyword: "help"
+            if (emergency.type === 'Voice Alert - Help') {
+                return 'Worker shouted "HELP" — immediate response required';
+            }
+            // Edge Impulse keyword: "tulong" (Filipino for help)
+            if (emergency.type === 'Voice Alert - Tulong') {
+                return 'Worker shouted "TULONG" (Help in Filipino) — immediate response required';
+            }
+            // Legacy FFT human detection
             if (emergency.type?.includes('Human Detected')) {
                 return 'Human voice detected in industrial zone — possible distress signal';
             }
+            // Fallback: show voice command if available
             if (emergency.voice_command) {
                 const cmd = emergency.voice_command.split('_')[0];
                 return `Worker called: "${cmd.charAt(0).toUpperCase() + cmd.slice(1)}"`;
@@ -201,6 +211,18 @@ export const GlobalEmergencyAlert = () => {
                                                     <Clock size={14} />
                                                     {new Date(emergency.timestamp).toLocaleTimeString()}
                                                 </span>
+                                                {/* Show GPS location if available */}
+                                                {emergency.gps_valid && emergency.latitude && emergency.longitude && (
+                                                    <a
+                                                        href={`https://www.google.com/maps?q=${emergency.latitude},${emergency.longitude}`}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="flex items-center gap-1.5 bg-black/30 px-2 py-1 rounded text-[#00E5FF] hover:text-white transition-colors"
+                                                    >
+                                                        <MapPin size={14} />
+                                                        {emergency.latitude.toFixed(5)}, {emergency.longitude.toFixed(5)}
+                                                    </a>
+                                                )}
                                             </div>
                                         </div>
                                     </div>
