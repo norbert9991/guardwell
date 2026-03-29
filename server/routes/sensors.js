@@ -103,7 +103,7 @@ const processSensorData = async (data, io) => {
         if (data.geofence_violation) {
             alerts.push({
                 type: 'Geofence Violation',
-                severity: 'High',
+                severity: 'Critical',
                 deviceId: data.device_id,
                 workerId,
                 triggerValue: `Left safe zone (${data.latitude?.toFixed(6)}, ${data.longitude?.toFixed(6)})`,
@@ -277,7 +277,7 @@ const processSensorData = async (data, io) => {
                 });
 
                 // Queue emergency buzzer for all other devices (Emergency Button, Voice Alert, or Flat Orientation)
-                if (alert.type === 'Emergency Button' || alert.type.startsWith('Voice Alert') || alert.type === 'Flat Orientation Detected') {
+                if (alert.type === 'Emergency Button' || alert.type.startsWith('Voice Alert') || alert.type === 'Flat Orientation Detected' || alert.type === 'Geofence Violation') {
                     await queueEmergencyBuzzer(data.device_id, workerName, alert.type);
                 }
 

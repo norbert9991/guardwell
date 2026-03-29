@@ -106,10 +106,10 @@ typedef struct {
 } inference_t;
 
 static inference_t      inference;
-static const uint32_t   ei_sample_buffer_size = 2048;
+static const uint32_t   ei_sample_buffer_size = 1024;
 static signed short     eiSampleBuffer[ei_sample_buffer_size];
 static bool             debug_nn          = false;
-static int              ei_print_results  = -(EI_CLASSIFIER_SLICES_PER_MODEL_WINDOW);
+static int              ei_print_counter  = -(EI_CLASSIFIER_SLICES_PER_MODEL_WINDOW);
 static bool             ei_record_status  = true;
 
 // Detection state
@@ -197,12 +197,22 @@ void sendVoiceAlert(String alertType);
 // ============================================
 void eiInferenceTask(void *param) {
   ei_printf("[EI] Inference task started on core %d\n", xPortGetCoreID());
+  ei_printf("[EI] Free heap: %u bytes\n", ESP.getFreeHeap());
+
+  // Wait for the first audio buffer to be fully captured before running classifier
+  ei_printf("[EI] Waiting for first audio buffer...\n");
+  while (inference.buf_ready == 0) {
+    vTaskDelay(pdMS_TO_TICKS(10));
+  }
+  inference.buf_ready = 0;
+  ei_printf("[EI] First buffer ready — free heap: %u bytes\n", ESP.getFreeHeap());
+  ei_printf("[EI] Starting inference loop\n");
 
   while (true) {
     // 1. Record the next audio slice
     if (!microphone_inference_record()) {
       ei_printf("[EI-ERR] Failed to record audio slice\n");
-      vTaskDelay(pdMS_TO_TICKS(10));
+      vTaskDelay(pdMS_TO_TICKS(100));
       continue;
     }
 
@@ -215,8 +225,8 @@ void eiInferenceTask(void *param) {
     ei_impulse_result_t result = {0};
     EI_IMPULSE_ERROR r = run_classifier_continuous(&signal, &result, debug_nn);
     if (r != EI_IMPULSE_OK) {
-      ei_printf("[EI-ERR] Classifier failed (%d)\n", r);
-      vTaskDelay(pdMS_TO_TICKS(10));
+      ei_printf("[EI-ERR] Classifier failed (%d) — heap: %u\n", r, ESP.getFreeHeap());
+      vTaskDelay(pdMS_TO_TICKS(200));
       continue;
     }
 
@@ -303,7 +313,7 @@ void eiInferenceTask(void *param) {
     }
 
     // Periodic full results print
-    if (++ei_print_results >= (EI_CLASSIFIER_SLICES_PER_MODEL_WINDOW)) {
+    if (++ei_print_counter >= (EI_CLASSIFIER_SLICES_PER_MODEL_WINDOW)) {
       ei_printf("[%6lu ms] DSP:%d ms  Class:%d ms  Anomaly:%d ms%s\n",
                 millis(),
                 result.timing.dsp,
@@ -324,7 +334,7 @@ void eiInferenceTask(void *param) {
       ei_printf("\n");
 #endif
       ei_printf("\n");
-      ei_print_results = 0;
+      ei_print_counter = 0;
     }
   }
 }
@@ -1043,6 +1053,10 @@ static bool microphone_inference_start(uint32_t n_samples) {
   inference.buffers[1] = (signed short *)malloc(n_samples * sizeof(signed short));
   if (inference.buffers[1] == NULL) { ei_free(inference.buffers[0]); return false; }
 
+  // Zero-initialize to prevent MFCC null-check failures on first run
+  memset(inference.buffers[0], 0, n_samples * sizeof(signed short));
+  memset(inference.buffers[1], 0, n_samples * sizeof(signed short));
+
   inference.buf_select = 0;
   inference.buf_count  = 0;
   inference.n_samples  = n_samples;
@@ -1056,7 +1070,7 @@ static bool microphone_inference_start(uint32_t n_samples) {
   ei_record_status = true;
 
   xTaskCreate(capture_samples, "CaptureSamples",
-              1024 * 32, (void *)(uintptr_t)ei_sample_buffer_size, 10, NULL);
+              1024 * 4, (void *)(uintptr_t)ei_sample_buffer_size, 10, NULL);
 
   return true;
 }

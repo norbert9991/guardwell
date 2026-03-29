@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Activity, Thermometer, Wind, Droplets, Battery, Signal, User, Shield, Radio, AlertTriangle, CheckCircle, X, Eye, Clock, Bell, ShieldCheck, Mic, Map, Grid, MapPin, Globe, Layers, Navigation2, Smartphone } from 'lucide-react';
+import { Activity, Thermometer, Droplets, Battery, Signal, User, Shield, Radio, AlertTriangle, CheckCircle, X, Eye, Clock, Bell, ShieldCheck, Mic, Map, Grid, MapPin, Globe, Layers, Navigation2, Smartphone, Satellite } from 'lucide-react';
 import { CardDark, CardBody } from '../components/ui/Card';
 import { MetricCard } from '../components/ui/MetricCard';
 import { Badge } from '../components/ui/Badge';
@@ -71,9 +71,9 @@ export const LiveMonitoring = () => {
 
         // Determine status based on sensor readings and SOS state
         let status = 'normal';
-        if (hasSosActive || emergencyPressed || voiceAlertActive || geofenceViolation || flatOrientation || realTimeData.temperature >= 50 || realTimeData.gas_level >= 400) {
+        if (hasSosActive || emergencyPressed || voiceAlertActive || geofenceViolation || flatOrientation || realTimeData.temperature >= 50) {
             status = 'critical';
-        } else if (realTimeData.temperature >= 40 || realTimeData.gas_level >= 200) {
+        } else if (realTimeData.temperature >= 40) {
             status = 'warning';
         }
 
@@ -84,7 +84,7 @@ export const LiveMonitoring = () => {
             device: device.deviceId,
             sensors: {
                 temperature: realTimeData.temperature || 0,
-                gas: realTimeData.gas_level || 0,
+
                 humidity: realTimeData.humidity || 0,
                 battery: realTimeData.battery || device.battery || 0,
                 signal: realTimeData.rssi || 0,
@@ -155,13 +155,11 @@ export const LiveMonitoring = () => {
     // Get voice command display name (Tagalog to English mapping)
     const getVoiceCommandDisplay = (alertType) => {
         const voiceCommands = {
-            help: { tagalog: 'TULONG', english: 'Help Requested', icon: '🙋' },
-            emergency: { tagalog: 'EMERGENCY', english: 'Emergency', icon: '🚨' },
-            fall_shock: { tagalog: 'ARAY', english: 'Fall/Shock Detected', icon: '⚠️' },
-            call_nurse: { tagalog: 'TAWAG', english: 'Call Nurse', icon: '📞' },
-            pain: { tagalog: 'SAKIT', english: 'Pain Reported', icon: '🩺' }
+            help:    { keyword: 'HELP',    english: 'Help Requested (English)',  icon: '🆘' },
+            tulong:  { keyword: 'TULONG',  english: 'Help Requested (Filipino)', icon: '🙋' },
+            emergency: { keyword: 'EMERGENCY', english: 'Emergency Alert', icon: '🚨' },
         };
-        return voiceCommands[alertType] || { tagalog: alertType?.toUpperCase(), english: 'Voice Alert', icon: '🎤' };
+        return voiceCommands[alertType] || { keyword: alertType?.toUpperCase(), english: 'Voice Alert', icon: '🎤' };
     };
 
     const getSensorStatus = (value, thresholds) => {
@@ -170,33 +168,13 @@ export const LiveMonitoring = () => {
         return 'text-success';
     };
 
-    // Gas level interpretation
-    const getGasLevelInfo = (ppm) => {
-        if (ppm >= 450) {
-            return {
-                label: 'Critical',
-                description: 'Gas Leak Detected',
-                color: 'text-danger',
-                bgColor: 'bg-red-500/20',
-                percentage: '40%+'
-            };
-        } else if (ppm >= 221) {
-            return {
-                label: 'Poor',
-                description: 'Poor Ventilation',
-                color: 'text-warning',
-                bgColor: 'bg-yellow-500/20',
-                percentage: `${Math.round((ppm / 1000) * 100)}%`
-            };
-        } else {
-            return {
-                label: 'Normal',
-                description: 'Safe Levels',
-                color: 'text-success',
-                bgColor: 'bg-green-500/20',
-                percentage: `${Math.round((ppm / 1000) * 100)}%`
-            };
-        }
+    // WiFi Signal strength interpretation
+    const getSignalInfo = (rssi) => {
+        if (rssi >= -50) return { label: 'Excellent', color: 'text-green-600', bgColor: 'bg-green-500/15' };
+        if (rssi >= -60) return { label: 'Good', color: 'text-green-500', bgColor: 'bg-green-500/10' };
+        if (rssi >= -70) return { label: 'Fair', color: 'text-yellow-600', bgColor: 'bg-yellow-500/15' };
+        if (rssi >= -80) return { label: 'Weak', color: 'text-orange-500', bgColor: 'bg-orange-500/15' };
+        return { label: 'Very Weak', color: 'text-red-500', bgColor: 'bg-red-500/15' };
     };
 
     // Accelerometer → human-readable orientation / movement
@@ -738,7 +716,7 @@ export const LiveMonitoring = () => {
                                         </div>
                                         <div className="text-center mb-3">
                                             <span className="text-white font-semibold text-xl">
-                                                "{getVoiceCommandDisplay(worker.sensors.voiceAlertType).tagalog}"
+                                                "{getVoiceCommandDisplay(worker.sensors.voiceAlertType).keyword}"
                                             </span>
                                             <p className="text-purple-300 text-sm">
                                                 {getVoiceCommandDisplay(worker.sensors.voiceAlertType).english}
@@ -788,6 +766,40 @@ export const LiveMonitoring = () => {
                                     </div>
                                 )}
 
+                                {/* Geofence Violation Alert Indicator */}
+                                {worker.sensors.geofenceViolation && !markedSafe[worker.id] && (
+                                    <div className="mb-4 p-3 bg-rose-500/20 border-2 border-rose-500 rounded-lg animate-pulse">
+                                        <div className="flex items-center justify-center gap-2 mb-2">
+                                            <Globe className="h-6 w-6 text-rose-400" />
+                                            <span className="text-rose-400 font-bold text-lg tracking-wider">
+                                                📍 GEOFENCE VIOLATION
+                                            </span>
+                                        </div>
+                                        <div className="text-center mb-3">
+                                            <p className="text-rose-300 text-sm">
+                                                Worker has left the designated safe zone
+                                            </p>
+                                            {worker.sensors.gpsValid && worker.sensors.latitude && (
+                                                <p className="text-rose-200 text-xs mt-1 font-mono">
+                                                    Last GPS: {worker.sensors.latitude?.toFixed(6)}, {worker.sensors.longitude?.toFixed(6)}
+                                                </p>
+                                            )}
+                                        </div>
+                                        <Button
+                                            size="sm"
+                                            variant="success"
+                                            className="w-full bg-green-600 hover:bg-green-700"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleMarkSafe(worker.id, worker.name, worker.device);
+                                            }}
+                                        >
+                                            <ShieldCheck size={16} className="mr-2" />
+                                            Mark as Safe
+                                        </Button>
+                                    </div>
+                                )}
+
                                 {/* Marked Safe Indicator */}
                                 {markedSafe[worker.id] && (
                                     <div className="mb-4 p-2 bg-green-500/20 border border-green-500 rounded-lg flex items-center justify-center gap-2">
@@ -807,22 +819,6 @@ export const LiveMonitoring = () => {
                                         <span className={`font-semibold ${getSensorStatus(worker.sensors.temperature, { warning: 40, critical: 50 })}`}>
                                             {worker.sensors.temperature.toFixed(1)}°C
                                         </span>
-                                    </div>
-
-                                    {/* Gas Level */}
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-2 text-[#4B5563]">
-                                            <Wind size={16} />
-                                            <span className="text-sm">Gas Level</span>
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            <span className={`text-xs px-2 py-0.5 rounded ${getGasLevelInfo(worker.sensors.gas).bgColor} ${getGasLevelInfo(worker.sensors.gas).color}`}>
-                                                {getGasLevelInfo(worker.sensors.gas).label}
-                                            </span>
-                                            <span className={`font-semibold ${getGasLevelInfo(worker.sensors.gas).color}`}>
-                                                {worker.sensors.gas} PPM
-                                            </span>
-                                        </div>
                                     </div>
 
                                     {/* Humidity */}
@@ -850,13 +846,20 @@ export const LiveMonitoring = () => {
                                         </span>
                                     </div>
 
-                                    {/* Signal */}
+                                    {/* WiFi Signal */}
                                     <div className="flex items-center justify-between">
                                         <div className="flex items-center gap-2 text-[#4B5563]">
                                             <Signal size={16} />
-                                            <span className="text-sm">Signal</span>
+                                            <span className="text-sm">WiFi Signal</span>
                                         </div>
-                                        <span className="font-semibold text-[#4B5563]">{worker.sensors.signal} dBm</span>
+                                        <div className="flex items-center gap-2">
+                                            <span className={`text-xs px-2 py-0.5 rounded ${getSignalInfo(worker.sensors.signal).bgColor} ${getSignalInfo(worker.sensors.signal).color}`}>
+                                                {getSignalInfo(worker.sensors.signal).label}
+                                            </span>
+                                            <span className={`font-semibold ${getSignalInfo(worker.sensors.signal).color}`}>
+                                                {worker.sensors.signal} dBm
+                                            </span>
+                                        </div>
                                     </div>
 
                                     {/* Motion Data */}
@@ -881,26 +884,29 @@ export const LiveMonitoring = () => {
                                         </div>
                                     </div>
 
-                                    {/* GPS Debug Section */}
+                                    {/* GPS Location Section */}
                                     <div className="mt-3 pt-3 border-t border-[#E3E6EB]">
                                         <div className="flex items-center gap-2 text-[#4B5563] mb-2">
                                             <MapPin size={16} />
-                                            <span className="text-sm font-medium">GPS Status</span>
+                                            <span className="text-sm font-medium">GPS Location</span>
                                             <span className={`ml-auto text-xs px-2 py-0.5 rounded ${worker.sensors.gpsValid ? 'bg-green-500/20 text-green-600' : 'bg-yellow-500/20 text-yellow-600'}`}>
-                                                {worker.sensors.gpsValid ? '✓ Fix' : '⏳ Acquiring'}
+                                                {worker.sensors.gpsValid ? '✓ Locked' : '⏳ Searching'}
                                             </span>
                                         </div>
                                         <div className="grid grid-cols-2 gap-2 text-xs">
                                             <div className="bg-[#EEF1F4] p-2 rounded">
-                                                <span className="text-[#6B7280] block">Chars Received</span>
-                                                <span className={`font-mono ${worker.sensors.gpsChars > 0 ? 'text-green-600' : 'text-red-500'}`}>
-                                                    {worker.sensors.gpsChars?.toLocaleString() || 0}
-                                                </span>
+                                                <span className="text-[#6B7280] block">Satellites</span>
+                                                <div className="flex items-center gap-1">
+                                                    <Satellite size={12} className={worker.sensors.satellites > 0 ? 'text-green-600' : 'text-gray-400'} />
+                                                    <span className={`font-semibold ${worker.sensors.satellites >= 6 ? 'text-green-600' : worker.sensors.satellites >= 3 ? 'text-yellow-600' : 'text-red-500'}`}>
+                                                        {worker.sensors.satellites || 0} {worker.sensors.satellites >= 6 ? '(Strong)' : worker.sensors.satellites >= 3 ? '(Moderate)' : '(Weak)'}
+                                                    </span>
+                                                </div>
                                             </div>
                                             <div className="bg-[#EEF1F4] p-2 rounded">
-                                                <span className="text-[#6B7280] block">Geofence</span>
+                                                <span className="text-[#6B7280] block">Safe Zone</span>
                                                 <span className={`font-semibold ${worker.sensors.geofenceViolation ? 'text-red-500' : 'text-green-600'}`}>
-                                                    {worker.sensors.geofenceViolation ? '⚠ Outside' : '✓ Inside'}
+                                                    {worker.sensors.geofenceViolation ? '⚠ Outside Boundary' : '✓ Within Boundary'}
                                                 </span>
                                             </div>
                                         </div>
@@ -1022,18 +1028,6 @@ export const LiveMonitoring = () => {
                                 </div>
                                 <div className="bg-[#EEF1F4] p-4 rounded-lg border border-[#E3E6EB]">
                                     <div className="flex items-center gap-2 text-[#4B5563] mb-2">
-                                        <Wind size={16} />
-                                        <span className="text-sm">Gas Level</span>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <span className={`text-xs px-2 py-0.5 rounded ${getGasLevelInfo(selectedWorker.sensors.gas).bgColor} ${getGasLevelInfo(selectedWorker.sensors.gas).color}`}>
-                                            {getGasLevelInfo(selectedWorker.sensors.gas).label}
-                                        </span>
-                                        <p className={`text-xl font-bold ${getGasLevelInfo(selectedWorker.sensors.gas).color}`}>{selectedWorker.sensors.gas} PPM</p>
-                                    </div>
-                                </div>
-                                <div className="bg-[#EEF1F4] p-4 rounded-lg border border-[#E3E6EB]">
-                                    <div className="flex items-center gap-2 text-[#4B5563] mb-2">
                                         <Droplets size={16} />
                                         <span className="text-sm">Humidity</span>
                                     </div>
@@ -1056,7 +1050,12 @@ export const LiveMonitoring = () => {
                                         <Signal size={16} />
                                         <span className="text-sm">Signal</span>
                                     </div>
-                                    <p className="text-2xl font-bold text-[#1F2937]">{selectedWorker.sensors.signal} dBm</p>
+                                    <div className="flex items-center gap-2">
+                                        <p className="text-2xl font-bold text-[#1F2937]">{selectedWorker.sensors.signal} dBm</p>
+                                        <span className={`text-xs px-2 py-0.5 rounded ${getSignalInfo(selectedWorker.sensors.signal).bgColor} ${getSignalInfo(selectedWorker.sensors.signal).color}`}>
+                                            {getSignalInfo(selectedWorker.sensors.signal).label}
+                                        </span>
+                                    </div>
                                 </div>
                                 <div className="bg-[#EEF1F4] p-4 rounded-lg border border-[#E3E6EB]">
                                     <div className="flex items-center gap-2 text-[#4B5563] mb-2">
