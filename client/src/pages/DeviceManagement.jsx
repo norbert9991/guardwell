@@ -81,7 +81,7 @@ export const DeviceManagement = () => {
             const response = await devicesApi.create({
                 deviceId: formData.deviceId,
                 serialNumber: formData.serialNumber,
-                type: 'Wearable',
+                type: 'ESP32 Wearable',
                 workerId: formData.workerId || null
             });
 

@@ -188,6 +188,19 @@ const syncDatabase = async (force = false) => {
                     console.log('Note: Could not check/add Worker columns:', colError.message);
                 }
             }
+
+            // Manually fix devices.type column from ENUM to VARCHAR
+            try {
+                await sequelize.query(`
+                    ALTER TABLE devices 
+                    MODIFY COLUMN type VARCHAR(50) NOT NULL DEFAULT 'ESP32 Wearable'
+                `);
+                console.log('✅ Changed devices.type column to VARCHAR');
+            } catch (alterErr) {
+                if (!alterErr.message.includes('doesn\'t exist')) {
+                    console.log('Note: devices.type column modification:', alterErr.message);
+                }
+            }
         }
 
         console.log('✅ All models synchronized successfully.');
