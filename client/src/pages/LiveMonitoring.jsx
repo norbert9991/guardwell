@@ -29,6 +29,7 @@ export const LiveMonitoring = () => {
     const [mapStyle, setMapStyle] = useState('satellite'); // 'satellite' or 'vector'
     const [focusDeviceId, setFocusDeviceId] = useState(null); // device to fly to on map
     const [fitAllTrigger, setFitAllTrigger] = useState(0); // increment to trigger fit-all
+    const [gpsLocationLogs, setGpsLocationLogs] = useState({}); // { deviceId: [{ lat, lng, satellites, speed, geofence, timestamp }] }
     const toast = useToast();
 
     // Fetch devices from API
@@ -351,6 +352,33 @@ export const LiveMonitoring = () => {
             socket.off('nudge_escalated', handleNudgeEscalated);
         };
     }, [socket]);
+
+    // Capture GPS fixes into session log per device
+    useEffect(() => {
+        Object.entries(sensorData).forEach(([deviceId, data]) => {
+            if (!data.gps_valid || data.latitude == null || data.longitude == null) return;
+            const timestamp = data.createdAt || new Date().toISOString();
+            setGpsLocationLogs(prev => {
+                const existing = prev[deviceId] || [];
+                // De-duplicate: skip if last entry has same coords and timestamp
+                const last = existing[0];
+                if (last && last.lat === data.latitude && last.lng === data.longitude && last.timestamp === timestamp) return prev;
+                const entry = {
+                    id: `${deviceId}-${timestamp}`,
+                    lat: data.latitude,
+                    lng: data.longitude,
+                    satellites: data.satellites || 0,
+                    speed: data.gps_speed != null ? data.gps_speed : null,
+                    geofenceViolation: data.geofence_violation || false,
+                    timestamp,
+                };
+                return {
+                    ...prev,
+                    [deviceId]: [entry, ...existing].slice(0, 50), // Keep last 50
+                };
+            });
+        });
+    }, [sensorData]);
 
     // Format time
     const formatTime = (timestamp) => {
@@ -1142,6 +1170,101 @@ export const LiveMonitoring = () => {
                                 ) : (
                                     <p className="text-sm text-[#9CA3AF]">No GPS fix acquired yet — device may be indoors</p>
                                 )}
+                            </div>
+
+                            {/* GPS Location History Log */}
+                            <div className="mt-4">
+                                <div className="flex items-center justify-between mb-3">
+                                    <h4 className="label-modal flex items-center gap-2">
+                                        <Clock size={14} className="text-[#6FA3D8]" />
+                                        GPS Location History
+                                        <span className="text-xs font-normal text-[#9CA3AF] ml-1">
+                                            (session only — last 50 fixes)
+                                        </span>
+                                    </h4>
+                                    {(gpsLocationLogs[selectedWorker.device] || []).length > 0 && (
+                                        <button
+                                            onClick={() => setGpsLocationLogs(prev => ({ ...prev, [selectedWorker.device]: [] }))}
+                                            className="text-xs text-red-400 hover:text-red-600 flex items-center gap-1 transition-colors"
+                                        >
+                                            <X size={12} /> Clear Log
+                                        </button>
+                                    )}
+                                </div>
+                                {(() => {
+                                    const log = gpsLocationLogs[selectedWorker.device] || [];
+                                    if (log.length === 0) {
+                                        return (
+                                            <div className="flex flex-col items-center justify-center py-8 bg-[#EEF1F4] rounded-lg border border-[#E3E6EB] text-center">
+                                                <MapPin size={28} className="text-[#9CA3AF] mb-2" />
+                                                <p className="text-sm text-[#6B7280] font-medium">No GPS fixes recorded yet</p>
+                                                <p className="text-xs text-[#9CA3AF] mt-1">Location entries appear when the device acquires a valid GPS fix</p>
+                                            </div>
+                                        );
+                                    }
+                                    return (
+                                        <div className="max-h-72 overflow-y-auto space-y-2 pr-1 scrollbar-thin">
+                                            {log.map((entry, idx) => (
+                                                <div
+                                                    key={entry.id}
+                                                    className={`relative flex gap-3 p-3 rounded-lg border text-sm transition-colors ${
+                                                        entry.geofenceViolation
+                                                            ? 'bg-red-50 border-red-200'
+                                                            : idx === 0
+                                                                ? 'bg-blue-50 border-blue-200'
+                                                                : 'bg-[#EEF1F4] border-[#E3E6EB]'
+                                                    }`}
+                                                >
+                                                    {/* Timeline dot */}
+                                                    <div className="flex flex-col items-center">
+                                                        <div className={`w-2.5 h-2.5 rounded-full mt-1 flex-shrink-0 ${
+                                                            entry.geofenceViolation ? 'bg-red-500' :
+                                                            idx === 0 ? 'bg-blue-500 ring-2 ring-blue-200' : 'bg-[#9CA3AF]'
+                                                        }`} />
+                                                        {idx < log.length - 1 && (
+                                                            <div className="w-px flex-1 bg-[#D1D5DB] mt-1" />
+                                                        )}
+                                                    </div>
+                                                    {/* Content */}
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="flex items-start justify-between gap-2">
+                                                            <div>
+                                                                <p className="font-mono text-xs font-bold text-[#1F2937]">
+                                                                    {parseFloat(entry.lat).toFixed(6)}, {parseFloat(entry.lng).toFixed(6)}
+                                                                </p>
+                                                                <div className="flex items-center gap-3 mt-1 text-xs text-[#4B5563]">
+                                                                    <span>🛰 {entry.satellites} sats</span>
+                                                                    {entry.speed != null && entry.speed > 0 && (
+                                                                        <span>💨 {parseFloat(entry.speed).toFixed(1)} km/h</span>
+                                                                    )}
+                                                                    {entry.geofenceViolation && (
+                                                                        <span className="text-red-600 font-semibold">⚠ Outside Geofence</span>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                            <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                                                                <span className="text-xs text-[#9CA3AF] whitespace-nowrap">
+                                                                    {new Date(entry.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                                                                </span>
+                                                                <span className="text-xs text-[#9CA3AF]">
+                                                                    {new Date(entry.timestamp).toLocaleDateString([], { month: 'short', day: 'numeric' })}
+                                                                </span>
+                                                                <a
+                                                                    href={`https://www.google.com/maps?q=${entry.lat},${entry.lng}`}
+                                                                    target="_blank"
+                                                                    rel="noopener noreferrer"
+                                                                    className="text-xs text-[#6FA3D8] hover:underline"
+                                                                >
+                                                                    Maps ↗
+                                                                </a>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    );
+                                })()}
                             </div>
                         </div>
 

@@ -58,13 +58,7 @@ export const SystemSettings = () => {
                                 <span className="text-sm text-[#4B5563]">Enable email notifications</span>
                             </label>
                         </div>
-                        <div>
-                            <label className="block text-sm font-medium text-[#4B5563] mb-2">SMS Notifications</label>
-                            <label className="flex items-center gap-2">
-                                <input type="checkbox" defaultChecked className="rounded" />
-                                <span className="text-sm text-[#4B5563]">Enable SMS notifications</span>
-                            </label>
-                        </div>
+
 
                         {/* Global Emergency Alert Overlay Toggle */}
                         <div className="pt-3 mt-3 border-t border-[#E3E6EB]">

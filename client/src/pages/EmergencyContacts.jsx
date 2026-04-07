@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Plus, Phone, AlertTriangle, Shield, Activity, Siren, CheckCircle, Mail, MessageSquare, Loader2 } from 'lucide-react';
+import { Plus, Phone, AlertTriangle, Shield, Activity, Siren, CheckCircle, Mail, Loader2 } from 'lucide-react';
 import { CardDark, CardBody, CardHeader } from '../components/ui/Card';
 import { MetricCard } from '../components/ui/MetricCard';
 import { Table } from '../components/ui/Table';
@@ -116,16 +116,12 @@ export const EmergencyContacts = () => {
 
     const [showEditModal, setShowEditModal] = useState(false);
     const [showEditConfirm, setShowEditConfirm] = useState(false);
-    const [showCallModal, setShowCallModal] = useState(false);
     const [showEmailModal, setShowEmailModal] = useState(false);
-    const [showSmsModal, setShowSmsModal] = useState(false);
     const [selectedContact, setSelectedContact] = useState(null);
-    const [callStatus, setCallStatus] = useState('idle'); // idle, calling, connected, ended
     const [emailMessage, setEmailMessage] = useState('');
     const [emailSubject, setEmailSubject] = useState('');
     const [selectedTemplate, setSelectedTemplate] = useState('');
     const [emailTemplates, setEmailTemplates] = useState([]);
-    const [smsMessage, setSmsMessage] = useState('');
     const [actionStatus, setActionStatus] = useState('idle'); // idle, sending, sent
 
     // Fetch email templates on mount
@@ -154,17 +150,6 @@ export const EmergencyContacts = () => {
         setShowEditModal(true);
     };
 
-    const handleTestCall = (contact) => {
-        setSelectedContact(contact);
-        setCallStatus('calling');
-        setShowCallModal(true);
-
-        // Simulate call connection after 2 seconds
-        setTimeout(() => {
-            setCallStatus('connected');
-        }, 2000);
-    };
-
     const handleSendEmail = (contact) => {
         setSelectedContact(contact);
         setEmailMessage('');
@@ -187,13 +172,6 @@ export const EmergencyContacts = () => {
             setEmailSubject(tpl.subject);
             setEmailMessage(tpl.body);
         }
-    };
-
-    const handleSendSms = (contact) => {
-        setSelectedContact(contact);
-        setSmsMessage('');
-        setActionStatus('idle');
-        setShowSmsModal(true);
     };
 
     const handleConfirmEmail = async () => {
@@ -220,27 +198,6 @@ export const EmergencyContacts = () => {
             toast.error(errorMsg);
             setActionStatus('idle');
         }
-    };
-
-    const handleConfirmSms = async () => {
-        setActionStatus('sending');
-        // Simulate SMS sending (in production, this would call a backend API like Twilio)
-        setTimeout(() => {
-            setActionStatus('sent');
-            setTimeout(() => {
-                setShowSmsModal(false);
-                setActionStatus('idle');
-            }, 1500);
-        }, 1500);
-    };
-
-    const handleEndCall = () => {
-        setCallStatus('ended');
-        setTimeout(() => {
-            setShowCallModal(false);
-            setCallStatus('idle');
-            setSelectedContact(null);
-        }, 1000);
     };
 
     const handleSaveEdit = () => {
@@ -285,21 +242,15 @@ export const EmergencyContacts = () => {
                     <Button size="sm" variant="outline" onClick={() => handleEditContact(row)}>
                         Edit
                     </Button>
-                    <Button size="sm" variant="secondary" onClick={() => handleTestCall(row)} title="Call">
-                        <Phone size={14} />
-                    </Button>
                     <Button
                         size="sm"
                         variant="secondary"
                         onClick={() => handleSendEmail(row)}
-                        title="Email"
+                        title="Send Email"
                         disabled={!row.email}
                         className={!row.email ? 'opacity-50 cursor-not-allowed' : ''}
                     >
                         <Mail size={14} />
-                    </Button>
-                    <Button size="sm" variant="secondary" onClick={() => handleSendSms(row)} title="SMS">
-                        <MessageSquare size={14} />
                     </Button>
                 </div>
             )
@@ -390,7 +341,7 @@ export const EmergencyContacts = () => {
                                 <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-[#6FA3D8] border-4 border-white" />
                                 <h4 className="text-[#1F2937] font-semibold mb-1">Immediate Notification</h4>
                                 <p className="text-sm text-[#4B5563]">
-                                    Immediate alerts sent via SMS and automated phone calls to all Priority 1 contacts.
+                                    Immediate email alerts sent to all Priority 1 contacts when an emergency is triggered.
                                 </p>
                             </div>
                             <div className="relative pl-6 border-l-2 border-[#6FA3D8]/50">
@@ -649,76 +600,6 @@ export const EmergencyContacts = () => {
                 </div>
             </Modal>
 
-            {/* Test Call Modal */}
-            <Modal
-                isOpen={showCallModal}
-                onClose={() => {
-                    if (callStatus !== 'calling') {
-                        setShowCallModal(false);
-                        setCallStatus('idle');
-                    }
-                }}
-                title="Test Call"
-                size="sm"
-            >
-                <div className="text-center py-6">
-                    {/* Call Status Display */}
-                    <div className={`w-24 h-24 mx-auto rounded-full flex items-center justify-center mb-6 ${callStatus === 'calling' ? 'bg-yellow-500/20 animate-pulse' :
-                        callStatus === 'connected' ? 'bg-green-500/20' :
-                            callStatus === 'ended' ? 'bg-gray-500/20' : 'bg-[#00E5FF]/20'
-                        }`}>
-                        <Phone className={`h-12 w-12 ${callStatus === 'calling' ? 'text-yellow-500 animate-bounce' :
-                            callStatus === 'connected' ? 'text-green-500' :
-                                callStatus === 'ended' ? 'text-gray-500' : 'text-[#00E5FF]'
-                            }`} />
-                    </div>
-
-                    <h3 className="text-xl font-bold text-[#1F2937] mb-2">
-                        {selectedContact?.name}
-                    </h3>
-                    <p className="text-2xl font-mono text-[#6FA3D8] mb-4">
-                        {selectedContact?.number}
-                    </p>
-
-                    <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full ${callStatus === 'calling' ? 'bg-yellow-500/20 text-yellow-400' :
-                        callStatus === 'connected' ? 'bg-green-500/20 text-green-400' :
-                            callStatus === 'ended' ? 'bg-gray-500/20 text-gray-400' : ''
-                        }`}>
-                        {callStatus === 'calling' && (
-                            <>
-                                <div className="w-2 h-2 bg-yellow-500 rounded-full animate-ping"></div>
-                                Calling...
-                            </>
-                        )}
-                        {callStatus === 'connected' && (
-                            <>
-                                <CheckCircle size={16} />
-                                Connected
-                            </>
-                        )}
-                        {callStatus === 'ended' && 'Call Ended'}
-                    </div>
-
-                    {callStatus === 'connected' && (
-                        <div className="mt-6">
-                            <Button
-                                variant="danger"
-                                size="lg"
-                                className="px-8"
-                                onClick={handleEndCall}
-                            >
-                                End Call
-                            </Button>
-                        </div>
-                    )}
-
-                    {callStatus === 'calling' && (
-                        <p className="text-sm text-gray-500 mt-4">
-                            This is a test call simulation
-                        </p>
-                    )}
-                </div>
-            </Modal>
 
             {/* Email Modal */}
             <Modal
@@ -842,73 +723,6 @@ export const EmergencyContacts = () => {
                 </div>
             </Modal>
 
-            {/* SMS Modal */}
-            <Modal
-                isOpen={showSmsModal}
-                onClose={() => {
-                    if (actionStatus !== 'sending') {
-                        setShowSmsModal(false);
-                        setActionStatus('idle');
-                    }
-                }}
-                title="Send SMS"
-                size="md"
-            >
-                <div className="space-y-4">
-                    {actionStatus === 'sent' ? (
-                        <div className="text-center py-8">
-                            <div className="w-20 h-20 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                                <CheckCircle className="h-10 w-10 text-green-500" />
-                            </div>
-                            <h3 className="text-xl font-bold text-[#1F2937] mb-2">SMS Sent!</h3>
-                            <p className="text-[#4B5563]">SMS successfully sent to {selectedContact?.number}</p>
-                        </div>
-                    ) : (
-                        <>
-                            <div>
-                                <label className="label-modal">To</label>
-                                <input
-                                    type="text"
-                                    value={selectedContact?.number || ''}
-                                    disabled
-                                    className="input-modal"
-                                />
-                            </div>
-                            <div>
-                                <label className="label-modal">Contact Name</label>
-                                <input
-                                    type="text"
-                                    value={selectedContact?.name || ''}
-                                    disabled
-                                    className="input-modal"
-                                />
-                            </div>
-                            <div>
-                                <label className="label-modal">Message <span className="text-gray-500 text-xs">({smsMessage.length}/160)</span></label>
-                                <textarea
-                                    value={smsMessage}
-                                    onChange={(e) => setSmsMessage(e.target.value.slice(0, 160))}
-                                    className="input-modal min-h-[100px]"
-                                    placeholder="Enter your message..."
-                                    maxLength={160}
-                                />
-                            </div>
-                            <div className="flex gap-3 justify-end pt-4 border-t border-[#2d3a52]/50">
-                                <Button variant="secondary" onClick={() => setShowSmsModal(false)}>
-                                    Cancel
-                                </Button>
-                                <Button
-                                    onClick={handleConfirmSms}
-                                    disabled={!smsMessage.trim() || actionStatus === 'sending'}
-                                    icon={actionStatus === 'sending' ? <Loader2 className="animate-spin" size={16} /> : <MessageSquare size={16} />}
-                                >
-                                    {actionStatus === 'sending' ? 'Sending...' : 'Send SMS'}
-                                </Button>
-                            </div>
-                        </>
-                    )}
-                </div>
-            </Modal>
 
             {/* Edit Contact Confirmation Modal */}
             <ConfirmationModal
