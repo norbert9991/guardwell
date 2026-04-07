@@ -25,8 +25,8 @@ The System is designed exclusively for workplace safety monitoring at Cathay Met
             title: '2. System Purpose & Scope',
             content: `GuardWell is a voice-activated wearable emergency alert and monitoring system designed to:
 
-• Monitor worker safety through wearable ESP32 devices equipped with sensors (DHT22 temperature/humidity, MQ2 gas detection, MPU6050 fall detection).
-• Enable voice-activated emergency alerts using the DFRobot DF2301Q voice recognition module (commands: "Tulong/Help", "Emergency", "Aray", "Tawag/Call", "Sakit/Pain").
+• Monitor worker safety through wearable ESP32 devices equipped with sensors (DHT22 temperature sensor, MPU6050 fall detection, NEO-M8N GPS).
+• Enable voice-activated emergency alerts using the INMP441 microphone with Edge Impulse AI model (keywords: "Tulong", "Help", "Emergency").
 • Provide a touch-activated emergency/panic button for immediate distress signaling.
 • Track worker locations via GPS (NEO-M8N) including geofence boundary monitoring.
 • Manage incident reports and safety compliance records.
@@ -63,7 +63,7 @@ All users must keep their login credentials confidential and report any unauthor
             title: '4. Data Privacy & Protection',
             content: `GuardWell collects and processes the following types of data:
 
-Sensor Data: Ambient temperature, humidity (DHT22), gas levels — smoke, LPG, CO (MQ2), motion/fall detection data (MPU6050) — collected every 2 seconds from wearable devices during work hours.
+Sensor Data: Ambient temperature (DHT22), motion/fall detection data (MPU6050), GPS location — collected every 2 seconds from wearable devices during work hours.
 
 Location Data: GPS coordinates are collected solely for safety monitoring and emergency response purposes.
 
@@ -90,7 +90,7 @@ Cathay Metal Inc. — Safety Department`
 
 • Emergency Button: Workers can trigger emergency alerts via their wearable device's touch sensor (panic button).
 • Voice Alerts: Workers can trigger alerts using voice commands — "Tulong/Help", "Emergency", "Aray" (shock/injury), "Tawag/Call" (request assistance), "Sakit" (pain).
-• Automated Alerts: The system generates alerts when sensor readings exceed defined safety thresholds (gas levels, fall detection).
+• Automated Alerts: The system generates alerts when sensor readings exceed defined safety thresholds (high temperature, fall detection).
 • Geofence Monitoring: Alerts are triggered when a worker moves outside the designated facility boundary (GPS-based).
 
 Important Disclaimers:
@@ -109,7 +109,6 @@ Important Disclaimers:
 • We strive for maximum uptime but cannot guarantee uninterrupted service.
 
 Technical Limitations:
-• Device battery life and connectivity may affect data continuity.
 • Network outages may delay alert transmission and sensor data updates.
 • The accuracy of sensor data depends on proper device calibration and maintenance.
 • GPS accuracy may be limited in indoor or enclosed environments.

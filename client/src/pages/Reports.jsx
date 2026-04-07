@@ -285,11 +285,11 @@ export const Reports = () => {
                             subtitle="Need attention"
                         />
                         <MetricCard
-                            title="Avg Battery"
-                            value={`${reportData.summary.avgBattery}%`}
+                            title="Avg Uptime"
+                            value={`${reportData.summary.avgUptime ?? 'N/A'}%`}
                             icon={TrendingUp}
                             color="bg-[#F59E0B]"
-                            subtitle="Fleet average"
+                            subtitle="Device connectivity"
                         />
                     </div>
                 );
@@ -649,18 +649,6 @@ export const Reports = () => {
             }]
         };
 
-        // Bar — Battery Distribution
-        const batteryChartData = {
-            labels: ['Low (< 20%)', 'Medium (20-50%)', 'Good (> 50%)'],
-            datasets: [{
-                label: 'Devices',
-                data: [battery.low || 0, battery.medium || 0, battery.good || 0],
-                backgroundColor: [CHART_COLORS.red, CHART_COLORS.yellow, CHART_COLORS.green],
-                borderColor: ['rgba(239,68,68,1)', 'rgba(234,179,8,1)', 'rgba(16,185,129,1)'],
-                borderWidth: 1,
-                borderRadius: 6,
-            }]
-        };
 
         // Bar — Device Types
         const typeLabels = Object.keys(typeData);
@@ -677,7 +665,7 @@ export const Reports = () => {
             }]
         };
 
-        // Line — Daily Sensor Trends
+        // Line — Daily Sensor Trends (temperature only — gas/humidity sensors removed)
         const sensorTrendData = {
             labels: dailySensor.map(d => d.date.slice(5)),
             datasets: [
@@ -686,26 +674,6 @@ export const Reports = () => {
                     data: dailySensor.map(d => d.avgTemperature),
                     borderColor: CHART_COLORS.red,
                     backgroundColor: CHART_COLORS_LIGHT.red,
-                    fill: true,
-                    tension: 0.4,
-                    pointRadius: 2,
-                    pointHoverRadius: 5,
-                },
-                {
-                    label: 'Humidity (%)',
-                    data: dailySensor.map(d => d.avgHumidity),
-                    borderColor: CHART_COLORS.blue,
-                    backgroundColor: CHART_COLORS_LIGHT.blue,
-                    fill: true,
-                    tension: 0.4,
-                    pointRadius: 2,
-                    pointHoverRadius: 5,
-                },
-                {
-                    label: 'Gas (PPM)',
-                    data: dailySensor.map(d => d.avgGas),
-                    borderColor: CHART_COLORS.orange,
-                    backgroundColor: CHART_COLORS_LIGHT.orange,
                     fill: true,
                     tension: 0.4,
                     pointRadius: 2,
@@ -743,13 +711,19 @@ export const Reports = () => {
                     <CardDark>
                         <CardHeader className="px-6 py-4 border-b border-[#E3E6EB]">
                             <h3 className="font-semibold text-[#1F2937] flex items-center gap-2">
-                                <BarChart3 size={18} className="text-[#F59E0B]" />
-                                Battery Distribution
+                                <BarChart3 size={18} className="text-[#6366F1]" />
+                                Devices by Type
                             </h3>
                         </CardHeader>
                         <CardBody className="p-6">
                             <div className="h-64">
-                                <Bar data={batteryChartData} options={defaultBarOptions} />
+                                {hasType ? (
+                                    <Bar data={typeChartData} options={defaultBarOptions} />
+                                ) : (
+                                    <div className="h-full flex items-center justify-center">
+                                        <p className="text-[#6B7280]">No device type data</p>
+                                    </div>
+                                )}
                             </div>
                         </CardBody>
                     </CardDark>
@@ -785,18 +759,14 @@ export const Reports = () => {
                             </h3>
                         </CardHeader>
                         <CardBody className="p-6">
-                            <div className="grid grid-cols-3 gap-4 text-center">
+                            <div className="grid grid-cols-2 gap-4 text-center">
                                 <div className="bg-[#EEF1F4] p-4 rounded-lg border border-[#E3E6EB]">
                                     <p className="text-2xl font-bold text-[#1F2937]">{avgReadings.temperature || 0}°C</p>
-                                    <p className="text-sm text-[#4B5563]">Temperature</p>
+                                    <p className="text-sm text-[#4B5563]">Avg Temperature</p>
                                 </div>
                                 <div className="bg-[#EEF1F4] p-4 rounded-lg border border-[#E3E6EB]">
-                                    <p className="text-2xl font-bold text-[#1F2937]">{avgReadings.humidity || 0}%</p>
-                                    <p className="text-sm text-[#4B5563]">Humidity</p>
-                                </div>
-                                <div className="bg-[#EEF1F4] p-4 rounded-lg border border-[#E3E6EB]">
-                                    <p className="text-2xl font-bold text-[#1F2937]">{avgReadings.gasLevel || 0}</p>
-                                    <p className="text-sm text-[#4B5563]">Gas (PPM)</p>
+                                    <p className="text-2xl font-bold text-[#1F2937]">{avgReadings.rssi || 0} dBm</p>
+                                    <p className="text-sm text-[#4B5563]">Avg WiFi Signal</p>
                                 </div>
                             </div>
                         </CardBody>
@@ -902,7 +872,7 @@ export const Reports = () => {
                                             </div>
                                             <div className="flex-1">
                                                 <p className="font-medium text-[#1F2937] text-sm">{d.deviceId}</p>
-                                                <p className="text-xs text-[#6B7280]">{d.worker} · Battery: {d.battery}%</p>
+                                                <p className="text-xs text-[#6B7280]">{d.worker} · Last seen: {d.lastCommunication ? new Date(d.lastCommunication).toLocaleDateString() : 'N/A'}</p>
                                             </div>
                                             <span className={`text-xs px-3 py-1 rounded-full font-semibold ${
                                                 d.status === 'Excellent' ? 'bg-green-100 text-green-700' :

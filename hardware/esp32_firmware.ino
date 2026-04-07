@@ -1,5 +1,5 @@
 /* ============================================================
- *  GuardWell ESP32 Firmware — DEV-001
+ *  GuardWell ESP32 Firmware — DEV-002
  *  Edge Impulse Voice Recognition + Sensors
  * ============================================================
  *
@@ -44,7 +44,7 @@ const char* WIFI_PASSWORD = "12345678";
 const char* SERVER_URL = "https://guardwell.onrender.com/api/sensors/data";
 const char* NUDGE_URL  = "https://guardwell.onrender.com/api/sensors/nudge/DEV-001";
 const char* NUDGE_ACK  = "https://guardwell.onrender.com/api/sensors/nudge/DEV-001/ack";
-const char* EMERGENCY_BUZZER_URL = "https://guardwell.onrender.com/api/sensors/emergency-buzzer/DEV-001";
+const char* EMERGENCY_BUZZER_URL = "https://guardwell.onrender.com/api/sensors/emergency-buzzer/DEV-002";
 const char* DEVICE_ID = "DEV-001";
 
 // Geofence
@@ -88,10 +88,10 @@ TinyGPSPlus gps;
 // ============================================
 // EDGE IMPULSE — TUNING
 // ============================================
-#define CONFIDENCE_THRESHOLD   0.75f
+#define CONFIDENCE_THRESHOLD   0.85f
 #define VOTES_REQUIRED         3
 #define DOMINANCE_MARGIN       0.10f
-#define EI_COOLDOWN_MS         4000UL
+#define EI_COOLDOWN_MS         3000UL
 #define EI_HOLD_MS             2500UL
 
 // ============================================

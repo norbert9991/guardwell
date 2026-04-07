@@ -58,7 +58,7 @@ export const UserManual = () => {
                             </h3>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                 {[
-                                    'Real-time sensor data monitoring (temperature, humidity, gas levels)',
+                                    'Real-time sensor data monitoring (temperature, GPS location)',
                                     'Touch-activated emergency button and voice-activated alerts',
                                     'GPS location tracking with dual map modes (Satellite & Vector)',
                                     'Simulated warehouse building overlay with room labels',
@@ -131,7 +131,7 @@ export const UserManual = () => {
                         <Section title="Live Sensor Data" icon={Activity}>
                             <p className="text-sm text-[#4B5563]">
                                 Shows real-time aggregated sensor data from all active devices:
-                                average temperature, highest gas reading, critical alert count, and average battery level.
+                                average temperature and critical alert count.
                                 If no devices are transmitting, a "No active devices" message is displayed instead of showing zero values.
                             </p>
                         </Section>
@@ -171,34 +171,32 @@ export const UserManual = () => {
                             <ul className="space-y-3 text-sm text-[#4B5563]">
                                 <li>
                                     <strong>Temperature (°C):</strong> Measured by the <strong>DHT22</strong> sensor. Monitors the ambient/environmental
-                                    temperature around the worker. Extreme values indicate potentially hazardous working conditions.
+                                    temperature around the worker. Values above 40°C trigger a warning; above 50°C triggers a critical alert.
                                 </li>
                                 <li>
-                                    <strong>Humidity (%):</strong> Also from the <strong>DHT22</strong> sensor. High humidity combined with heat
-                                    can increase the risk of heat stress for workers.
-                                </li>
-                                <li>
-                                    <strong>Gas Level (PPM):</strong> Measured by the <strong>MQ2</strong> gas sensor. Detects dangerous concentrations
-                                    of smoke, LPG, and CO in the air. Elevated readings trigger immediate safety alerts.
+                                    <strong>WiFi Signal (dBm):</strong> Indicates the strength of the device's connection to the Wi-Fi network.
+                                    Displayed with a quality label (Excellent / Good / Fair / Weak / Very Weak).
                                 </li>
                                 <li>
                                     <strong>Fall Detection:</strong> The <strong>MPU6050</strong> accelerometer/gyroscope detects sudden impacts or falls
                                     (acceleration exceeding 25 m/s²). Triggers an automatic emergency alert.
+                                </li>
+                                <li>
+                                    <strong>GPS Last Seen Location:</strong> Displays the coordinates and timestamp of the most recent valid GPS fix
+                                    from the <strong>NEO-M8N</strong> module, along with satellite count and a link to Google Maps.
                                 </li>
                             </ul>
                         </Section>
 
                         <Section title="Voice Recognition" icon={Bell}>
                             <p className="text-sm text-[#4B5563] mb-2">
-                                Each device has a <strong>DFRobot DF2301Q</strong> voice recognition module that listens for distress commands:
+                                Each device uses an <strong>INMP441</strong> digital microphone with an <strong>Edge Impulse</strong> AI model
+                                trained to detect Filipino/English distress keywords:
                             </p>
                             <ul className="space-y-1 text-sm text-[#4B5563]">
-                                <li>• <strong>"Tulong" / "Help"</strong> — Triggers a help alert</li>
+                                <li>• <strong>"Tulong"</strong> — Filipino for "help"; triggers a critical voice alert</li>
+                                <li>• <strong>"Help"</strong> — English distress keyword; triggers a critical voice alert</li>
                                 <li>• <strong>"Emergency"</strong> — Triggers a high-priority emergency alert</li>
-                                <li>• <strong>"Aray"</strong> — Reports shock/injury</li>
-                                <li>• <strong>"Tawag" / "Call"</strong> — Requests assistance (call nurse)</li>
-                                <li>• <strong>"Sakit"</strong> — Reports pain</li>
-                                <li>• <strong>"Cancel"</strong> — Cancels the current alert</li>
                             </ul>
                         </Section>
 
@@ -445,11 +443,11 @@ export const UserManual = () => {
                         <Section title="Alert Types" icon={AlertTriangle}>
                             <ul className="space-y-2 text-sm text-[#4B5563]">
                                 <li><strong>Emergency Button:</strong> Triggered when a worker uses the touch sensor (panic button) on their device.</li>
-                                <li><strong>Voice Alert:</strong> Triggered by voice commands — "Tulong/Help", "Emergency", "Aray", "Tawag/Call", or "Sakit/Pain".</li>
+                                <li><strong>Voice Alert – Tulong / Help:</strong> Triggered by AI keyword detection via the INMP441 microphone (Edge Impulse model).</li>
                                 <li><strong>High Temperature:</strong> Ambient temperature from the DHT22 sensor exceeds the safe threshold.</li>
-                                <li><strong>Gas Detection:</strong> MQ2 sensor detects elevated levels of smoke, LPG, or CO.</li>
                                 <li><strong>Fall Detected:</strong> MPU6050 accelerometer detects a sudden impact (acceleration &gt; 25 m/s²).</li>
-                                <li><strong>Geofence Violation:</strong> Worker's GPS position moves outside the designated facility radius.</li>
+                                <li><strong>Geofence Violation:</strong> Worker's GPS position moves outside the designated facility radius — triggers a Critical alert and emergency buzzer on all devices.</li>
+                                <li><strong>Flat Orientation Detected:</strong> Device remains flat/horizontal for 3+ consecutive readings, suggesting the worker may be incapacitated.</li>
                                 <li><strong>Nudge Auto-Escalation:</strong> Worker failed to respond to 3 consecutive nudges.</li>
                             </ul>
                         </Section>

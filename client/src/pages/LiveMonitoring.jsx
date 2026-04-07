@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Activity, Thermometer, Droplets, Battery, Signal, User, Shield, Radio, AlertTriangle, CheckCircle, X, Eye, Clock, Bell, ShieldCheck, Mic, Map, Grid, MapPin, Globe, Layers, Navigation2, Smartphone, Satellite } from 'lucide-react';
+import { Activity, Thermometer, Signal, User, Shield, Radio, AlertTriangle, CheckCircle, X, Eye, Clock, Bell, ShieldCheck, Mic, Map, Grid, MapPin, Globe, Layers, Navigation2, Smartphone, Satellite } from 'lucide-react';
 import { CardDark, CardBody } from '../components/ui/Card';
 import { MetricCard } from '../components/ui/MetricCard';
 import { Badge } from '../components/ui/Badge';
@@ -84,9 +84,6 @@ export const LiveMonitoring = () => {
             device: device.deviceId,
             sensors: {
                 temperature: realTimeData.temperature || 0,
-
-                humidity: realTimeData.humidity || 0,
-                battery: realTimeData.battery || device.battery || 0,
                 signal: realTimeData.rssi || 0,
                 accel: {
                     x: realTimeData.accel_x || 0,
@@ -114,6 +111,7 @@ export const LiveMonitoring = () => {
                 satellites: realTimeData.satellites || 0,
                 geofenceViolation: geofenceViolation,
                 gpsChars: realTimeData.gps_chars || 0,
+                gpsLastSeen: realTimeData.gps_valid && realTimeData.latitude != null ? (realTimeData.createdAt || null) : null,
                 flatOrientation: flatOrientation
             },
             status: Object.keys(realTimeData).length > 0 ? status : 'offline',
@@ -217,15 +215,7 @@ export const LiveMonitoring = () => {
         return { label: 'Rapid Rotation', icon: '🌀', color: 'text-red-500', bgColor: 'bg-red-500/15' };
     };
 
-    // Humidity → human-readable comfort level
-    const getHumidityInfo = (humidity) => {
-        const h = humidity || 0;
-        if (h < 20) return { label: 'Very Dry', color: 'text-orange-500', bgColor: 'bg-orange-500/15' };
-        if (h < 30) return { label: 'Dry', color: 'text-yellow-600', bgColor: 'bg-yellow-500/15' };
-        if (h <= 60) return { label: 'Comfortable', color: 'text-green-600', bgColor: 'bg-green-500/15' };
-        if (h <= 70) return { label: 'Humid', color: 'text-yellow-600', bgColor: 'bg-yellow-500/15' };
-        return { label: 'Very Humid', color: 'text-red-500', bgColor: 'bg-red-500/15' };
-    };
+
 
     // Calculate metrics
     const activeDevices = workersWithSensorData.filter(w => w.status !== 'offline').length;
@@ -821,31 +811,6 @@ export const LiveMonitoring = () => {
                                         </span>
                                     </div>
 
-                                    {/* Humidity */}
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-2 text-[#4B5563]">
-                                            <Droplets size={16} />
-                                            <span className="text-sm">Humidity</span>
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            <span className={`text-xs px-2 py-0.5 rounded ${getHumidityInfo(worker.sensors.humidity).bgColor} ${getHumidityInfo(worker.sensors.humidity).color}`}>
-                                                {getHumidityInfo(worker.sensors.humidity).label}
-                                            </span>
-                                            <span className={`font-semibold ${getHumidityInfo(worker.sensors.humidity).color}`}>{worker.sensors.humidity.toFixed(1)}%</span>
-                                        </div>
-                                    </div>
-
-                                    {/* Battery */}
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-2 text-[#4B5563]">
-                                            <Battery size={16} />
-                                            <span className="text-sm">Battery</span>
-                                        </div>
-                                        <span className={`font-semibold ${worker.sensors.battery < 20 ? 'text-red-500' : worker.sensors.battery < 50 ? 'text-orange-500' : 'text-green-500'}`}>
-                                            {worker.sensors.battery}%
-                                        </span>
-                                    </div>
-
                                     {/* WiFi Signal */}
                                     <div className="flex items-center justify-between">
                                         <div className="flex items-center gap-2 text-[#4B5563]">
@@ -910,12 +875,33 @@ export const LiveMonitoring = () => {
                                                 </span>
                                             </div>
                                         </div>
-                                        {worker.sensors.gpsValid && worker.sensors.latitude && (
-                                            <div className="mt-2 bg-[#EEF1F4] p-2 rounded text-xs">
-                                                <span className="text-[#6B7280] block">Coordinates</span>
-                                                <span className="text-cyan-600 font-mono">
+                                        {/* Last Seen Location with timestamp */}
+                                        {worker.sensors.gpsLastSeen && worker.sensors.latitude && (
+                                            <div className="mt-2 bg-[#EEF1F4] p-2 rounded text-xs space-y-1">
+                                                <div className="flex items-center justify-between">
+                                                    <span className="text-[#6B7280] font-medium">📍 Last Seen Location</span>
+                                                    <span className="text-[#9CA3AF] flex items-center gap-1">
+                                                        <Clock size={10} />
+                                                        {new Date(worker.sensors.gpsLastSeen).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                                                    </span>
+                                                </div>
+                                                <span className="text-cyan-600 font-mono block">
                                                     {worker.sensors.latitude?.toFixed(6)}, {worker.sensors.longitude?.toFixed(6)}
                                                 </span>
+                                                <a
+                                                    href={`https://www.google.com/maps?q=${worker.sensors.latitude},${worker.sensors.longitude}`}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="text-[#6FA3D8] hover:underline text-xs"
+                                                >
+                                                    Open in Maps ↗
+                                                </a>
+                                            </div>
+                                        )}
+                                        {!worker.sensors.gpsLastSeen && (
+                                            <div className="mt-2 bg-[#EEF1F4] p-2 rounded text-xs">
+                                                <span className="text-[#6B7280] font-medium">📍 Last Seen Location</span>
+                                                <p className="text-[#9CA3AF] mt-1">No GPS fix acquired yet</p>
                                             </div>
                                         )}
                                     </div>
@@ -1026,25 +1012,7 @@ export const LiveMonitoring = () => {
                                     </div>
                                     <p className="text-2xl font-bold text-[#1F2937]">{selectedWorker.sensors.temperature}°C</p>
                                 </div>
-                                <div className="bg-[#EEF1F4] p-4 rounded-lg border border-[#E3E6EB]">
-                                    <div className="flex items-center gap-2 text-[#4B5563] mb-2">
-                                        <Droplets size={16} />
-                                        <span className="text-sm">Humidity</span>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <p className={`text-2xl font-bold ${getHumidityInfo(selectedWorker.sensors.humidity).color}`}>{selectedWorker.sensors.humidity}%</p>
-                                        <span className={`text-xs px-2 py-0.5 rounded ${getHumidityInfo(selectedWorker.sensors.humidity).bgColor} ${getHumidityInfo(selectedWorker.sensors.humidity).color}`}>
-                                            {getHumidityInfo(selectedWorker.sensors.humidity).label}
-                                        </span>
-                                    </div>
-                                </div>
-                                <div className="bg-[#EEF1F4] p-4 rounded-lg border border-[#E3E6EB]">
-                                    <div className="flex items-center gap-2 text-[#4B5563] mb-2">
-                                        <Battery size={16} />
-                                        <span className="text-sm">Battery</span>
-                                    </div>
-                                    <p className="text-2xl font-bold text-[#1F2937]">{selectedWorker.sensors.battery}%</p>
-                                </div>
+
                                 <div className="bg-[#EEF1F4] p-4 rounded-lg border border-[#E3E6EB]">
                                     <div className="flex items-center gap-2 text-[#4B5563] mb-2">
                                         <Signal size={16} />
@@ -1135,25 +1103,46 @@ export const LiveMonitoring = () => {
                                     </p>
                                 </div>
                             </div>
-                            {selectedWorker.sensors.gpsValid && selectedWorker.sensors.latitude != null && (
-                                <div className="mt-3 bg-[#EEF1F4] p-3 rounded-lg border border-[#E3E6EB] flex items-center justify-between">
-                                    <div className="flex items-center gap-2 text-sm text-[#4B5563]">
-                                        <MapPin size={14} />
-                                        <span>Satellites: <strong>{selectedWorker.sensors.satellites || 'N/A'}</strong></span>
-                                        {selectedWorker.sensors.gpsSpeed != null && selectedWorker.sensors.gpsSpeed > 0 && (
-                                            <span className="ml-3">Speed: <strong>{parseFloat(selectedWorker.sensors.gpsSpeed).toFixed(1)} km/h</strong></span>
-                                        )}
-                                    </div>
-                                    <a
-                                        href={`https://www.google.com/maps?q=${selectedWorker.sensors.latitude},${selectedWorker.sensors.longitude}`}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="text-xs text-[#6FA3D8] hover:underline font-medium"
-                                    >
-                                        Open in Google Maps ↗
-                                    </a>
+                            {/* Last Seen Location in modal */}
+                            <div className="mt-3 bg-[#EEF1F4] p-3 rounded-lg border border-[#E3E6EB]">
+                                <div className="flex items-center justify-between mb-2">
+                                    <span className="text-sm font-semibold text-[#1F2937] flex items-center gap-2">
+                                        <MapPin size={14} className="text-[#6FA3D8]" />
+                                        Last Seen Location
+                                    </span>
+                                    {selectedWorker.sensors.gpsLastSeen && (
+                                        <span className="text-xs text-[#9CA3AF] flex items-center gap-1">
+                                            <Clock size={11} />
+                                            {new Date(selectedWorker.sensors.gpsLastSeen).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                                        </span>
+                                    )}
                                 </div>
-                            )}
+                                {selectedWorker.sensors.gpsLastSeen && selectedWorker.sensors.latitude != null ? (
+                                    <>
+                                        <p className="text-sm font-mono font-bold text-cyan-600 mb-2">
+                                            {parseFloat(selectedWorker.sensors.latitude).toFixed(6)}, {parseFloat(selectedWorker.sensors.longitude).toFixed(6)}
+                                        </p>
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-3 text-xs text-[#4B5563]">
+                                                <span>🛰 Satellites: <strong>{selectedWorker.sensors.satellites || 'N/A'}</strong></span>
+                                                {selectedWorker.sensors.gpsSpeed != null && selectedWorker.sensors.gpsSpeed > 0 && (
+                                                    <span>Speed: <strong>{parseFloat(selectedWorker.sensors.gpsSpeed).toFixed(1)} km/h</strong></span>
+                                                )}
+                                            </div>
+                                            <a
+                                                href={`https://www.google.com/maps?q=${selectedWorker.sensors.latitude},${selectedWorker.sensors.longitude}`}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="text-xs text-[#6FA3D8] hover:underline font-medium"
+                                            >
+                                                Open in Google Maps ↗
+                                            </a>
+                                        </div>
+                                    </>
+                                ) : (
+                                    <p className="text-sm text-[#9CA3AF]">No GPS fix acquired yet — device may be indoors</p>
+                                )}
+                            </div>
                         </div>
 
                         {/* Actions */}
