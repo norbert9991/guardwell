@@ -15,8 +15,8 @@ const THRESHOLDS = {
 // Voice alert type mapping (INMP441 — Edge Impulse keyword detection)
 const VOICE_ALERT_TYPES = {
     human_distress: { name: 'Voice Alert - Human Detected', severity: 'Critical', tagalog: 'Tao Nakita' },
-    help:           { name: 'Voice Alert - Help',           severity: 'Critical', tagalog: 'Help' },
-    tulong:         { name: 'Voice Alert - Tulong',         severity: 'Critical', tagalog: 'Tulong' },
+    help: { name: 'Voice Alert - Help', severity: 'Critical', tagalog: 'Help' },
+    tulong: { name: 'Voice Alert - Tulong', severity: 'Critical', tagalog: 'Tulong' },
 };
 
 // Process sensor data and check for alerts
@@ -207,16 +207,16 @@ const processSensorData = async (data, io) => {
         // within the cooldown, skip creating a new one.
         // ============================================
         const ALERT_COOLDOWNS = {
-            'Emergency Button':           1 * 60 * 1000,   // 1 minute
+            'Emergency Button': 1 * 60 * 1000,   // 1 minute
             'Voice Alert - Human Detected': 1 * 60 * 1000, // 1 minute
-            'Voice Alert - Help':         1 * 60 * 1000,   // 1 minute
-            'Voice Alert - Tulong':       1 * 60 * 1000,   // 1 minute
-            'Flat Orientation Detected':  1 * 60 * 1000,   // 1 minute
-            'Fall Detected':              1 * 60 * 1000,   // 1 minute
-            'High Temperature':           2 * 60 * 1000,   // 2 minutes
-            'Gas Detection':              2 * 60 * 1000,   // 2 minutes
-            'Geofence Violation':         2 * 60 * 1000,   // 2 minutes
-            'Low Battery':               10 * 60 * 1000,   // 10 minutes
+            'Voice Alert - Help': 1 * 60 * 1000,   // 1 minute
+            'Voice Alert - Tulong': 1 * 60 * 1000,   // 1 minute
+            'Flat Orientation Detected': 1 * 60 * 1000,   // 1 minute
+            'Fall Detected': 1 * 60 * 1000,   // 1 minute
+            'High Temperature': 2 * 60 * 1000,   // 2 minutes
+            'Gas Detection': 2 * 60 * 1000,   // 2 minutes
+            'Geofence Violation': 2 * 60 * 1000,   // 2 minutes
+            'Low Battery': 10 * 60 * 1000,   // 10 minutes
         };
 
         // Filter out duplicate alerts
@@ -277,7 +277,7 @@ const processSensorData = async (data, io) => {
                 });
 
                 // Queue emergency buzzer for all other devices (Emergency Button, Voice Alert, or Flat Orientation)
-                if (alert.type === 'Emergency Button' || alert.type.startsWith('Voice Alert') || alert.type === 'Flat Orientation Detected' || alert.type === 'Geofence Violation') {
+                if (alert.type === 'Emergency Button' || alert.type.startsWith('Voice Alert') || alert.type === 'Flat Orientation Detected') {
                     await queueEmergencyBuzzer(data.device_id, workerName, alert.type);
                 }
 
