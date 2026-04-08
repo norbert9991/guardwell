@@ -299,6 +299,77 @@ io.on('connection', (socket) => {
         }
     });
 
+    // Handle system-wide emergency broadcast (from Dashboard / Emergency Contacts page)
+    socket.on('emergency_broadcast', async (data) => {
+        console.log('🚨 SYSTEM EMERGENCY BROADCAST received:', data);
+        try {
+            const { Alert, Device, EmergencyContact } = require('./models');
+            const { queueEmergencyBuzzer } = require('./routes/sensors');
+
+            // Create alert in database
+            const alert = await Alert.create({
+                type: 'System Emergency',
+                severity: 'Critical',
+                deviceId: 'ALL',
+                triggerValue: data.message || 'System-wide emergency activated by operator',
+                threshold: 'Manual activation'
+            });
+
+            // Emit emergency_alert to all clients (triggers GlobalEmergencyAlert overlay)
+            io.emit('emergency_alert', {
+                id: alert.id,
+                type: 'System Emergency',
+                worker_name: 'All Workers',
+                device: 'ALL',
+                timestamp: data.timestamp || new Date().toISOString()
+            });
+
+            io.emit('alert', {
+                id: alert.id,
+                type: 'System Emergency',
+                severity: 'Critical',
+                worker: 'All Workers',
+                device: 'ALL',
+                triggerValue: alert.triggerValue,
+                timestamp: data.timestamp || new Date().toISOString(),
+                status: 'Pending'
+            });
+
+            // Queue emergency buzzer for ALL active devices
+            const allDevices = await Device.findAll({ where: { status: 'Active' } });
+            for (const device of allDevices) {
+                await queueEmergencyBuzzer(device.deviceId, 'System Emergency', 'System Emergency');
+            }
+
+            // Send email to all emergency contacts
+            try {
+                const contacts = await EmergencyContact.findAll();
+                const emailList = contacts.map(c => c.email).filter(Boolean);
+                if (emailList.length > 0) {
+                    await emailService.sendEmergencyAlert({
+                        workerName: 'System-Wide Emergency',
+                        location: data.source || 'Admin Panel',
+                        deviceId: 'ALL',
+                        timestamp: data.timestamp || new Date().toISOString(),
+                        contacts: emailList
+                    });
+                }
+            } catch (emailError) {
+                console.error('Failed to send emergency broadcast email:', emailError);
+            }
+
+            console.log(`🚨 System emergency processed: Alert #${alert.id}, buzzers queued for ${allDevices.length} devices`);
+        } catch (error) {
+            console.error('Error processing emergency broadcast:', error);
+        }
+    });
+
+    // Handle worker marked safe
+    socket.on('worker_marked_safe', (data) => {
+        console.log('✅ Worker marked safe:', data);
+        io.emit('worker_marked_safe', data);
+    });
+
     socket.on('disconnect', () => {
         console.log('🔌 Client disconnected:', socket.id);
     });

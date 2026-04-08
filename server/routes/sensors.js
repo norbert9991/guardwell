@@ -404,22 +404,6 @@ const pendingNudges = {};  // In-memory for ESP32 polling (fast path)
 const pendingEmergencyBuzzer = {};  // In-memory: { deviceId: { buzzer: true, sourceDevice, workerName, type, timestamp } }
 const EMERGENCY_BUZZER_DURATION_MS = 30 * 1000; // Buzzer alert auto-expires after 30 seconds
 
-// ============================================
-// EARTHQUAKE LOCATOR MODE
-// Persistent beep mode — buzzer fires every 10s on ALL devices
-// so trapped workers can be located by sound.
-// Uses the existing emergency-buzzer polling endpoint.
-// ============================================
-let earthquakeMode = {
-    active: false,
-    activatedAt: null,
-    activatedBy: null,
-    autoExpireTimer: null
-};
-const earthquakeBuzzerTracker = {};  // { deviceId: lastBuzzTimestamp }
-const EARTHQUAKE_BUZZ_INTERVAL_MS = 10 * 1000;  // Buzz every 10 seconds
-const EARTHQUAKE_AUTO_EXPIRE_MS = 30 * 60 * 1000;  // Auto-expire after 30 minutes (safety net)
-
 // Helper: queue emergency buzzer for all OTHER active devices
 const queueEmergencyBuzzer = async (sourceDeviceId, workerName, alertType) => {
     try {
@@ -830,111 +814,151 @@ const startNudgeExpiryTimer = (io) => {
 };
 
 // ============================================
-// EARTHQUAKE LOCATOR MODE — Toggle
-// ============================================
-router.post('/earthquake-mode', async (req, res) => {
-    try {
-        const { active } = req.body;
-
-        if (active) {
-            // Activate earthquake mode
-            earthquakeMode.active = true;
-            earthquakeMode.activatedAt = new Date().toISOString();
-            earthquakeMode.activatedBy = req.body.activatedBy || 'Safety Officer';
-
-            // Clear any previous tracker so first buzz is immediate
-            Object.keys(earthquakeBuzzerTracker).forEach(k => delete earthquakeBuzzerTracker[k]);
-
-            // Auto-expire safety net (30 min)
-            if (earthquakeMode.autoExpireTimer) clearTimeout(earthquakeMode.autoExpireTimer);
-            earthquakeMode.autoExpireTimer = setTimeout(() => {
-                earthquakeMode.active = false;
-                earthquakeMode.activatedAt = null;
-                earthquakeMode.activatedBy = null;
-                Object.keys(earthquakeBuzzerTracker).forEach(k => delete earthquakeBuzzerTracker[k]);
-                console.log('🌍 Earthquake locator mode auto-expired (30 min safety net)');
-                if (req.io) req.io.emit('earthquake_mode_changed', { active: false, reason: 'auto_expired' });
-            }, EARTHQUAKE_AUTO_EXPIRE_MS);
-
-            console.log(`🌍 EARTHQUAKE LOCATOR MODE ACTIVATED by ${earthquakeMode.activatedBy}`);
-
-            // Broadcast to all connected dashboard clients
-            if (req.io) {
-                req.io.emit('earthquake_mode_changed', {
-                    active: true,
-                    activatedAt: earthquakeMode.activatedAt,
-                    activatedBy: earthquakeMode.activatedBy
-                });
-            }
-
-            res.json({ success: true, earthquakeMode: { active: true, activatedAt: earthquakeMode.activatedAt } });
-        } else {
-            // Deactivate earthquake mode
-            earthquakeMode.active = false;
-            earthquakeMode.activatedAt = null;
-            earthquakeMode.activatedBy = null;
-            if (earthquakeMode.autoExpireTimer) {
-                clearTimeout(earthquakeMode.autoExpireTimer);
-                earthquakeMode.autoExpireTimer = null;
-            }
-            Object.keys(earthquakeBuzzerTracker).forEach(k => delete earthquakeBuzzerTracker[k]);
-
-            console.log('🌍 Earthquake locator mode DEACTIVATED');
-
-            if (req.io) {
-                req.io.emit('earthquake_mode_changed', { active: false });
-            }
-
-            res.json({ success: true, earthquakeMode: { active: false } });
-        }
-    } catch (error) {
-        console.error('Error toggling earthquake mode:', error);
-        res.status(500).json({ error: 'Failed to toggle earthquake mode' });
-    }
-});
-
-router.get('/earthquake-mode', (req, res) => {
-    res.json({
-        active: earthquakeMode.active,
-        activatedAt: earthquakeMode.activatedAt,
-        activatedBy: earthquakeMode.activatedBy
-    });
-});
-
-// ============================================
 // EMERGENCY BUZZER POLLING (Server → ESP32)
 // Each device polls this; if an emergency was triggered
-// by another device, it receives a buzzer command.
-// Also serves earthquake locator mode buzzes.
+// by another device, it receives a buzzer command
 // ============================================
 router.get('/emergency-buzzer/:deviceId', (req, res) => {
     const { deviceId } = req.params;
-
-    // 1. Check one-shot peer emergency buzzer first (higher priority)
     const buzzerData = pendingEmergencyBuzzer[deviceId];
+
     if (buzzerData && buzzerData.buzzer) {
         // Return the buzzer command and clear it (one-shot)
         delete pendingEmergencyBuzzer[deviceId];
-        return res.json(buzzerData);
+        res.json(buzzerData);
+    } else {
+        res.json({ buzzer: false });
     }
+});
 
-    // 2. Check earthquake locator mode (persistent, throttled)
-    if (earthquakeMode.active) {
-        const now = Date.now();
-        const lastBuzz = earthquakeBuzzerTracker[deviceId] || 0;
-        if (now - lastBuzz >= EARTHQUAKE_BUZZ_INTERVAL_MS) {
-            earthquakeBuzzerTracker[deviceId] = now;
-            return res.json({
-                buzzer: true,
-                sourceDevice: 'SYSTEM',
-                workerName: 'Earthquake Locator',
-                type: 'Earthquake Emergency',
-                timestamp: new Date().toISOString()
+// ============================================
+// EARTHQUAKE LOCATOR BEACON
+// Persistent beeping mode — activated by admin,
+// runs on each device until manually deactivated.
+// Device beeps 2s on / 8s rest autonomously.
+// ============================================
+let earthquakeBeaconActive = false;
+let earthquakeBeaconMeta = null; // { timestamp, initiatedBy }
+
+// POST /api/sensors/earthquake-beacon/activate
+router.post('/earthquake-beacon/activate', async (req, res) => {
+    try {
+        const { initiatedBy } = req.body;
+        earthquakeBeaconActive = true;
+        earthquakeBeaconMeta = {
+            timestamp: new Date().toISOString(),
+            initiatedBy: initiatedBy || 'Safety Officer'
+        };
+
+        console.log(`🌍 EARTHQUAKE BEACON ACTIVATED by ${earthquakeBeaconMeta.initiatedBy}`);
+
+        // Create a Critical alert in the database
+        const { Alert, Device, Worker, EmergencyContact } = require('../models');
+        const alert = await Alert.create({
+            type: 'Earthquake Beacon',
+            severity: 'Critical',
+            deviceId: 'ALL',
+            triggerValue: 'Locator beacon activated for all devices',
+            threshold: 'Manual activation'
+        });
+
+        // Emit to all connected web clients
+        if (req.io) {
+            req.io.emit('alert', {
+                id: alert.id,
+                type: 'Earthquake Beacon',
+                severity: 'Critical',
+                worker: 'All Workers',
+                device: 'ALL',
+                triggerValue: alert.triggerValue,
+                timestamp: earthquakeBeaconMeta.timestamp,
+                status: 'Pending'
+            });
+
+            req.io.emit('emergency_alert', {
+                id: alert.id,
+                type: 'Earthquake Beacon',
+                worker_name: 'All Workers',
+                device: 'ALL',
+                timestamp: earthquakeBeaconMeta.timestamp
+            });
+
+            req.io.emit('earthquake_beacon_status', {
+                active: true,
+                ...earthquakeBeaconMeta
             });
         }
+
+        // Also queue a one-shot emergency buzzer for immediate buzz on all devices
+        // (the beacon poll will make them keep beeping every 10s after that)
+        const allDevices = await Device.findAll({ where: { status: 'Active' } });
+        const now = new Date().toISOString();
+        for (const device of allDevices) {
+            pendingEmergencyBuzzer[device.deviceId] = {
+                buzzer: true,
+                sourceDevice: 'SYSTEM',
+                workerName: 'Earthquake Beacon',
+                type: 'Earthquake Beacon',
+                timestamp: now
+            };
+        }
+
+        // Send email notification to emergency contacts
+        try {
+            const contacts = await EmergencyContact.findAll();
+            const emailList = contacts.map(c => c.email).filter(Boolean);
+            if (emailList.length > 0) {
+                await emailService.sendThresholdAlert({
+                    workerName: 'All Workers',
+                    sensorType: 'Earthquake Beacon',
+                    value: 'Locator beacon activated — all devices will beep every 10 seconds',
+                    threshold: 'Manual activation',
+                    severity: 'Critical',
+                    contacts: emailList
+                });
+            }
+        } catch (emailError) {
+            console.error('Failed to send earthquake beacon email:', emailError);
+        }
+
+        res.json({
+            success: true,
+            message: 'Earthquake locator beacon activated on all devices',
+            ...earthquakeBeaconMeta
+        });
+    } catch (error) {
+        console.error('Error activating earthquake beacon:', error);
+        res.status(500).json({ error: 'Failed to activate earthquake beacon' });
+    }
+});
+
+// POST /api/sensors/earthquake-beacon/deactivate
+router.post('/earthquake-beacon/deactivate', (req, res) => {
+    console.log('🌍 EARTHQUAKE BEACON DEACTIVATED');
+    earthquakeBeaconActive = false;
+    earthquakeBeaconMeta = null;
+
+    // Notify all web clients
+    if (req.io) {
+        req.io.emit('earthquake_beacon_status', { active: false });
     }
 
-    res.json({ buzzer: false });
+    res.json({ success: true, message: 'Earthquake locator beacon deactivated' });
+});
+
+// GET /api/sensors/earthquake-beacon/:deviceId — ESP32 polls this
+// Non-destructive: returns true as long as beacon is active (unlike one-shot emergency buzzer)
+router.get('/earthquake-beacon/:deviceId', (req, res) => {
+    res.json({
+        beacon: earthquakeBeaconActive,
+        ...(earthquakeBeaconActive && earthquakeBeaconMeta ? earthquakeBeaconMeta : {})
+    });
+});
+
+// Getter for use in index.js socket handler
+const getEarthquakeBeaconStatus = () => ({
+    active: earthquakeBeaconActive,
+    meta: earthquakeBeaconMeta
 });
 
 module.exports = router;
@@ -942,3 +966,4 @@ module.exports.processSensorData = processSensorData;
 module.exports.THRESHOLDS = THRESHOLDS;
 module.exports.startNudgeExpiryTimer = startNudgeExpiryTimer;
 module.exports.queueEmergencyBuzzer = queueEmergencyBuzzer;
+module.exports.getEarthquakeBeaconStatus = getEarthquakeBeaconStatus;
