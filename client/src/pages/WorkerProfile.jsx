@@ -454,8 +454,8 @@ export const WorkerProfile = () => {
                                                     </span>
                                                 </div>
                                                 <div className="text-xs text-[#4B5563] ml-3 flex gap-4">
-                                                    <span>Lat: {loc.latitude.toFixed(6)}</span>
-                                                    <span>Lng: {loc.longitude.toFixed(6)}</span>
+                                                    <span>Lat: {Number(loc.latitude).toFixed(6)}</span>
+                                                    <span>Lng: {Number(loc.longitude).toFixed(6)}</span>
                                                     {(loc.gpsSpeed !== undefined || loc.gps_speed !== undefined) && (
                                                         <span>Speed: {loc.gpsSpeed || loc.gps_speed || 0} km/h</span>
                                                     )}
