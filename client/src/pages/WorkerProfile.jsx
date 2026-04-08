@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, User, Radio, AlertTriangle, Clock, Loader2, Camera, Briefcase, Calendar, Heart, Phone, Mail, Shield, Bell, CheckCircle, XCircle } from 'lucide-react';
+import { ArrowLeft, User, Radio, AlertTriangle, Clock, Loader2, Camera, Briefcase, Calendar, Heart, Phone, Mail, Shield, Bell, CheckCircle, XCircle, MapPin } from 'lucide-react';
 import { CardDark, CardBody, CardHeader } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Badge, StatusBadge, SeverityBadge } from '../components/ui/Badge';
@@ -14,6 +14,7 @@ export const WorkerProfile = () => {
 
     const [worker, setWorker] = useState(null);
     const [recentAlerts, setRecentAlerts] = useState([]);
+    const [locationHistory, setLocationHistory] = useState([]);
     const [nudgeStats, setNudgeStats] = useState({ total: 0, acknowledged: 0, expired: 0, escalated: 0 });
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -54,6 +55,20 @@ export const WorkerProfile = () => {
                 });
             } catch (nudgeError) {
                 console.error('Failed to fetch nudge stats:', nudgeError);
+            }
+
+            // Fetch Location History if worker has a device
+            if (workerResponse.data?.device?.deviceId) {
+                try {
+                    const historyResponse = await sensorsApi.getHistory(workerResponse.data.device.deviceId, 200);
+                    // Filter for valid coordinates and take the most recent 50
+                    const validLocations = historyResponse.data
+                        .filter(record => record.latitude && record.longitude && Math.abs(record.latitude) > 0)
+                        .slice(0, 50);
+                    setLocationHistory(validLocations);
+                } catch (historyError) {
+                    console.error('Failed to fetch location history:', historyError);
+                }
             }
         } catch (error) {
             console.error('Failed to fetch worker:', error);
@@ -409,6 +424,49 @@ export const WorkerProfile = () => {
                             )}
                         </CardBody>
                     </CardDark>
+
+                    {/* Location History */}
+                    {worker.device?.deviceId && (
+                        <CardDark>
+                            <CardHeader className="px-6 py-4 border-b border-[#E3E6EB]">
+                                <h3 className="font-semibold text-[#1F2937] flex items-center gap-2">
+                                    <MapPin size={16} className="text-blue-500" />
+                                    Recent Location History (Today)
+                                </h3>
+                            </CardHeader>
+                            <CardBody className="p-0 max-h-80 overflow-y-auto">
+                                {locationHistory.length === 0 ? (
+                                    <div className="p-8 text-center">
+                                        <MapPin className="h-10 w-10 text-[#6B7280] mx-auto mb-2 opacity-50" />
+                                        <p className="text-sm text-[#6B7280]">No recent valid locations recorded today.</p>
+                                    </div>
+                                ) : (
+                                    <div className="divide-y divide-[#E3E6EB]">
+                                        {locationHistory.map((loc, idx) => (
+                                            <div key={idx} className="p-4 flex flex-col hover:bg-[#EEF1F4]/50 transition-colors">
+                                                <div className="flex justify-between items-start mb-1">
+                                                    <span className="text-[#1F2937] font-medium text-sm flex items-center gap-1">
+                                                        <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                                                        Location Log
+                                                    </span>
+                                                    <span className="text-xs text-[#6B7280]">
+                                                        {new Date(loc.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                                                    </span>
+                                                </div>
+                                                <div className="text-xs text-[#4B5563] ml-3 flex gap-4">
+                                                    <span>Lat: {loc.latitude.toFixed(6)}</span>
+                                                    <span>Lng: {loc.longitude.toFixed(6)}</span>
+                                                    {(loc.gpsSpeed !== undefined || loc.gps_speed !== undefined) && (
+                                                        <span>Speed: {loc.gpsSpeed || loc.gps_speed || 0} km/h</span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </CardBody>
+                        </CardDark>
+                    )}
                 </div>
             </div>
         </div>
