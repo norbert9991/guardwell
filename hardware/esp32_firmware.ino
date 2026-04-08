@@ -44,7 +44,7 @@ const char* WIFI_PASSWORD = "12345678";
 const char* SERVER_URL = "https://guardwell.onrender.com/api/sensors/data";
 const char* NUDGE_URL  = "https://guardwell.onrender.com/api/sensors/nudge/DEV-001";
 const char* NUDGE_ACK  = "https://guardwell.onrender.com/api/sensors/nudge/DEV-001/ack";
-const char* EMERGENCY_BUZZER_URL = "https://guardwell.onrender.com/api/sensors/emergency-buzzer/DEV-002";
+const char* EMERGENCY_BUZZER_URL = "https://guardwell.onrender.com/api/sensors/emergency-buzzer/DEV-001";
 const char* DEVICE_ID = "DEV-001";
 
 // Geofence

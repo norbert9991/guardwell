@@ -75,7 +75,10 @@ export const sensorsApi = {
     sendNudge: (deviceId, message = '', sentBy = 'Safety Officer') => api.post(`/sensors/nudge/${deviceId}`, { message, sentBy }),
     getNudgeHistory: (deviceId, limit = 50) => api.get(`/sensors/nudge/${deviceId}/history`, { params: { limit } }),
     getNudgeCount: (deviceId) => api.get(`/sensors/nudge/${deviceId}/count`),
-    getNudgeLogs: (params = {}) => api.get('/sensors/nudge-logs', { params })
+    getNudgeLogs: (params = {}) => api.get('/sensors/nudge-logs', { params }),
+    // Earthquake locator mode
+    getEarthquakeMode: () => api.get('/sensors/earthquake-mode'),
+    setEarthquakeMode: (active, activatedBy = 'Safety Officer') => api.post('/sensors/earthquake-mode', { active, activatedBy })
 };
 
 // ======================

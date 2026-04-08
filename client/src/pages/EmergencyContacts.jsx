@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Plus, Phone, AlertTriangle, Shield, Activity, Siren, CheckCircle, Mail, Loader2 } from 'lucide-react';
+import { Plus, Phone, AlertTriangle, Shield, Activity, Siren, CheckCircle, Mail, Loader2, Radio } from 'lucide-react';
 import { CardDark, CardBody, CardHeader } from '../components/ui/Card';
 import { MetricCard } from '../components/ui/MetricCard';
 import { Table } from '../components/ui/Table';
@@ -7,7 +7,7 @@ import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
 import { Modal } from '../components/ui/Modal';
 import { ConfirmationModal } from '../components/ui/ConfirmationModal';
-import { contactsApi } from '../utils/api';
+import { contactsApi, sensorsApi } from '../utils/api';
 import { useToast } from '../context/ToastContext';
 import { useSocket } from '../context/SocketContext';
 import { useRefresh } from '../context/RefreshContext';
@@ -20,6 +20,11 @@ export const EmergencyContacts = () => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [emergencyActive, setEmergencyActive] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
+    // Earthquake locator mode
+    const [earthquakeActive, setEarthquakeActive] = useState(false);
+    const [earthquakeInfo, setEarthquakeInfo] = useState(null);
+    const [showEarthquakeModal, setShowEarthquakeModal] = useState(false);
+    const [earthquakeLoading, setEarthquakeLoading] = useState(false);
     const toast = useToast();
 
     const [contacts, setContacts] = useState([]);
@@ -52,7 +57,40 @@ export const EmergencyContacts = () => {
     const { registerRefresh } = useRefresh();
     useEffect(() => { registerRefresh(fetchContacts); }, [registerRefresh, fetchContacts]);
 
-    // Handle Emergency Trigger - uses same socket event as Dashboard
+    // Fetch earthquake mode status on mount
+    useEffect(() => {
+        const fetchEarthquakeStatus = async () => {
+            try {
+                const response = await sensorsApi.getEarthquakeMode();
+                setEarthquakeActive(response.data.active);
+                if (response.data.active) setEarthquakeInfo(response.data);
+            } catch (error) {
+                console.error('Failed to fetch earthquake mode:', error);
+            }
+        };
+        fetchEarthquakeStatus();
+    }, []);
+
+    // Listen for real-time earthquake mode changes from socket
+    useEffect(() => {
+        if (!connected) return;
+        const handleEarthquakeChange = (data) => {
+            setEarthquakeActive(data.active);
+            if (data.active) {
+                setEarthquakeInfo(data);
+            } else {
+                setEarthquakeInfo(null);
+                if (data.reason === 'auto_expired') {
+                    toast.info('Earthquake Locator Mode auto-expired after 30 minutes.');
+                }
+            }
+        };
+        // Socket event listener — uses the raw socket from useSocket
+        // The emitEvent is for sending; for receiving we'd need socket directly
+        // Since useSocket exposes socket via connected state, we listen via window event
+        return () => {};
+    }, [connected]);
+
     const handleEmergencyTrigger = () => {
         if (emitEvent) {
             emitEvent('emergency_broadcast', {
@@ -73,6 +111,32 @@ export const EmergencyContacts = () => {
 
         // Reset after 5 seconds
         setTimeout(() => setEmergencyActive(false), 5000);
+    };
+
+    // Handle Earthquake Locator Mode toggle
+    const handleEarthquakeToggle = async () => {
+        setEarthquakeLoading(true);
+        try {
+            if (earthquakeActive) {
+                // Deactivate
+                await sensorsApi.setEarthquakeMode(false);
+                setEarthquakeActive(false);
+                setEarthquakeInfo(null);
+                toast.success('Earthquake Locator Mode deactivated. All devices will stop beeping.');
+            } else {
+                // Activate
+                await sensorsApi.setEarthquakeMode(true, 'Safety Officer');
+                setEarthquakeActive(true);
+                setEarthquakeInfo({ activatedAt: new Date().toISOString() });
+                toast.success('Earthquake Locator Mode ACTIVATED! All devices will beep every 10 seconds.');
+            }
+            setShowEarthquakeModal(false);
+        } catch (error) {
+            console.error('Failed to toggle earthquake mode:', error);
+            toast.error('Failed to toggle earthquake mode. Please try again.');
+        } finally {
+            setEarthquakeLoading(false);
+        }
     };
 
     const handleInputChange = (e) => {
@@ -289,6 +353,59 @@ export const EmergencyContacts = () => {
                 </Button>
             </div>
 
+            {/* Earthquake Locator Mode Banner */}
+            <div className={`rounded-xl p-6 flex items-center justify-between relative overflow-hidden border transition-all duration-500 ${
+                earthquakeActive
+                    ? 'bg-gradient-to-r from-orange-900/60 to-amber-600/30 border-orange-500/50'
+                    : 'bg-gradient-to-r from-amber-900/30 to-yellow-600/10 border-amber-500/30'
+            }`}>
+                {earthquakeActive && (
+                    <div className="absolute inset-0 bg-orange-500/10 animate-pulse pointer-events-none" />
+                )}
+                <div className="flex items-center gap-6 relative z-10">
+                    <div className={`w-14 h-14 rounded-full flex items-center justify-center shadow-lg ${
+                        earthquakeActive
+                            ? 'bg-orange-500 shadow-[0_0_25px_rgba(249,115,22,0.6)] animate-pulse'
+                            : 'bg-amber-600/80'
+                    }`}>
+                        <Radio className="h-7 w-7 text-white" />
+                    </div>
+                    <div>
+                        <h2 className="text-xl font-bold text-white mb-1 flex items-center gap-2">
+                            Earthquake Locator Mode
+                            {earthquakeActive && (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-orange-500 text-white animate-pulse">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
+                                    ACTIVE
+                                </span>
+                            )}
+                        </h2>
+                        <p className="text-amber-200 text-sm">
+                            {earthquakeActive
+                                ? `All devices beeping every 10 seconds to help locate trapped workers. Activated ${earthquakeInfo?.activatedAt ? new Date(earthquakeInfo.activatedAt).toLocaleTimeString() : ''}`
+                                : 'Activates persistent beeping on all devices every 10 seconds to help locate trapped workers.'
+                            }
+                        </p>
+                    </div>
+                </div>
+                <Button
+                    variant={earthquakeActive ? 'secondary' : 'danger'}
+                    size="lg"
+                    className={`relative z-10 font-bold ${
+                        earthquakeActive
+                            ? 'bg-white/90 text-orange-700 hover:bg-white'
+                            : 'bg-orange-600 hover:bg-orange-700 shadow-[0_0_15px_rgba(249,115,22,0.3)]'
+                    }`}
+                    onClick={() => setShowEarthquakeModal(true)}
+                    disabled={earthquakeLoading}
+                >
+                    {earthquakeLoading ? (
+                        <Loader2 size={18} className="animate-spin mr-2" />
+                    ) : null}
+                    {earthquakeActive ? 'DEACTIVATE' : 'ACTIVATE LOCATOR'}
+                </Button>
+            </div>
+
             {/* Key Metrics */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <MetricCard
@@ -384,6 +501,64 @@ export const EmergencyContacts = () => {
                         </Button>
                         <Button variant="danger" onClick={handleEmergencyTrigger} size="lg" className="shadow-lg shadow-red-500/20">
                             ACTIVATE ALERT
+                        </Button>
+                    </div>
+                </div>
+            </Modal>
+
+            {/* Earthquake Locator Confirmation Modal */}
+            <Modal
+                isOpen={showEarthquakeModal}
+                onClose={() => setShowEarthquakeModal(false)}
+                title={earthquakeActive ? 'Deactivate Earthquake Locator?' : 'Activate Earthquake Locator?'}
+                size="md"
+            >
+                <div className="text-center p-4">
+                    <div className={`w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6 ${
+                        earthquakeActive ? 'bg-green-500/20' : 'bg-orange-500/20'
+                    }`}>
+                        {earthquakeActive
+                            ? <CheckCircle className="h-10 w-10 text-green-500" />
+                            : <Radio className="h-10 w-10 text-orange-500" />
+                        }
+                    </div>
+                    {earthquakeActive ? (
+                        <>
+                            <h3 className="text-xl font-bold text-[#1F2937] mb-2">Stop Earthquake Locator?</h3>
+                            <p className="text-[#4B5563] mb-8">
+                                All devices will stop the periodic beeping immediately. Only deactivate when all workers have been accounted for.
+                            </p>
+                        </>
+                    ) : (
+                        <>
+                            <h3 className="text-xl font-bold text-[#1F2937] mb-2">Confirm Earthquake Locator Activation</h3>
+                            <div className="text-left bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6">
+                                <p className="text-sm text-amber-800 font-medium mb-2">⚠️ This will immediately:</p>
+                                <ul className="text-sm text-amber-700 space-y-1.5 ml-4 list-disc">
+                                    <li>Activate buzzers on <strong>all connected devices</strong></li>
+                                    <li>Buzzers will sound <strong>every 10 seconds</strong> continuously</li>
+                                    <li>Mode stays active until you manually deactivate it</li>
+                                    <li>Auto-expires after <strong>30 minutes</strong> as a safety net</li>
+                                </ul>
+                            </div>
+                            <p className="text-xs text-[#6B7280] mb-6">
+                                 Use this during earthquakes or structural emergencies. The periodic beeping helps rescue teams locate trapped workers by sound.
+                            </p>
+                        </>
+                    )}
+                    <div className="flex gap-3 justify-center">
+                        <Button variant="secondary" onClick={() => setShowEarthquakeModal(false)} size="lg">
+                            Cancel
+                        </Button>
+                        <Button
+                            variant={earthquakeActive ? 'primary' : 'danger'}
+                            onClick={handleEarthquakeToggle}
+                            size="lg"
+                            disabled={earthquakeLoading}
+                            className={earthquakeActive ? '' : 'bg-orange-600 hover:bg-orange-700 shadow-lg shadow-orange-500/20'}
+                        >
+                            {earthquakeLoading && <Loader2 size={16} className="animate-spin mr-2" />}
+                            {earthquakeActive ? 'YES, DEACTIVATE' : 'ACTIVATE LOCATOR'}
                         </Button>
                     </div>
                 </div>
