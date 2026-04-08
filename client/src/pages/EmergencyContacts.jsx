@@ -56,6 +56,22 @@ export const EmergencyContacts = () => {
     const { registerRefresh } = useRefresh();
     useEffect(() => { registerRefresh(fetchContacts); }, [registerRefresh, fetchContacts]);
 
+    // Fetch earthquake beacon status on mount (so navigating away and back shows correct state)
+    useEffect(() => {
+        const fetchBeaconStatus = async () => {
+            try {
+                const res = await sensorsApi.getEarthquakeBeaconStatus();
+                if (res.data.active) {
+                    setBeaconActive(true);
+                    setBeaconMeta({ timestamp: res.data.timestamp, initiatedBy: res.data.initiatedBy });
+                }
+            } catch (err) {
+                // Silently fail — beacon status is not critical for page load
+            }
+        };
+        fetchBeaconStatus();
+    }, []);
+
     // Handle Emergency Trigger - uses socket event that server now processes
     const handleEmergencyTrigger = () => {
         if (emitEvent) {

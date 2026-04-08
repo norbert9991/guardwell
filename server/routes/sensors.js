@@ -946,6 +946,14 @@ router.post('/earthquake-beacon/deactivate', (req, res) => {
     res.json({ success: true, message: 'Earthquake locator beacon deactivated' });
 });
 
+// GET /api/sensors/earthquake-beacon/status — Web dashboard checks current state on page load
+router.get('/earthquake-beacon/status', (req, res) => {
+    res.json({
+        active: earthquakeBeaconActive,
+        ...(earthquakeBeaconActive && earthquakeBeaconMeta ? earthquakeBeaconMeta : {})
+    });
+});
+
 // GET /api/sensors/earthquake-beacon/:deviceId — ESP32 polls this
 // Non-destructive: returns true as long as beacon is active (unlike one-shot emergency buzzer)
 router.get('/earthquake-beacon/:deviceId', (req, res) => {
