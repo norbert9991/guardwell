@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { AlertTriangle, User, Radio, Clock, CheckCircle, Phone, Shield, Mic, Loader2, Smartphone, MapPin } from 'lucide-react';
+import { AlertTriangle, User, Radio, Clock, CheckCircle, Phone, Shield, Mic, Loader2, Smartphone, MapPin, Volume2, VolumeX } from 'lucide-react';
 import { Button } from './ui/Button';
 import { useSocket } from '../context/SocketContext';
 import { useAuth } from '../context/AuthContext';
@@ -15,10 +15,11 @@ const STORAGE_KEY = 'guardwell_global_emergency_enabled';
  * Can be disabled in System Settings > Notification Settings.
  */
 export const GlobalEmergencyAlert = () => {
-    const { emergencyAlerts, hasActiveEmergency, acknowledgeEmergency } = useSocket();
+    const { emergencyAlerts, hasActiveEmergency, acknowledgeEmergency, stopEmergencyAlarm, startEmergencyAlarm } = useSocket();
     const { user } = useAuth();
     const [acknowledgedDevices, setAcknowledgedDevices] = useState({});
     const [loading, setLoading] = useState({});
+    const [alarmMuted, setAlarmMuted] = useState(false);
     const navigate = useNavigate();
 
     // Read toggle from localStorage (defaults to enabled)
@@ -36,6 +37,17 @@ export const GlobalEmergencyAlert = () => {
         window.addEventListener('storage', handleStorageChange);
         return () => window.removeEventListener('storage', handleStorageChange);
     }, []);
+
+    // Toggle alarm mute
+    const handleToggleMute = () => {
+        if (alarmMuted) {
+            startEmergencyAlarm();
+            setAlarmMuted(false);
+        } else {
+            stopEmergencyAlarm();
+            setAlarmMuted(true);
+        }
+    };
 
     // Don't render if overlay is disabled or no active emergencies
     if (!overlayEnabled || !hasActiveEmergency) return null;
@@ -164,6 +176,21 @@ export const GlobalEmergencyAlert = () => {
                     <p className="text-xl text-gray-300">
                         {unacknowledgedEmergencies.length} emergency {unacknowledgedEmergencies.length === 1 ? 'alert' : 'alerts'} require immediate attention
                     </p>
+                    {/* Mute / Unmute alarm button */}
+                    <button
+                        onClick={handleToggleMute}
+                        title={alarmMuted ? 'Unmute alarm' : 'Mute alarm'}
+                        className={`mt-4 inline-flex items-center gap-2 px-5 py-2 rounded-full text-sm font-semibold border transition-all ${
+                            alarmMuted
+                                ? 'border-gray-600 bg-gray-800 text-gray-400 hover:bg-gray-700'
+                                : 'border-red-500 bg-red-500/20 text-red-300 hover:bg-red-500/30 animate-pulse'
+                        }`}
+                    >
+                        {alarmMuted
+                            ? <><VolumeX size={16} /> Alarm Muted — Click to Unmute</>
+                            : <><Volume2 size={16} /> Alarm Sounding — Click to Mute</>
+                        }
+                    </button>
                 </div>
 
                 {/* Emergency Cards */}

@@ -1,6 +1,60 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react';
 import io from 'socket.io-client';
 import { useAuth } from './AuthContext';
+
+// ============================================================
+// Web Audio emergency siren (no external file needed)
+// Two alternating tones (800 Hz / 1000 Hz) at 0.5s each, looping.
+// ============================================================
+let alarmAudioCtx = null;
+let alarmGainNode = null;
+let alarmOscillator = null;
+let alarmInterval = null;
+let alarmActive = false;
+
+const buildAlarmCycle = (ctx, gain) => {
+    let toggle = false;
+    const fireBeep = () => {
+        if (alarmOscillator) {
+            try { alarmOscillator.stop(); } catch (_) {}
+        }
+        const osc = ctx.createOscillator();
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(toggle ? 960 : 760, ctx.currentTime);
+        osc.connect(gain);
+        osc.start();
+        alarmOscillator = osc;
+        toggle = !toggle;
+    };
+    fireBeep();
+    alarmInterval = setInterval(fireBeep, 500);
+};
+
+const startAlarm = () => {
+    if (alarmActive) return;
+    alarmActive = true;
+    try {
+        alarmAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        alarmGainNode = alarmAudioCtx.createGain();
+        alarmGainNode.gain.setValueAtTime(0.18, alarmAudioCtx.currentTime); // not too loud
+        alarmGainNode.connect(alarmAudioCtx.destination);
+        buildAlarmCycle(alarmAudioCtx, alarmGainNode);
+    } catch (e) {
+        console.warn('Emergency alarm audio failed to start:', e);
+    }
+};
+
+const stopAlarm = () => {
+    if (!alarmActive) return;
+    alarmActive = false;
+    clearInterval(alarmInterval);
+    alarmInterval = null;
+    try { alarmOscillator?.stop(); } catch (_) {}
+    alarmOscillator = null;
+    try { alarmAudioCtx?.close(); } catch (_) {}
+    alarmAudioCtx = null;
+    alarmGainNode = null;
+};
 
 const SocketContext = createContext(null);
 
@@ -19,6 +73,10 @@ export const SocketProvider = ({ children }) => {
     const [alerts, setAlerts] = useState([]);
     const [emergencyAlerts, setEmergencyAlerts] = useState([]);
     const { isAuthenticated } = useAuth();
+
+    // Alarm helpers exposed to components
+    const startEmergencyAlarm = useCallback(() => startAlarm(), []);
+    const stopEmergencyAlarm  = useCallback(() => stopAlarm(),  []);
 
     useEffect(() => {
         if (!isAuthenticated) return;
@@ -58,6 +116,9 @@ export const SocketProvider = ({ children }) => {
 
         // Listen for emergency alerts - PERSIST these
         newSocket.on('emergency_alert', (emergency) => {
+            // 🔊 Play siren alarm to grab the operator's attention
+            startAlarm();
+
             // Show browser notification
             if (Notification.permission === 'granted') {
                 new Notification('🚨 EMERGENCY ALERT', {
@@ -102,6 +163,9 @@ export const SocketProvider = ({ children }) => {
         // Listen for escalated alerts
         newSocket.on('emergency_escalated', (data) => {
             console.log('⚠️ Emergency escalated:', data);
+            // 🔊 Re-trigger alarm for escalations too
+            startAlarm();
+
             // Show browser notification for escalation
             if (Notification.permission === 'granted') {
                 new Notification('⚠️ ALERT ESCALATED', {
@@ -161,14 +225,19 @@ export const SocketProvider = ({ children }) => {
     };
 
     // Acknowledge emergency (mark as acknowledged but keep in list)
+    // If this was the last unacknowledged emergency, stop the alarm.
     const acknowledgeEmergency = (emergencyId) => {
-        setEmergencyAlerts(prev =>
-            prev.map(e => e.id === emergencyId ? { ...e, acknowledged: true } : e)
-        );
+        setEmergencyAlerts(prev => {
+            const updated = prev.map(e => e.id === emergencyId ? { ...e, acknowledged: true } : e);
+            const anyUnacknowledged = updated.some(e => !e.acknowledged);
+            if (!anyUnacknowledged) stopAlarm(); // 🔕 All clear — silence siren
+            return updated;
+        });
     };
 
-    // Clear all emergency alerts
+    // Clear all emergency alerts and stop alarm
     const clearAllEmergencies = () => {
+        stopAlarm();
         setEmergencyAlerts([]);
     };
 
@@ -187,6 +256,8 @@ export const SocketProvider = ({ children }) => {
         dismissEmergency,
         acknowledgeEmergency,
         clearAllEmergencies,
+        startEmergencyAlarm,
+        stopEmergencyAlarm,
     };
 
     return <SocketContext.Provider value={value}>{children}</SocketContext.Provider>;

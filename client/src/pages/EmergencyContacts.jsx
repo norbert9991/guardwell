@@ -20,10 +20,6 @@ export const EmergencyContacts = () => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [emergencyActive, setEmergencyActive] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
-    const [beaconActive, setBeaconActive] = useState(false);
-    const [beaconMeta, setBeaconMeta] = useState(null);
-    const [showBeaconModal, setShowBeaconModal] = useState(false);
-    const [beaconLoading, setBeaconLoading] = useState(false);
     const toast = useToast();
 
     const [contacts, setContacts] = useState([]);
@@ -56,22 +52,6 @@ export const EmergencyContacts = () => {
     const { registerRefresh } = useRefresh();
     useEffect(() => { registerRefresh(fetchContacts); }, [registerRefresh, fetchContacts]);
 
-    // Fetch earthquake beacon status on mount (so navigating away and back shows correct state)
-    useEffect(() => {
-        const fetchBeaconStatus = async () => {
-            try {
-                const res = await sensorsApi.getEarthquakeBeaconStatus();
-                if (res.data.active) {
-                    setBeaconActive(true);
-                    setBeaconMeta({ timestamp: res.data.timestamp, initiatedBy: res.data.initiatedBy });
-                }
-            } catch (err) {
-                // Silently fail — beacon status is not critical for page load
-            }
-        };
-        fetchBeaconStatus();
-    }, []);
-
     // Handle Emergency Trigger - uses socket event that server now processes
     const handleEmergencyTrigger = () => {
         if (emitEvent) {
@@ -91,55 +71,6 @@ export const EmergencyContacts = () => {
 
         // Reset UI after 5 seconds 
         setTimeout(() => setEmergencyActive(false), 5000);
-    };
-
-    // Listen for earthquake beacon status updates via socket
-    const { socket } = useSocket();
-    useEffect(() => {
-        if (!socket) return;
-        const handleBeaconStatus = (data) => {
-            setBeaconActive(data.active);
-            if (data.active) {
-                setBeaconMeta({ timestamp: data.timestamp, initiatedBy: data.initiatedBy });
-            } else {
-                setBeaconMeta(null);
-            }
-        };
-        socket.on('earthquake_beacon_status', handleBeaconStatus);
-        return () => socket.off('earthquake_beacon_status', handleBeaconStatus);
-    }, [socket]);
-
-    // Earthquake Beacon — Activate
-    const handleActivateBeacon = async () => {
-        setBeaconLoading(true);
-        try {
-            await sensorsApi.activateEarthquakeBeacon('Safety Officer');
-            setBeaconActive(true);
-            setBeaconMeta({ timestamp: new Date().toISOString(), initiatedBy: 'Safety Officer' });
-            setShowBeaconModal(false);
-            toast.success('Earthquake Locator Beacon activated on all devices! Devices will beep every 10 seconds.');
-        } catch (error) {
-            console.error('Failed to activate beacon:', error);
-            toast.error('Failed to activate earthquake beacon. Please try again.');
-        } finally {
-            setBeaconLoading(false);
-        }
-    };
-
-    // Earthquake Beacon — Deactivate
-    const handleDeactivateBeacon = async () => {
-        setBeaconLoading(true);
-        try {
-            await sensorsApi.deactivateEarthquakeBeacon();
-            setBeaconActive(false);
-            setBeaconMeta(null);
-            toast.success('Earthquake Locator Beacon deactivated.');
-        } catch (error) {
-            console.error('Failed to deactivate beacon:', error);
-            toast.error('Failed to deactivate earthquake beacon.');
-        } finally {
-            setBeaconLoading(false);
-        }
     };
 
     const handleInputChange = (e) => {
@@ -356,51 +287,6 @@ export const EmergencyContacts = () => {
                 </Button>
             </div>
 
-            {/* Earthquake Locator Beacon Banner */}
-            <div className={`bg-gradient-to-r ${beaconActive ? 'from-amber-600/60 to-orange-500/40 border-amber-400/70' : 'from-amber-900/40 to-orange-700/20 border-amber-500/40'} border rounded-xl p-6 flex items-center justify-between relative overflow-hidden`}>
-                {beaconActive && <div className="absolute inset-0 bg-amber-400/10 animate-pulse pointer-events-none" />}
-                <div className="flex items-center gap-6 relative z-10">
-                    <div className={`w-16 h-16 ${beaconActive ? 'bg-amber-400 shadow-[0_0_25px_rgba(251,191,36,0.6)] animate-pulse' : 'bg-amber-600 shadow-[0_0_15px_rgba(217,119,6,0.4)]'} rounded-full flex items-center justify-center`}>
-                        <Globe className="h-8 w-8 text-white" />
-                    </div>
-                    <div>
-                        <h2 className="text-2xl font-bold text-white mb-1 flex items-center gap-3">
-                            Earthquake Locator Beacon
-                            {beaconActive && (
-                                <span className="text-xs font-normal bg-amber-400/30 text-amber-100 px-3 py-1 rounded-full uppercase tracking-wider animate-pulse">● Active</span>
-                            )}
-                        </h2>
-                        <p className="text-amber-200 text-sm">
-                            {beaconActive
-                                ? `Beacon active since ${beaconMeta?.timestamp ? new Date(beaconMeta.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'now'} — all devices beeping (2s on / 8s rest)`
-                                : 'Activate a periodic beep on all devices to help locate trapped workers during earthquakes or building collapses.'
-                            }
-                        </p>
-                    </div>
-                </div>
-                {beaconActive ? (
-                    <Button
-                        variant="secondary"
-                        size="lg"
-                        className="relative z-10 border-amber-300 text-amber-900 bg-amber-100 hover:bg-amber-200 font-bold"
-                        onClick={handleDeactivateBeacon}
-                        disabled={beaconLoading}
-                    >
-                        {beaconLoading ? 'Deactivating...' : 'DEACTIVATE BEACON'}
-                    </Button>
-                ) : (
-                    <Button
-                        variant="danger"
-                        size="lg"
-                        className="relative z-10 bg-amber-600 hover:bg-amber-500 border-amber-500 shadow-[0_0_15px_rgba(217,119,6,0.4)] hover:shadow-[0_0_25px_rgba(217,119,6,0.6)] font-bold"
-                        onClick={() => setShowBeaconModal(true)}
-                        disabled={beaconLoading}
-                    >
-                        ACTIVATE BEACON
-                    </Button>
-                )}
-            </div>
-
             {/* Key Metrics */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <MetricCard
@@ -496,76 +382,6 @@ export const EmergencyContacts = () => {
                         </Button>
                         <Button variant="danger" onClick={handleEmergencyTrigger} size="lg" className="shadow-lg shadow-red-500/20">
                             ACTIVATE ALERT
-                        </Button>
-                    </div>
-                </div>
-            </Modal>
-
-            {/* Earthquake Beacon Confirmation Modal */}
-            <Modal
-                isOpen={showBeaconModal}
-                onClose={() => setShowBeaconModal(false)}
-                title="🌍 Activate Earthquake Locator Beacon?"
-                size="md"
-            >
-                <div className="space-y-5">
-                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-6 text-center">
-                        <div className="w-20 h-20 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                            <Globe className="h-10 w-10 text-amber-600" />
-                        </div>
-                        <h3 className="text-xl font-bold text-[#1F2937] mb-2">Earthquake Locator Beacon</h3>
-                        <p className="text-[#4B5563]">
-                            This will instruct <strong>all active devices</strong> to emit a periodic beep
-                            (2 seconds on, 8 seconds rest) to help rescue teams locate trapped workers.
-                        </p>
-                    </div>
-
-                    <div className="bg-[#EEF1F4] rounded-lg p-4 border border-[#E3E6EB]">
-                        <h4 className="text-sm font-semibold text-[#1F2937] mb-3">How it works:</h4>
-                        <ul className="space-y-2 text-sm text-[#4B5563]">
-                            <li className="flex items-center gap-2">
-                                <div className="w-1.5 h-1.5 bg-amber-500 rounded-full"></div>
-                                Devices start beeping immediately upon receiving the command
-                            </li>
-                            <li className="flex items-center gap-2">
-                                <div className="w-1.5 h-1.5 bg-amber-500 rounded-full"></div>
-                                Beeping continues <strong>even if WiFi disconnects</strong>
-                            </li>
-                            <li className="flex items-center gap-2">
-                                <div className="w-1.5 h-1.5 bg-amber-500 rounded-full"></div>
-                                2 second buzzer / 8 second rest — repeating cycle
-                            </li>
-                            <li className="flex items-center gap-2">
-                                <div className="w-1.5 h-1.5 bg-amber-500 rounded-full"></div>
-                                Must be manually deactivated by an admin
-                            </li>
-                        </ul>
-                    </div>
-
-                    <div className="bg-yellow-50 border border-yellow-300 rounded-lg p-4">
-                        <div className="flex items-start gap-3">
-                            <AlertTriangle className="h-5 w-5 text-yellow-600 flex-shrink-0 mt-0.5" />
-                            <div>
-                                <h4 className="text-sm font-bold text-yellow-700 mb-1">Important Notice</h4>
-                                <p className="text-xs text-yellow-800 leading-relaxed">
-                                    This is a <strong>last-resort</strong> emergency feature designed for earthquakes and building collapses.
-                                    Devices will continue beeping until manually deactivated or restarted.
-                                    All activations are <strong>logged</strong> with timestamp and operator information.
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="flex gap-3 pt-4 border-t border-[#E3E6EB]">
-                        <Button variant="secondary" className="flex-1" onClick={() => setShowBeaconModal(false)}>
-                            Cancel
-                        </Button>
-                        <Button
-                            className="flex-1 font-bold bg-amber-600 hover:bg-amber-500 border-amber-500 text-white"
-                            onClick={handleActivateBeacon}
-                            disabled={beaconLoading}
-                        >
-                            {beaconLoading ? 'Activating...' : 'ACTIVATE BEACON'}
                         </Button>
                     </div>
                 </div>

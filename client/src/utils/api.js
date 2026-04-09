@@ -75,10 +75,7 @@ export const sensorsApi = {
     sendNudge: (deviceId, message = '', sentBy = 'Safety Officer') => api.post(`/sensors/nudge/${deviceId}`, { message, sentBy }),
     getNudgeHistory: (deviceId, limit = 50) => api.get(`/sensors/nudge/${deviceId}/history`, { params: { limit } }),
     getNudgeCount: (deviceId) => api.get(`/sensors/nudge/${deviceId}/count`),
-    getNudgeLogs: (params = {}) => api.get('/sensors/nudge-logs', { params }),
-    activateEarthquakeBeacon: (initiatedBy = 'Safety Officer') => api.post('/sensors/earthquake-beacon/activate', { initiatedBy }),
-    deactivateEarthquakeBeacon: () => api.post('/sensors/earthquake-beacon/deactivate'),
-    getEarthquakeBeaconStatus: () => api.get('/sensors/earthquake-beacon/status')
+    getNudgeLogs: (params = {}) => api.get('/sensors/nudge-logs', { params })
 };
 
 // ======================

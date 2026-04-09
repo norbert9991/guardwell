@@ -276,8 +276,12 @@ const processSensorData = async (data, io) => {
                     timestamp: new Date().toISOString()
                 });
 
-                // Queue emergency buzzer for all other devices (Emergency Button, Voice Alert, or Flat Orientation)
-                if (alert.type === 'Emergency Button' || alert.type.startsWith('Voice Alert') || alert.type === 'Flat Orientation Detected') {
+                // Queue emergency buzzer for all other devices
+                if (alert.type === 'Emergency Button' ||
+                    alert.type.startsWith('Voice Alert') ||
+                    alert.type === 'Flat Orientation Detected' ||
+                    alert.type === 'High Temperature' ||
+                    alert.type === 'Fall Detected') {
                     await queueEmergencyBuzzer(data.device_id, workerName, alert.type);
                 }
 
@@ -402,7 +406,7 @@ router.get('/history/:deviceId', async (req, res) => {
 // ============================================
 const pendingNudges = {};  // In-memory for ESP32 polling (fast path)
 const pendingEmergencyBuzzer = {};  // In-memory: { deviceId: { buzzer: true, sourceDevice, workerName, type, timestamp } }
-const EMERGENCY_BUZZER_DURATION_MS = 30 * 1000; // Buzzer alert auto-expires after 30 seconds
+const EMERGENCY_BUZZER_DURATION_MS = 10 * 60 * 1000; // Buzzer persists for up to 10 minutes — dismissed by touch ACK
 
 // Helper: queue emergency buzzer for all OTHER active devices
 const queueEmergencyBuzzer = async (sourceDeviceId, workerName, alertType) => {
@@ -818,160 +822,53 @@ const startNudgeExpiryTimer = (io) => {
 // Each device polls this; if an emergency was triggered
 // by another device, it receives a buzzer command
 // ============================================
+// GET /api/sensors/emergency-buzzer/:deviceId
+// ESP32 polls this every 2s. Returns buzzer:true as long as emergency is active.
+// Does NOT delete the entry — only the touch ACK endpoint clears it.
 router.get('/emergency-buzzer/:deviceId', (req, res) => {
     const { deviceId } = req.params;
     const buzzerData = pendingEmergencyBuzzer[deviceId];
 
     if (buzzerData && buzzerData.buzzer) {
-        // Return the buzzer command and clear it (one-shot)
-        delete pendingEmergencyBuzzer[deviceId];
-        res.json(buzzerData);
+        res.json(buzzerData);  // Persistent — keep returning until touch-ACK clears it
     } else {
         res.json({ buzzer: false });
     }
 });
 
-// ============================================
-// EARTHQUAKE LOCATOR BEACON
-// Persistent beeping mode — activated by admin,
-// runs on each device until manually deactivated.
-// Device beeps 2s on / 8s rest autonomously.
-// ============================================
-let earthquakeBeaconActive = false;
-let earthquakeBeaconMeta = null; // { timestamp, initiatedBy }
+// POST /api/sensors/emergency-buzzer/:deviceId/ack
+// Called by ESP32 firmware when the worker touches the touch sensor during an active peer emergency.
+// This is the ONLY way to stop the buzzer — physical acknowledgment.
+router.post('/emergency-buzzer/:deviceId/ack', (req, res) => {
+    const { deviceId } = req.params;
 
-// POST /api/sensors/earthquake-beacon/activate
-router.post('/earthquake-beacon/activate', async (req, res) => {
-    try {
-        const { initiatedBy } = req.body;
-        earthquakeBeaconActive = true;
-        earthquakeBeaconMeta = {
-            timestamp: new Date().toISOString(),
-            initiatedBy: initiatedBy || 'Safety Officer'
-        };
+    if (pendingEmergencyBuzzer[deviceId]) {
+        const data = pendingEmergencyBuzzer[deviceId];
+        delete pendingEmergencyBuzzer[deviceId];
 
-        console.log(`🌍 EARTHQUAKE BEACON ACTIVATED by ${earthquakeBeaconMeta.initiatedBy}`);
+        console.log(`✅ P2P Emergency buzzer ACKNOWLEDGED by touch on ${deviceId} (source: ${data.sourceDevice}, worker: ${data.workerName})`);
 
-        // Create a Critical alert in the database
-        const { Alert, Device, Worker, EmergencyContact } = require('../models');
-        const alert = await Alert.create({
-            type: 'Earthquake Beacon',
-            severity: 'Critical',
-            deviceId: 'ALL',
-            triggerValue: 'Locator beacon activated for all devices',
-            threshold: 'Manual activation'
-        });
-
-        // Emit to all connected web clients
+        // Notify dashboard
         if (req.io) {
-            req.io.emit('alert', {
-                id: alert.id,
-                type: 'Earthquake Beacon',
-                severity: 'Critical',
-                worker: 'All Workers',
-                device: 'ALL',
-                triggerValue: alert.triggerValue,
-                timestamp: earthquakeBeaconMeta.timestamp,
-                status: 'Pending'
-            });
-
-            req.io.emit('emergency_alert', {
-                id: alert.id,
-                type: 'Earthquake Beacon',
-                worker_name: 'All Workers',
-                device: 'ALL',
-                timestamp: earthquakeBeaconMeta.timestamp
-            });
-
-            req.io.emit('earthquake_beacon_status', {
-                active: true,
-                ...earthquakeBeaconMeta
+            req.io.emit('emergency_buzzer_acknowledged', {
+                deviceId,
+                sourceDevice: data.sourceDevice,
+                workerName: data.workerName,
+                alertType: data.type,
+                timestamp: new Date().toISOString()
             });
         }
-
-        // Also queue a one-shot emergency buzzer for immediate buzz on all devices
-        // (the beacon poll will make them keep beeping every 10s after that)
-        const allDevices = await Device.findAll({ where: { status: 'Active' } });
-        const now = new Date().toISOString();
-        for (const device of allDevices) {
-            pendingEmergencyBuzzer[device.deviceId] = {
-                buzzer: true,
-                sourceDevice: 'SYSTEM',
-                workerName: 'Earthquake Beacon',
-                type: 'Earthquake Beacon',
-                timestamp: now
-            };
-        }
-
-        // Send email notification to emergency contacts
-        try {
-            const contacts = await EmergencyContact.findAll();
-            const emailList = contacts.map(c => c.email).filter(Boolean);
-            if (emailList.length > 0) {
-                await emailService.sendThresholdAlert({
-                    workerName: 'All Workers',
-                    sensorType: 'Earthquake Beacon',
-                    value: 'Locator beacon activated — all devices will beep every 10 seconds',
-                    threshold: 'Manual activation',
-                    severity: 'Critical',
-                    contacts: emailList
-                });
-            }
-        } catch (emailError) {
-            console.error('Failed to send earthquake beacon email:', emailError);
-        }
-
-        res.json({
-            success: true,
-            message: 'Earthquake locator beacon activated on all devices',
-            ...earthquakeBeaconMeta
-        });
-    } catch (error) {
-        console.error('Error activating earthquake beacon:', error);
-        res.status(500).json({ error: 'Failed to activate earthquake beacon' });
-    }
-});
-
-// POST /api/sensors/earthquake-beacon/deactivate
-router.post('/earthquake-beacon/deactivate', (req, res) => {
-    console.log('🌍 EARTHQUAKE BEACON DEACTIVATED');
-    earthquakeBeaconActive = false;
-    earthquakeBeaconMeta = null;
-
-    // Notify all web clients
-    if (req.io) {
-        req.io.emit('earthquake_beacon_status', { active: false });
+    } else {
+        console.log(`ℹ️ Emergency buzzer ACK from ${deviceId} — no active buzzer found (already cleared or expired)`);
     }
 
-    res.json({ success: true, message: 'Earthquake locator beacon deactivated' });
+    res.json({ success: true });
 });
 
-// GET /api/sensors/earthquake-beacon/status — Web dashboard checks current state on page load
-router.get('/earthquake-beacon/status', (req, res) => {
-    res.json({
-        active: earthquakeBeaconActive,
-        ...(earthquakeBeaconActive && earthquakeBeaconMeta ? earthquakeBeaconMeta : {})
-    });
-});
 
-// GET /api/sensors/earthquake-beacon/:deviceId — ESP32 polls this
-// Non-destructive: returns true as long as beacon is active (unlike one-shot emergency buzzer)
-router.get('/earthquake-beacon/:deviceId', (req, res) => {
-    res.json({
-        beacon: earthquakeBeaconActive,
-        ...(earthquakeBeaconActive && earthquakeBeaconMeta ? earthquakeBeaconMeta : {})
-    });
-});
-
-// Getter for use in index.js socket handler
-const getEarthquakeBeaconStatus = () => ({
-    active: earthquakeBeaconActive,
-    meta: earthquakeBeaconMeta
-});
 
 module.exports = router;
 module.exports.processSensorData = processSensorData;
 module.exports.THRESHOLDS = THRESHOLDS;
 module.exports.startNudgeExpiryTimer = startNudgeExpiryTimer;
 module.exports.queueEmergencyBuzzer = queueEmergencyBuzzer;
-module.exports.getEarthquakeBeaconStatus = getEarthquakeBeaconStatus;

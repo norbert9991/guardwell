@@ -45,7 +45,6 @@ const char* SERVER_URL = "https://guardwell.onrender.com/api/sensors/data";
 const char* NUDGE_URL  = "https://guardwell.onrender.com/api/sensors/nudge/DEV-002";
 const char* NUDGE_ACK  = "https://guardwell.onrender.com/api/sensors/nudge/DEV-002/ack";
 const char* EMERGENCY_BUZZER_URL = "https://guardwell.onrender.com/api/sensors/emergency-buzzer/DEV-002";
-const char* EARTHQUAKE_BEACON_URL = "https://guardwell.onrender.com/api/sensors/earthquake-beacon/DEV-002";
 const char* DEVICE_ID = "DEV-002";
 
 // Geofence
@@ -143,13 +142,6 @@ int flatConsecutiveCount = 0;
 const int FLAT_CONSECUTIVE_THRESHOLD = 3;  // ~6 seconds at 2s interval
 bool flatAlertSent = false;
 
-// Earthquake Locator Beacon (admin-activated persistent beeping)
-bool earthquakeBeaconMode = false;
-unsigned long lastBeaconBeep = 0;
-bool beaconBuzzerOn = false;
-const unsigned long BEACON_BEEP_ON_MS  = 2000;  // 2s buzzer on
-const unsigned long BEACON_BEEP_OFF_MS = 8000;  // 8s rest
-
 // GPS coordinates — updated from real NEO-M8N data only
 float currentLat = 0.0;
 float currentLon = 0.0;
@@ -198,7 +190,6 @@ void setLedState(LEDState newState);
 void handleLEDEffects();
 void triggerAlert(int duration);
 void sendVoiceAlert(String alertType);
-void checkForEarthquakeBeacon();
 
 // ============================================
 // EDGE IMPULSE — INFERENCE TASK (runs on core 0)
@@ -527,35 +518,15 @@ void loop() {
 
     checkForNudge();
     checkForEmergencyBuzzer();
-    checkForEarthquakeBeacon();
 
     if (nudgeActive) {
       // Nudge blink takes priority
-    } else if (earthquakeBeaconMode) {
-      setLedState(LED_EMERGENCY);
     } else if (!insideGeofence) {
       setLedState(LED_GEOFENCE);
     } else if (!gpsValid && gpsConnected) {
       setLedState(LED_GPS_WAIT);
     } else {
       setLedState(LED_IDLE);
-    }
-  }
-
-  // Earthquake beacon autonomous beeping (2s on / 8s rest)
-  // Runs regardless of WiFi — once activated, keeps beeping
-  if (earthquakeBeaconMode) {
-    unsigned long beaconElapsed = millis() - lastBeaconBeep;
-    if (beaconBuzzerOn && beaconElapsed >= BEACON_BEEP_ON_MS) {
-      // Turn buzzer off — start rest period
-      digitalWrite(BUZZER, LOW);
-      beaconBuzzerOn = false;
-      lastBeaconBeep = millis();
-    } else if (!beaconBuzzerOn && beaconElapsed >= BEACON_BEEP_OFF_MS) {
-      // Turn buzzer on — start beep
-      digitalWrite(BUZZER, HIGH);
-      beaconBuzzerOn = true;
-      lastBeaconBeep = millis();
     }
   }
 
@@ -1021,57 +992,6 @@ void checkForEmergencyBuzzer() {
       digitalWrite(BUZZER, HIGH);
 
       setLedState(LED_EMERGENCY);
-    }
-  }
-
-  http.end();
-}
-
-// ============================================
-// EARTHQUAKE LOCATOR BEACON POLLING
-// Admin-activated persistent beeping mode.
-// Device polls server; once activated, beeps
-// autonomously even if WiFi drops afterwards.
-// ============================================
-void checkForEarthquakeBeacon() {
-  if (WiFi.status() != WL_CONNECTED) return;
-
-  WiFiClientSecure client;
-  client.setInsecure();
-
-  HTTPClient http;
-  http.begin(client, EARTHQUAKE_BEACON_URL);
-  http.setTimeout(3000);
-
-  int httpCode = http.GET();
-
-  if (httpCode == 200) {
-    String response = http.getString();
-    StaticJsonDocument<256> doc;
-    DeserializationError err = deserializeJson(doc, response);
-
-    if (!err) {
-      bool beaconActive = doc["beacon"].as<bool>();
-
-      if (beaconActive && !earthquakeBeaconMode) {
-        // Just activated — start beeping
-        earthquakeBeaconMode = true;
-        beaconBuzzerOn = true;
-        lastBeaconBeep = millis();
-        digitalWrite(BUZZER, HIGH);  // immediate first beep
-        setLedState(LED_EMERGENCY);
-        Serial.println("\n\xF0\x9F\x8C\x8D ============================================");
-        Serial.println("\xF0\x9F\x8C\x8D  EARTHQUAKE BEACON ACTIVATED");
-        Serial.println("\xF0\x9F\x8C\x8D  Beeping 2s on / 8s rest until deactivated");
-        Serial.println("\xF0\x9F\x8C\x8D ============================================\n");
-      } else if (!beaconActive && earthquakeBeaconMode) {
-        // Deactivated — stop beeping
-        earthquakeBeaconMode = false;
-        beaconBuzzerOn = false;
-        digitalWrite(BUZZER, LOW);
-        setLedState(LED_IDLE);
-        Serial.println("\xF0\x9F\x8C\x8D EARTHQUAKE BEACON DEACTIVATED");
-      }
     }
   }
 

@@ -45,7 +45,7 @@ const char* SERVER_URL = "https://guardwell.onrender.com/api/sensors/data";
 const char* NUDGE_URL  = "https://guardwell.onrender.com/api/sensors/nudge/DEV-001";
 const char* NUDGE_ACK  = "https://guardwell.onrender.com/api/sensors/nudge/DEV-001/ack";
 const char* EMERGENCY_BUZZER_URL = "https://guardwell.onrender.com/api/sensors/emergency-buzzer/DEV-001";
-const char* EARTHQUAKE_BEACON_URL = "https://guardwell.onrender.com/api/sensors/earthquake-beacon/DEV-001";
+const char* EMERGENCY_BUZZER_ACK_URL = "https://guardwell.onrender.com/api/sensors/emergency-buzzer/DEV-001/ack";
 const char* DEVICE_ID = "DEV-001";
 
 // Geofence
@@ -134,6 +134,15 @@ const unsigned long SEND_INTERVAL = 2000;
 bool mpuConnected = false;
 bool gpsConnected = false;
 
+// ============================================
+// P2P EMERGENCY BUZZER STATE
+// Set by checkForEmergencyBuzzer() when a peer device triggers an emergency.
+// Cleared ONLY when this device's touch sensor is touched (acknowledgeEmergencyBuzzer()).
+// ============================================
+bool emergencyBuzzerActive = false;   // True while peer emergency buzzer is active
+static bool emBuzzerOn = false;       // Current buzzer pin state (for pulsing)
+static unsigned long emBuzzerLastToggle = 0; // Timing for pulse pattern
+
 String lastVoiceCommand = "none";
 bool voiceAlertTriggered = false;
 bool soundAlertTriggered = false;
@@ -142,13 +151,6 @@ bool soundAlertTriggered = false;
 int flatConsecutiveCount = 0;
 const int FLAT_CONSECUTIVE_THRESHOLD = 3;  // ~6 seconds at 2s interval
 bool flatAlertSent = false;
-
-// Earthquake Locator Beacon (admin-activated persistent beeping)
-bool earthquakeBeaconMode = false;
-unsigned long lastBeaconBeep = 0;
-bool beaconBuzzerOn = false;
-const unsigned long BEACON_BEEP_ON_MS  = 2000;  // 2s buzzer on
-const unsigned long BEACON_BEEP_OFF_MS = 8000;  // 8s rest
 
 // GPS coordinates — updated from real NEO-M8N data only
 float currentLat = 0.0;
@@ -198,7 +200,8 @@ void setLedState(LEDState newState);
 void handleLEDEffects();
 void triggerAlert(int duration);
 void sendVoiceAlert(String alertType);
-void checkForEarthquakeBeacon();
+void handleEmergencyBuzzerPulse();
+void acknowledgeEmergencyBuzzer();
 
 // ============================================
 // EDGE IMPULSE — INFERENCE TASK (runs on core 0)
@@ -509,6 +512,7 @@ void loop() {
   }
 
   handleLEDEffects();
+  handleEmergencyBuzzerPulse();  // Drive the persistent P2P emergency buzzer pulse
 
   // GPS debug
   static unsigned long lastDebug = 0;
@@ -527,35 +531,18 @@ void loop() {
 
     checkForNudge();
     checkForEmergencyBuzzer();
-    checkForEarthquakeBeacon();
 
-    if (nudgeActive) {
-      // Nudge blink takes priority
-    } else if (earthquakeBeaconMode) {
+    // LED priority: peer emergency > nudge > geofence > GPS wait > idle
+    if (emergencyBuzzerActive) {
       setLedState(LED_EMERGENCY);
+    } else if (nudgeActive) {
+      // Nudge blink takes priority (handled in handleLEDEffects)
     } else if (!insideGeofence) {
       setLedState(LED_GEOFENCE);
     } else if (!gpsValid && gpsConnected) {
       setLedState(LED_GPS_WAIT);
     } else {
       setLedState(LED_IDLE);
-    }
-  }
-
-  // Earthquake beacon autonomous beeping (2s on / 8s rest)
-  // Runs regardless of WiFi — once activated, keeps beeping
-  if (earthquakeBeaconMode) {
-    unsigned long beaconElapsed = millis() - lastBeaconBeep;
-    if (beaconBuzzerOn && beaconElapsed >= BEACON_BEEP_ON_MS) {
-      // Turn buzzer off — start rest period
-      digitalWrite(BUZZER, LOW);
-      beaconBuzzerOn = false;
-      lastBeaconBeep = millis();
-    } else if (!beaconBuzzerOn && beaconElapsed >= BEACON_BEEP_OFF_MS) {
-      // Turn buzzer on — start beep
-      digitalWrite(BUZZER, HIGH);
-      beaconBuzzerOn = true;
-      lastBeaconBeep = millis();
     }
   }
 
@@ -637,39 +624,62 @@ void connectToWiFi() {
 }
 
 // ============================================
-// TOUCH SENSOR (Dual mode: Nudge ACK or Emergency)
+// TOUCH SENSOR
+// Priority order (highest to lowest):
+//   1. Peer emergency buzzer active  → ACK it (dismiss peer alert)
+//   2. Nudge pending                 → ACK nudge
+//   3. No pending alerts             → Trigger own emergency
 // ============================================
 void handleTouchSensor() {
-  if (digitalRead(TOUCHPIN) == HIGH && !buzzerActive) {
+  if (digitalRead(TOUCHPIN) != HIGH) return;
+
+  // ── Priority 1: Dismiss peer emergency buzzer ──────────────────
+  if (emergencyBuzzerActive) {
+    emergencyBuzzerActive = false;
+    emBuzzerOn = false;
+    digitalWrite(BUZZER, LOW);
+    setLedState(LED_IDLE);
+    Serial.println("\n✅ ========================================");
+    Serial.println("✅  P2P EMERGENCY ACKNOWLEDGED by touch");
+    Serial.println("✅ ========================================\n");
+    acknowledgeEmergencyBuzzer();
+    return;
+  }
+
+  // ── Priority 2: Acknowledge a nudge ───────────────────────────
+  if (nudgePending && !buzzerActive) {
     buzzerActive = true;
     buzzerStartTime = millis();
+    nudgePending = false;
+    nudgeActive = false;
+    Serial.println("✅ NUDGE ACKNOWLEDGED by touch sensor");
 
-    if (nudgePending) {
-      nudgePending = false;
-      nudgeActive = false;
-      Serial.println("✅ NUDGE ACKNOWLEDGED by touch sensor");
+    flatConsecutiveCount = 0;
+    flatAlertSent = false;
 
-      flatConsecutiveCount = 0;
-      flatAlertSent = false;
+    digitalWrite(BUZZER, HIGH);
+    setRGB(0, 1, 0);
+    delay(300);
+    digitalWrite(BUZZER, LOW);
+    setLedState(LED_IDLE);
 
-      digitalWrite(BUZZER, HIGH);
-      setRGB(0, 1, 0);
-      delay(300);
-      digitalWrite(BUZZER, LOW);
-      setLedState(LED_IDLE);
+    acknowledgeNudge();
+    return;
+  }
 
-      acknowledgeNudge();
-    } else {
-      digitalWrite(BUZZER, HIGH);
-      setLedState(LED_EMERGENCY);
-      Serial.println("🚨 EMERGENCY!");
+  // ── Priority 3: Trigger own emergency ─────────────────────────
+  if (!buzzerActive) {
+    buzzerActive = true;
+    buzzerStartTime = millis();
+    digitalWrite(BUZZER, HIGH);
+    setLedState(LED_EMERGENCY);
+    Serial.println("🚨 EMERGENCY!");
 
-      flatConsecutiveCount = 0;
-      flatAlertSent = false;
+    flatConsecutiveCount = 0;
+    flatAlertSent = false;
 
-      sendEmergencyAlert();
-      delay(1000);
-    }
+    sendEmergencyAlert();
+    delay(1000);
   }
 }
 
@@ -990,6 +1000,9 @@ void acknowledgeNudge() {
 
 // ============================================
 // EMERGENCY BUZZER POLLING (Server → Device)
+// Persistent state: stays active until touch ACK clears it.
+// The 2-second poll interval is shorter than any auto-off timer,
+// so as long as the server returns buzzer:true the buzzer keeps going.
 // ============================================
 void checkForEmergencyBuzzer() {
   if (WiFi.status() != WL_CONNECTED) return;
@@ -1009,18 +1022,30 @@ void checkForEmergencyBuzzer() {
     DeserializationError err = deserializeJson(doc, response);
 
     if (!err && doc["buzzer"].as<bool>() == true) {
-      String sourceDevice = doc["sourceDevice"] | "unknown";
-      String workerName = doc["workerName"] | "Unknown";
-      String alertType = doc["type"] | "Emergency";
+      if (!emergencyBuzzerActive) {
+        // First detection — log details
+        String sourceDevice = doc["sourceDevice"] | "unknown";
+        String workerName   = doc["workerName"]   | "Unknown";
+        String alertType    = doc["type"]         | "Emergency";
 
-      Serial.printf("\n🚨 EMERGENCY BUZZER from %s (%s) — %s\n",
-                    sourceDevice.c_str(), workerName.c_str(), alertType.c_str());
-
-      buzzerActive = true;
-      buzzerStartTime = millis();
-      digitalWrite(BUZZER, HIGH);
-
+        Serial.println("\n🚨 ========================================");
+        Serial.printf("🚨  P2P EMERGENCY from %s (%s)\n", sourceDevice.c_str(), workerName.c_str());
+        Serial.printf("🚨  Type: %s\n", alertType.c_str());
+        Serial.println("🚨  ⚠️  TOUCH SENSOR to acknowledge and stop buzzer");
+        Serial.println("🚨 ========================================\n");
+      }
+      // Keep state alive — buzzer pulsing handled by handleEmergencyBuzzerPulse()
+      emergencyBuzzerActive = true;
       setLedState(LED_EMERGENCY);
+    } else {
+      // Server cleared the buzzer (ACK from dashboard or expiry)
+      if (emergencyBuzzerActive) {
+        emergencyBuzzerActive = false;
+        emBuzzerOn = false;
+        digitalWrite(BUZZER, LOW);
+        setLedState(LED_IDLE);
+        Serial.println("✅ Emergency buzzer cleared by server");
+      }
     }
   }
 
@@ -1028,53 +1053,39 @@ void checkForEmergencyBuzzer() {
 }
 
 // ============================================
-// EARTHQUAKE LOCATOR BEACON POLLING
-// Admin-activated persistent beeping mode.
-// Device polls server; once activated, beeps
-// autonomously even if WiFi drops afterwards.
+// P2P BUZZER PULSE DRIVER
+// Called every loop() iteration.
+// Pattern: 200 ms ON / 300 ms OFF (urgent, distinct from nudge)
 // ============================================
-void checkForEarthquakeBeacon() {
+void handleEmergencyBuzzerPulse() {
+  if (!emergencyBuzzerActive) return;
+
+  unsigned long now = millis();
+  unsigned long interval = emBuzzerOn ? 200UL : 300UL;  // ON shorter than OFF
+
+  if (now - emBuzzerLastToggle >= interval) {
+    emBuzzerLastToggle = now;
+    emBuzzerOn = !emBuzzerOn;
+    digitalWrite(BUZZER, emBuzzerOn ? HIGH : LOW);
+  }
+}
+
+// ============================================
+// EMERGENCY BUZZER ACK (Device → Server)
+// Sends acknowledgment after touch sensor dismisses the peer buzzer.
+// ============================================
+void acknowledgeEmergencyBuzzer() {
   if (WiFi.status() != WL_CONNECTED) return;
 
   WiFiClientSecure client;
   client.setInsecure();
 
   HTTPClient http;
-  http.begin(client, EARTHQUAKE_BEACON_URL);
-  http.setTimeout(3000);
+  http.begin(client, EMERGENCY_BUZZER_ACK_URL);
+  http.addHeader("Content-Type", "application/json");
 
-  int httpCode = http.GET();
-
-  if (httpCode == 200) {
-    String response = http.getString();
-    StaticJsonDocument<256> doc;
-    DeserializationError err = deserializeJson(doc, response);
-
-    if (!err) {
-      bool beaconActive = doc["beacon"].as<bool>();
-
-      if (beaconActive && !earthquakeBeaconMode) {
-        // Just activated — start beeping
-        earthquakeBeaconMode = true;
-        beaconBuzzerOn = true;
-        lastBeaconBeep = millis();
-        digitalWrite(BUZZER, HIGH);  // immediate first beep
-        setLedState(LED_EMERGENCY);
-        Serial.println("\n\xF0\x9F\x8C\x8D ============================================");
-        Serial.println("\xF0\x9F\x8C\x8D  EARTHQUAKE BEACON ACTIVATED");
-        Serial.println("\xF0\x9F\x8C\x8D  Beeping 2s on / 8s rest until deactivated");
-        Serial.println("\xF0\x9F\x8C\x8D ============================================\n");
-      } else if (!beaconActive && earthquakeBeaconMode) {
-        // Deactivated — stop beeping
-        earthquakeBeaconMode = false;
-        beaconBuzzerOn = false;
-        digitalWrite(BUZZER, LOW);
-        setLedState(LED_IDLE);
-        Serial.println("\xF0\x9F\x8C\x8D EARTHQUAKE BEACON DEACTIVATED");
-      }
-    }
-  }
-
+  int httpCode = http.POST("{}");
+  Serial.printf("[Emergency Buzzer ACK: %d]\n", httpCode);
   http.end();
 }
 
