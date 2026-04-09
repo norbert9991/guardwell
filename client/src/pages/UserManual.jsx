@@ -454,7 +454,7 @@ export const UserManual = () => {
 
                         <Section title="Alert Severity Levels" icon={Zap}>
                             <ul className="space-y-2 text-sm text-[#4B5563]">
-                                <li><span className="inline-block w-3 h-3 rounded-full bg-red-500 mr-2"></span><strong>Critical:</strong> Immediate danger — requires instant response (e.g., emergency button, gas detection).</li>
+                                <li><span className="inline-block w-3 h-3 rounded-full bg-red-500 mr-2"></span><strong>Critical:</strong> Immediate danger — requires instant response (e.g., emergency button, fall detection).</li>
                                 <li><span className="inline-block w-3 h-3 rounded-full bg-orange-500 mr-2"></span><strong>High:</strong> Serious safety concern — respond promptly.</li>
                                 <li><span className="inline-block w-3 h-3 rounded-full bg-yellow-500 mr-2"></span><strong>Medium:</strong> Warning-level condition — monitor closely.</li>
                                 <li><span className="inline-block w-3 h-3 rounded-full bg-blue-500 mr-2"></span><strong>Low:</strong> Informational alert — review when convenient.</li>

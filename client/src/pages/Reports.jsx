@@ -825,8 +825,6 @@ export const Reports = () => {
                                         }`}>
                                             <div className="flex items-center gap-2 mb-2">
                                                 {key === 'temperature' && <ThermometerSun size={16} className="text-red-500" />}
-                                                {key === 'humidity' && <Droplets size={16} className="text-blue-500" />}
-                                                {key === 'gasLevel' && <Wind size={16} className="text-orange-500" />}
                                                 <span className="font-semibold text-sm text-[#1F2937]">{v.label}</span>
                                             </div>
                                             <p className={`text-2xl font-bold ${v.count > 0 ? 'text-red-600' : 'text-green-600'}`}>

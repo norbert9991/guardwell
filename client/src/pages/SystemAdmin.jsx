@@ -68,8 +68,6 @@ export const SystemAdmin = () => {
         alertThresholds: {
             temperatureWarning: 40,
             temperatureCritical: 50,
-            gasWarning: 200,
-            gasCritical: 400,
             batteryLow: 20
         },
         notifications: {
@@ -324,14 +322,6 @@ export const SystemAdmin = () => {
                                 <Badge variant="danger">{settings.alertThresholds.temperatureCritical}°C</Badge>
                             </div>
                             <div className="flex justify-between items-center">
-                                <span className="text-[#4B5563]">Gas Warning</span>
-                                <Badge variant="warning">{settings.alertThresholds.gasWarning} PPM</Badge>
-                            </div>
-                            <div className="flex justify-between items-center">
-                                <span className="text-[#4B5563]">Gas Critical</span>
-                                <Badge variant="danger">{settings.alertThresholds.gasCritical} PPM</Badge>
-                            </div>
-                            <div className="flex justify-between items-center">
                                 <span className="text-[#4B5563]">Low Battery</span>
                                 <Badge variant="warning">{settings.alertThresholds.batteryLow}%</Badge>
                             </div>
@@ -374,7 +364,7 @@ export const SystemAdmin = () => {
                     </div>
                 </CardHeader>
                 <CardBody className="p-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         {/* Temperature Thresholds */}
                         <div className="p-4 bg-[#EEF1F4] rounded-lg">
                             <h4 className="font-semibold text-[#1F2937] mb-4 flex items-center gap-2">
@@ -388,23 +378,6 @@ export const SystemAdmin = () => {
                                 <div className="flex justify-between">
                                     <span className="text-[#4B5563]">Critical Level</span>
                                     <span className="text-danger font-semibold">{settings.alertThresholds.temperatureCritical}°C</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Gas Thresholds */}
-                        <div className="p-4 bg-[#EEF1F4] rounded-lg">
-                            <h4 className="font-semibold text-[#1F2937] mb-4 flex items-center gap-2">
-                                💨 Gas Level
-                            </h4>
-                            <div className="space-y-3">
-                                <div className="flex justify-between">
-                                    <span className="text-[#4B5563]">Warning Level</span>
-                                    <span className="text-warning font-semibold">{settings.alertThresholds.gasWarning} PPM</span>
-                                </div>
-                                <div className="flex justify-between">
-                                    <span className="text-[#4B5563]">Critical Level</span>
-                                    <span className="text-danger font-semibold">{settings.alertThresholds.gasCritical} PPM</span>
                                 </div>
                             </div>
                         </div>
@@ -720,37 +693,6 @@ export const SystemAdmin = () => {
                                 onChange={(e) => setEditThresholds(prev => ({
                                     ...prev,
                                     temperatureCritical: parseInt(e.target.value)
-                                }))}
-                                className="input-modal"
-                            />
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className="label-modal">
-                                Gas Warning (PPM)
-                            </label>
-                            <input
-                                type="number"
-                                value={editThresholds.gasWarning}
-                                onChange={(e) => setEditThresholds(prev => ({
-                                    ...prev,
-                                    gasWarning: parseInt(e.target.value)
-                                }))}
-                                className="input-modal"
-                            />
-                        </div>
-                        <div>
-                            <label className="label-modal">
-                                Gas Critical (PPM)
-                            </label>
-                            <input
-                                type="number"
-                                value={editThresholds.gasCritical}
-                                onChange={(e) => setEditThresholds(prev => ({
-                                    ...prev,
-                                    gasCritical: parseInt(e.target.value)
                                 }))}
                                 className="input-modal"
                             />

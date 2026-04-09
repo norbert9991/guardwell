@@ -85,11 +85,11 @@ export const Dashboard = () => {
     const avgTemp = hasActiveSensors
         ? Math.round(sensorValues.reduce((sum, s) => sum + (s.temperature || 0), 0) / sensorValues.length)
         : null;
-    const maxGas = hasActiveSensors
-        ? Math.max(...sensorValues.map(s => s.gas_level || 0))
-        : null;
     const avgBattery = hasActiveSensors
         ? Math.round(sensorValues.reduce((sum, s) => sum + (s.battery || 0), 0) / sensorValues.length)
+        : null;
+    const avgRSSI = hasActiveSensors
+        ? Math.round(sensorValues.reduce((sum, s) => sum + (s.rssi || 0), 0) / sensorValues.length)
         : null;
     const criticalAlerts = allAlerts.filter(a => a.severity === 'Critical').length;
 
@@ -323,24 +323,40 @@ export const Dashboard = () => {
                         <CardBody className="p-6">
                             {hasActiveSensors ? (
                                 <div className="space-y-5">
+                                    {/* Temperature */}
                                     <div className="flex items-center justify-between group">
                                         <span className="text-sm text-[#4B5563] group-hover:text-[#1F2937] transition-colors">{t('dashboard.avgTemperature')}</span>
-                                        <span className={`text-lg font-bold ${avgTemp >= 40 ? 'text-red-500' : 'text-[#1F2937]'}`}>{avgTemp}°C</span>
+                                        <span className={`text-lg font-bold ${avgTemp >= 40 ? 'text-red-500' : 'text-[#1F2937]'}`}>
+                                            {avgTemp}°C
+                                        </span>
                                     </div>
-                                    <div className="flex items-center justify-between group">
-                                        <span className="text-sm text-[#4B5563] group-hover:text-[#1F2937] transition-colors">{t('dashboard.highestGas')}</span>
-                                        <span className={`text-lg font-bold ${maxGas >= 200 ? 'text-orange-500' : 'text-[#1F2937]'}`}>{maxGas} PPM</span>
-                                    </div>
+                                    {/* Critical Alerts */}
                                     <div className="flex items-center justify-between group">
                                         <span className="text-sm text-[#4B5563] group-hover:text-[#1F2937] transition-colors">{t('dashboard.criticalAlerts')}</span>
-                                        <span className={`text-lg font-bold ${criticalAlerts > 0 ? 'text-[#EF4444]' : 'text-[#10B981]'}`}>{criticalAlerts}</span>
+                                        <span className={`text-lg font-bold ${criticalAlerts > 0 ? 'text-[#EF4444]' : 'text-[#10B981]'}`}>
+                                            {criticalAlerts}
+                                        </span>
                                     </div>
+                                    {/* Battery */}
                                     <div className="flex items-center justify-between group">
                                         <span className="text-sm text-[#4B5563] flex items-center gap-2 group-hover:text-[#1F2937] transition-colors">
                                             <Battery size={16} className="text-[#10B981]" />
                                             {t('dashboard.avgBattery')}
                                         </span>
-                                        <span className={`text-lg font-bold ${avgBattery < 20 ? 'text-red-500' : 'text-[#10B981]'}`}>{avgBattery}%</span>
+                                        <span className={`text-lg font-bold ${avgBattery < 20 ? 'text-red-500' : 'text-[#10B981]'}`}>
+                                            {avgBattery}%
+                                        </span>
+                                    </div>
+                                    {/* WiFi Signal Strength */}
+                                    <div className="flex items-center justify-between group">
+                                        <span className="text-sm text-[#4B5563] group-hover:text-[#1F2937] transition-colors">Avg WiFi Signal</span>
+                                        <span className={`text-lg font-bold ${
+                                            avgRSSI >= -60 ? 'text-green-500' :
+                                            avgRSSI >= -75 ? 'text-yellow-500' :
+                                            'text-red-500'
+                                        }`}>
+                                            {avgRSSI} dBm
+                                        </span>
                                     </div>
                                 </div>
                             ) : (
