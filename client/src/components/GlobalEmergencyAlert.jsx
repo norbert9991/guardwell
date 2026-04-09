@@ -156,9 +156,15 @@ export const GlobalEmergencyAlert = () => {
         }
     };
 
-    const handleAcknowledgeAndNavigate = async (emergency) => {
+    const handleAcknowledgeAndTrack = async (emergency) => {
         await handleAcknowledge(emergency);
-        // Navigate to Live Monitoring for more details
+        // Navigate to Live Monitoring in MAP mode, focused on this device
+        const deviceId = emergency.device || emergency.device_id;
+        navigate(`/live-monitoring?view=map&focus=${encodeURIComponent(deviceId)}`);
+    };
+
+    const handleGoToMonitoring = async (emergency) => {
+        await handleAcknowledge(emergency);
         navigate('/live-monitoring');
     };
 
@@ -256,25 +262,51 @@ export const GlobalEmergencyAlert = () => {
                                 </div>
 
                                 {/* Action Buttons */}
-                                <div className="mt-5 flex gap-3">
-                                    <Button
-                                        variant="danger"
-                                        className="flex-1 py-3 text-lg font-semibold"
-                                        icon={loading[emergency.id] ? <Loader2 size={20} className="animate-spin" /> : <CheckCircle size={20} />}
-                                        onClick={() => handleAcknowledge(emergency)}
-                                        disabled={loading[emergency.id]}
-                                    >
-                                        {loading[emergency.id] ? 'Saving...' : 'Acknowledge'}
-                                    </Button>
-                                    <Button
-                                        variant="primary"
-                                        className="flex-1 py-3 text-lg font-semibold"
-                                        icon={loading[emergency.id] ? <Loader2 size={20} className="animate-spin" /> : <Shield size={20} />}
-                                        onClick={() => handleAcknowledgeAndNavigate(emergency)}
-                                        disabled={loading[emergency.id]}
-                                    >
-                                        Acknowledge & Go to Monitoring
-                                    </Button>
+                                <div className="mt-5 flex flex-col gap-2">
+                                    {/* Row 1: Primary actions */}
+                                    <div className="flex gap-3">
+                                        <Button
+                                            variant="danger"
+                                            className="flex-1 py-3 text-lg font-semibold"
+                                            icon={loading[emergency.id] ? <Loader2 size={20} className="animate-spin" /> : <CheckCircle size={20} />}
+                                            onClick={() => handleAcknowledge(emergency)}
+                                            disabled={loading[emergency.id]}
+                                        >
+                                            {loading[emergency.id] ? 'Saving...' : 'Acknowledge'}
+                                        </Button>
+                                        <Button
+                                            variant="primary"
+                                            className="flex-1 py-3 text-lg font-semibold"
+                                            icon={loading[emergency.id] ? <Loader2 size={20} className="animate-spin" /> : <Shield size={20} />}
+                                            onClick={() => handleGoToMonitoring(emergency)}
+                                            disabled={loading[emergency.id]}
+                                        >
+                                            Acknowledge &amp; Monitor
+                                        </Button>
+                                    </div>
+                                    {/* Row 2: GPS Track button — shown only if GPS coords are attached */}
+                                    {emergency.gps_valid && emergency.latitude && emergency.longitude ? (
+                                        <button
+                                            onClick={() => handleAcknowledgeAndTrack(emergency)}
+                                            disabled={loading[emergency.id]}
+                                            className="w-full flex items-center justify-center gap-2 py-3 rounded-lg font-semibold text-base
+                                                       bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700
+                                                       text-white transition-all duration-200 shadow-md shadow-emerald-900/40
+                                                       disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                            <MapPin size={18} />
+                                            📍 Acknowledge &amp; Track Location on Map
+                                            <span className="text-emerald-200 text-sm font-normal ml-1">
+                                                ({parseFloat(emergency.latitude).toFixed(4)}, {parseFloat(emergency.longitude).toFixed(4)})
+                                            </span>
+                                        </button>
+                                    ) : (
+                                        <div className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm
+                                                        border border-gray-700 bg-gray-800/50 text-gray-500 cursor-not-allowed">
+                                            <MapPin size={14} />
+                                            No GPS fix available for this device
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         );

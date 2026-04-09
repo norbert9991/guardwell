@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Activity, Thermometer, Signal, User, Shield, Radio, AlertTriangle, CheckCircle, X, Eye, Clock, Bell, ShieldCheck, Mic, Map, Grid, MapPin, Globe, Layers, Navigation2, Smartphone, Satellite } from 'lucide-react';
 import { CardDark, CardBody } from '../components/ui/Card';
 import { MetricCard } from '../components/ui/MetricCard';
@@ -14,6 +15,7 @@ import { useRefresh } from '../context/RefreshContext';
 
 export const LiveMonitoring = () => {
     const { socket, sensorData, connected, emitEvent } = useSocket();
+    const [searchParams, setSearchParams] = useSearchParams();
     const [filter, setFilter] = useState('all');
     const [devices, setDevices] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -31,6 +33,24 @@ export const LiveMonitoring = () => {
     const [fitAllTrigger, setFitAllTrigger] = useState(0); // increment to trigger fit-all
     const [gpsLocationLogs, setGpsLocationLogs] = useState({}); // { deviceId: [{ lat, lng, satellites, speed, geofence, timestamp }] }
     const toast = useToast();
+
+    // ── Deep-link support: ?view=map&focus=DEV-001 ──────────────────
+    // When navigating from the emergency overlay, automatically switch
+    // to map view and fly to the target device's GPS marker.
+    useEffect(() => {
+        const viewParam  = searchParams.get('view');
+        const focusParam = searchParams.get('focus');
+        if (viewParam === 'map') {
+            setViewMode('map');
+        }
+        if (focusParam) {
+            setFocusDeviceId(focusParam);
+        }
+        // Clear the params from the URL bar (cleaner UX) after consuming them
+        if (viewParam || focusParam) {
+            setSearchParams({}, { replace: true });
+        }
+    }, []); // run once on mount
 
     // Fetch devices from API
     const fetchDevices = useCallback(async () => {
