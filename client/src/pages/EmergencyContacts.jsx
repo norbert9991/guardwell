@@ -11,6 +11,7 @@ import { contactsApi, sensorsApi } from '../utils/api';
 import { useToast } from '../context/ToastContext';
 import { useSocket } from '../context/SocketContext';
 import { useRefresh } from '../context/RefreshContext';
+import { useAuth, PERMISSIONS } from '../context/AuthContext';
 
 export const EmergencyContacts = () => {
     const { emitEvent, connected } = useSocket();
@@ -21,6 +22,8 @@ export const EmergencyContacts = () => {
     const [emergencyActive, setEmergencyActive] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const toast = useToast();
+    const { hasPermission } = useAuth();
+    const canManageContacts = hasPermission(PERMISSIONS.MANAGE_CONTACTS);
 
     const [contacts, setContacts] = useState([]);
 
@@ -237,9 +240,11 @@ export const EmergencyContacts = () => {
             label: 'Actions',
             render: (row) => (
                 <div className="flex gap-2">
-                    <Button size="sm" variant="outline" onClick={() => handleEditContact(row)}>
-                        Edit
-                    </Button>
+                    {canManageContacts && (
+                        <Button size="sm" variant="outline" onClick={() => handleEditContact(row)}>
+                            Edit
+                        </Button>
+                    )}
                     <Button
                         size="sm"
                         variant="secondary"
@@ -262,7 +267,9 @@ export const EmergencyContacts = () => {
                     <h1 className="text-3xl font-bold text-[#1F2937] mb-2">Emergency Response</h1>
                     <p className="text-[#4B5563]">Manage emergency protocols and contacts</p>
                 </div>
-                <Button icon={<Plus size={18} />} onClick={() => setShowAddContactModal(true)}>Add Contact</Button>
+                {canManageContacts && (
+                    <Button icon={<Plus size={18} />} onClick={() => setShowAddContactModal(true)}>Add Contact</Button>
+                )}
             </div>
 
             {/* Emergency Banner */}
