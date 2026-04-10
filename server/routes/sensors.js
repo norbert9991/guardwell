@@ -441,27 +441,29 @@ const pendingNudges = {};  // In-memory for ESP32 polling (fast path)
 const pendingEmergencyBuzzer = {};  // In-memory: { deviceId: { buzzer: true, sourceDevice, workerName, type, timestamp } }
 const EMERGENCY_BUZZER_DURATION_MS = 10 * 60 * 1000; // Buzzer persists for up to 10 minutes — dismissed by touch ACK
 
-// Helper: queue emergency buzzer for all OTHER active devices
+// Helper: queue emergency buzzer for ALL active devices (including source)
+// The source device also buzzes persistently so its touch-to-dismiss
+// can ACK and clear ALL devices' buzzers at once.
 const queueEmergencyBuzzer = async (sourceDeviceId, workerName, alertType) => {
     try {
         const allDevices = await Device.findAll({ where: { status: 'Active' } });
         const now = new Date().toISOString();
         for (const device of allDevices) {
-            if (device.deviceId !== sourceDeviceId) {
-                pendingEmergencyBuzzer[device.deviceId] = {
-                    buzzer: true,
-                    sourceDevice: sourceDeviceId,
-                    workerName,
-                    type: alertType,
-                    timestamp: now
-                };
-                console.log(`🔔 Emergency buzzer queued for ${device.deviceId} (source: ${sourceDeviceId})`);
-            }
+            pendingEmergencyBuzzer[device.deviceId] = {
+                buzzer: true,
+                sourceDevice: sourceDeviceId,
+                workerName,
+                type: alertType,
+                timestamp: now
+            };
+            console.log(`🔔 Emergency buzzer queued for ${device.deviceId} (source: ${sourceDeviceId})`);
         }
-        // Auto-expire after 30 seconds
+        // Auto-expire after duration
         setTimeout(() => {
             for (const device of allDevices) {
-                if (device.deviceId !== sourceDeviceId) {
+                // Only delete if the entry still belongs to the same source
+                if (pendingEmergencyBuzzer[device.deviceId] &&
+                    pendingEmergencyBuzzer[device.deviceId].sourceDevice === sourceDeviceId) {
                     delete pendingEmergencyBuzzer[device.deviceId];
                 }
             }
@@ -871,23 +873,34 @@ router.get('/emergency-buzzer/:deviceId', (req, res) => {
 
 // POST /api/sensors/emergency-buzzer/:deviceId/ack
 // Called by ESP32 firmware when the worker touches the touch sensor during an active peer emergency.
-// This is the ONLY way to stop the buzzer — physical acknowledgment.
+// Clears ALL devices' buzzers that share the same sourceDevice — one touch stops everything.
 router.post('/emergency-buzzer/:deviceId/ack', (req, res) => {
     const { deviceId } = req.params;
 
     if (pendingEmergencyBuzzer[deviceId]) {
         const data = pendingEmergencyBuzzer[deviceId];
-        delete pendingEmergencyBuzzer[deviceId];
+        const sourceDevice = data.sourceDevice;
 
-        console.log(`✅ P2P Emergency buzzer ACKNOWLEDGED by touch on ${deviceId} (source: ${data.sourceDevice}, worker: ${data.workerName})`);
+        // Clear ALL pending buzzers that share the same sourceDevice
+        const clearedDevices = [];
+        for (const [devId, buzzerData] of Object.entries(pendingEmergencyBuzzer)) {
+            if (buzzerData.sourceDevice === sourceDevice) {
+                clearedDevices.push(devId);
+                delete pendingEmergencyBuzzer[devId];
+            }
+        }
+
+        console.log(`✅ P2P Emergency buzzer ACKNOWLEDGED by touch on ${deviceId} (source: ${sourceDevice}, worker: ${data.workerName})`);
+        console.log(`   → Cleared buzzers for: ${clearedDevices.join(', ')}`);
 
         // Notify dashboard
         if (req.io) {
             req.io.emit('emergency_buzzer_acknowledged', {
                 deviceId,
-                sourceDevice: data.sourceDevice,
+                sourceDevice: sourceDevice,
                 workerName: data.workerName,
                 alertType: data.type,
+                clearedDevices,
                 timestamp: new Date().toISOString()
             });
         }

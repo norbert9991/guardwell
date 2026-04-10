@@ -489,6 +489,7 @@ void loop() {
 
     setLedState(LED_EMERGENCY);
     triggerAlert(800);
+    emergencyBuzzerActive = true;  // Persistent buzz — touch to dismiss
     sendVoiceAlert("help");
   }
 
@@ -504,6 +505,7 @@ void loop() {
 
     setLedState(LED_EMERGENCY);
     triggerAlert(800);
+    emergencyBuzzerActive = true;  // Persistent buzz — touch to dismiss
     sendVoiceAlert("tulong");
   }
 
@@ -586,6 +588,7 @@ void checkGeofence() {
     Serial.println("🚨 GEOFENCE VIOLATION!");
     setLedState(LED_GEOFENCE);
     triggerAlert(500);
+    emergencyBuzzerActive = true;  // Persistent buzz — touch to dismiss
     sendGeofenceViolation(distance);
   }
 }
@@ -669,17 +672,15 @@ void handleTouchSensor() {
 
   // ── Priority 3: Trigger own emergency ─────────────────────────
   if (!buzzerActive) {
-    buzzerActive = true;
-    buzzerStartTime = millis();
-    digitalWrite(BUZZER, HIGH);
     setLedState(LED_EMERGENCY);
     Serial.println("🚨 EMERGENCY!");
+    triggerAlert(800);
+    emergencyBuzzerActive = true;  // Persistent buzz — touch to dismiss (Priority 1)
 
     flatConsecutiveCount = 0;
     flatAlertSent = false;
 
     sendEmergencyAlert();
-    delay(1000);
   }
 }
 
@@ -735,6 +736,7 @@ void readAndSendSensorData() {
 
         setLedState(LED_EMERGENCY);
         triggerAlert(1500);
+        emergencyBuzzerActive = true;  // Persistent buzz — touch to dismiss
         sendFlatOrientationAlert();
       }
 
