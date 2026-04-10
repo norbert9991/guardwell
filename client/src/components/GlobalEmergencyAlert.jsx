@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { AlertTriangle, User, Radio, Clock, CheckCircle, Phone, Shield, Mic, Loader2, Smartphone, MapPin, Volume2, VolumeX } from 'lucide-react';
+import { AlertTriangle, User, Radio, Clock, CheckCircle, Phone, Shield, Mic, Loader2, Smartphone, MapPin, Volume2, VolumeX, History } from 'lucide-react';
 import { Button } from './ui/Button';
 import { useSocket } from '../context/SocketContext';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { alertsApi } from '../utils/api';
+import { alertsApi, sensorsApi } from '../utils/api';
 
 const STORAGE_KEY = 'guardwell_global_emergency_enabled';
 
@@ -22,6 +22,9 @@ export const GlobalEmergencyAlert = () => {
     const [alarmMuted, setAlarmMuted] = useState(false);
     const navigate = useNavigate();
 
+    // Last known GPS coordinates fetched from sensor history (database)
+    const [lastKnownGPS, setLastKnownGPS] = useState({}); // { deviceId: { latitude, longitude, timestamp } }
+
     // Read toggle from localStorage (defaults to enabled)
     const [overlayEnabled, setOverlayEnabled] = useState(() => {
         const stored = localStorage.getItem(STORAGE_KEY);
@@ -37,6 +40,43 @@ export const GlobalEmergencyAlert = () => {
         window.addEventListener('storage', handleStorageChange);
         return () => window.removeEventListener('storage', handleStorageChange);
     }, []);
+
+    // Fetch last known GPS from sensor history for devices that don't have a live GPS fix
+    useEffect(() => {
+        if (!hasActiveEmergency) return;
+
+        const unacknowledged = emergencyAlerts.filter(e => !e.acknowledged);
+        const devicesNeedingGPS = unacknowledged.filter(
+            e => !(e.gps_valid && e.latitude && e.longitude)
+        );
+
+        devicesNeedingGPS.forEach(async (emergency) => {
+            const deviceId = emergency.device || emergency.device_id;
+            if (!deviceId || lastKnownGPS[deviceId]) return; // already fetched
+
+            try {
+                const response = await sensorsApi.getHistory(deviceId, 50);
+                const history = response.data || [];
+                // Find the most recent record with a valid GPS fix
+                const withGPS = history.find(
+                    r => r.gpsValid && r.latitude != null && r.longitude != null &&
+                         !(parseFloat(r.latitude) === 0 && parseFloat(r.longitude) === 0)
+                );
+                if (withGPS) {
+                    setLastKnownGPS(prev => ({
+                        ...prev,
+                        [deviceId]: {
+                            latitude: parseFloat(withGPS.latitude),
+                            longitude: parseFloat(withGPS.longitude),
+                            timestamp: withGPS.createdAt
+                        }
+                    }));
+                }
+            } catch (err) {
+                console.error(`Failed to fetch GPS history for ${deviceId}:`, err);
+            }
+        });
+    }, [emergencyAlerts, hasActiveEmergency, lastKnownGPS]);
 
     // Toggle alarm mute
     const handleToggleMute = () => {
@@ -156,7 +196,7 @@ export const GlobalEmergencyAlert = () => {
         }
     };
 
-    const handleAcknowledgeAndTrack = async (emergency) => {
+    const handleAcknowledgeAndTrack = async (emergency, gpsSource = 'live') => {
         await handleAcknowledge(emergency);
         // Navigate to Live Monitoring in MAP mode, focused on this device
         const deviceId = emergency.device || emergency.device_id;
@@ -205,6 +245,16 @@ export const GlobalEmergencyAlert = () => {
                         const category = getAlertCategory(emergency.type);
                         const styles = categoryStyles[category];
                         const description = getAlertDescription(emergency, category);
+                        const deviceId = emergency.device || emergency.device_id;
+
+                        // Determine GPS: prefer live fix, fall back to last known from DB
+                        const hasLiveGPS = emergency.gps_valid && emergency.latitude && emergency.longitude;
+                        const historicalGPS = !hasLiveGPS ? lastKnownGPS[deviceId] : null;
+                        const hasAnyGPS = hasLiveGPS || !!historicalGPS;
+
+                        // Resolved coords (live or historical)
+                        const resolvedLat = hasLiveGPS ? emergency.latitude : historicalGPS?.latitude;
+                        const resolvedLng = hasLiveGPS ? emergency.longitude : historicalGPS?.longitude;
 
                         return (
                             <div
@@ -244,16 +294,17 @@ export const GlobalEmergencyAlert = () => {
                                                     <Clock size={14} />
                                                     {new Date(emergency.timestamp).toLocaleTimeString()}
                                                 </span>
-                                                {/* Show GPS location if available */}
-                                                {emergency.gps_valid && emergency.latitude && emergency.longitude && (
+                                                {/* Show GPS location if available (live or last known) */}
+                                                {hasAnyGPS && (
                                                     <a
-                                                        href={`https://www.google.com/maps?q=${emergency.latitude},${emergency.longitude}`}
+                                                        href={`https://www.google.com/maps?q=${resolvedLat},${resolvedLng}`}
                                                         target="_blank"
                                                         rel="noopener noreferrer"
                                                         className="flex items-center gap-1.5 bg-black/30 px-2 py-1 rounded text-[#00E5FF] hover:text-white transition-colors"
                                                     >
                                                         <MapPin size={14} />
-                                                        {emergency.latitude.toFixed(5)}, {emergency.longitude.toFixed(5)}
+                                                        {parseFloat(resolvedLat).toFixed(5)}, {parseFloat(resolvedLng).toFixed(5)}
+                                                        {!hasLiveGPS && <span className="text-yellow-400 text-xs ml-1">(last known)</span>}
                                                     </a>
                                                 )}
                                             </div>
@@ -284,27 +335,42 @@ export const GlobalEmergencyAlert = () => {
                                             Acknowledge &amp; Monitor
                                         </Button>
                                     </div>
-                                    {/* Row 2: GPS Track button — shown only if GPS coords are attached */}
-                                    {emergency.gps_valid && emergency.latitude && emergency.longitude ? (
+                                    {/* Row 2: GPS Track button — uses live GPS or last known location from DB */}
+                                    {hasAnyGPS ? (
                                         <button
-                                            onClick={() => handleAcknowledgeAndTrack(emergency)}
+                                            onClick={() => handleAcknowledgeAndTrack(emergency, hasLiveGPS ? 'live' : 'history')}
                                             disabled={loading[emergency.id]}
-                                            className="w-full flex items-center justify-center gap-2 py-3 rounded-lg font-semibold text-base
-                                                       bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700
-                                                       text-white transition-all duration-200 shadow-md shadow-emerald-900/40
-                                                       disabled:opacity-50 disabled:cursor-not-allowed"
+                                            className={`w-full flex items-center justify-center gap-2 py-3 rounded-lg font-semibold text-base
+                                                       ${hasLiveGPS
+                                                           ? 'bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700'
+                                                           : 'bg-amber-600 hover:bg-amber-500 active:bg-amber-700'
+                                                       }
+                                                       text-white transition-all duration-200 shadow-md
+                                                       disabled:opacity-50 disabled:cursor-not-allowed`}
                                         >
-                                            <MapPin size={18} />
-                                            📍 Acknowledge &amp; Track Location on Map
-                                            <span className="text-emerald-200 text-sm font-normal ml-1">
-                                                ({parseFloat(emergency.latitude).toFixed(4)}, {parseFloat(emergency.longitude).toFixed(4)})
-                                            </span>
+                                            {hasLiveGPS ? (
+                                                <>
+                                                    <MapPin size={18} />
+                                                    📍 Acknowledge &amp; Track Location on Map
+                                                    <span className="text-emerald-200 text-sm font-normal ml-1">
+                                                        ({parseFloat(resolvedLat).toFixed(4)}, {parseFloat(resolvedLng).toFixed(4)})
+                                                    </span>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <History size={18} />
+                                                    📍 Acknowledge &amp; Track Last Known Location
+                                                    <span className="text-amber-200 text-sm font-normal ml-1">
+                                                        ({parseFloat(resolvedLat).toFixed(4)}, {parseFloat(resolvedLng).toFixed(4)})
+                                                    </span>
+                                                </>
+                                            )}
                                         </button>
                                     ) : (
                                         <div className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm
                                                         border border-gray-700 bg-gray-800/50 text-gray-500 cursor-not-allowed">
                                             <MapPin size={14} />
-                                            No GPS fix available for this device
+                                            No GPS location history available for this device
                                         </div>
                                     )}
                                 </div>
@@ -335,3 +401,4 @@ export const GlobalEmergencyAlert = () => {
         </div>
     );
 };
+
