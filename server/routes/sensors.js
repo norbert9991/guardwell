@@ -857,6 +857,93 @@ const startNudgeExpiryTimer = (io) => {
 // Each device polls this; if an emergency was triggered
 // by another device, it receives a buzzer command
 // ============================================
+
+// GET /api/sensors/emergency-buzzer/active
+// Dashboard polls this to show which devices are currently buzzing.
+// Returns an array of all active buzzer entries.
+router.get('/emergency-buzzer/active', (req, res) => {
+    const activeBuzzers = [];
+    for (const [deviceId, data] of Object.entries(pendingEmergencyBuzzer)) {
+        if (data && data.buzzer) {
+            activeBuzzers.push({
+                deviceId,
+                sourceDevice: data.sourceDevice,
+                workerName: data.workerName,
+                type: data.type,
+                timestamp: data.timestamp
+            });
+        }
+    }
+    res.json({ activeBuzzers });
+});
+
+// POST /api/sensors/emergency-buzzer/dismiss-all
+// Called from the web dashboard to stop ALL active buzzers (operator override).
+router.post('/emergency-buzzer/dismiss-all', (req, res) => {
+    const clearedDevices = Object.keys(pendingEmergencyBuzzer);
+    const count = clearedDevices.length;
+
+    // Clear all entries
+    for (const devId of clearedDevices) {
+        delete pendingEmergencyBuzzer[devId];
+    }
+
+    console.log(`✅ All emergency buzzers DISMISSED from dashboard (${count} devices: ${clearedDevices.join(', ')})`);
+
+    // Notify dashboard
+    if (req.io) {
+        req.io.emit('emergency_buzzer_acknowledged', {
+            deviceId: 'ALL',
+            sourceDevice: 'dashboard',
+            workerName: 'Operator',
+            alertType: 'Dashboard Dismiss',
+            clearedDevices,
+            timestamp: new Date().toISOString()
+        });
+    }
+
+    res.json({ success: true, cleared: count, clearedDevices });
+});
+
+// POST /api/sensors/emergency-buzzer/:deviceId/dismiss
+// Called from the web dashboard to stop a SINGLE device's buzzer.
+// Also clears all devices with the same sourceDevice (same as touch ACK).
+router.post('/emergency-buzzer/:deviceId/dismiss', (req, res) => {
+    const { deviceId } = req.params;
+
+    if (pendingEmergencyBuzzer[deviceId]) {
+        const data = pendingEmergencyBuzzer[deviceId];
+        const sourceDevice = data.sourceDevice;
+
+        // Clear ALL pending buzzers that share the same sourceDevice
+        const clearedDevices = [];
+        for (const [devId, buzzerData] of Object.entries(pendingEmergencyBuzzer)) {
+            if (buzzerData.sourceDevice === sourceDevice) {
+                clearedDevices.push(devId);
+                delete pendingEmergencyBuzzer[devId];
+            }
+        }
+
+        console.log(`✅ Emergency buzzer DISMISSED from dashboard for source ${sourceDevice} (cleared: ${clearedDevices.join(', ')})`);
+
+        // Notify dashboard
+        if (req.io) {
+            req.io.emit('emergency_buzzer_acknowledged', {
+                deviceId,
+                sourceDevice,
+                workerName: data.workerName,
+                alertType: data.type,
+                clearedDevices,
+                timestamp: new Date().toISOString()
+            });
+        }
+
+        res.json({ success: true, clearedDevices });
+    } else {
+        res.json({ success: true, clearedDevices: [] });
+    }
+});
+
 // GET /api/sensors/emergency-buzzer/:deviceId
 // ESP32 polls this every 2s. Returns buzzer:true as long as emergency is active.
 // Does NOT delete the entry — only the touch ACK endpoint clears it.

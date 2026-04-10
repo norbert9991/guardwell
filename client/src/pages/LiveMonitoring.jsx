@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Activity, Thermometer, Signal, User, Shield, Radio, AlertTriangle, CheckCircle, X, Eye, Clock, Bell, ShieldCheck, Mic, Map, Grid, MapPin, Globe, Layers, Navigation2, Smartphone, Satellite } from 'lucide-react';
+import { Activity, Thermometer, Signal, User, Shield, Radio, AlertTriangle, CheckCircle, X, Eye, Clock, Bell, ShieldCheck, Mic, Map, Grid, MapPin, Globe, Layers, Navigation2, Smartphone, Satellite, Volume2, VolumeX } from 'lucide-react';
 import { CardDark, CardBody } from '../components/ui/Card';
 import { MetricCard } from '../components/ui/MetricCard';
 import { Badge } from '../components/ui/Badge';
@@ -32,6 +32,8 @@ export const LiveMonitoring = () => {
     const [focusDeviceId, setFocusDeviceId] = useState(null); // device to fly to on map
     const [fitAllTrigger, setFitAllTrigger] = useState(0); // increment to trigger fit-all
     const [gpsLocationLogs, setGpsLocationLogs] = useState({}); // { deviceId: [{ lat, lng, satellites, speed, geofence, timestamp }] }
+    const [activeBuzzers, setActiveBuzzers] = useState([]);       // Active emergency buzzers from server
+    const [dismissingBuzzer, setDismissingBuzzer] = useState({}); // { deviceId: true } — loading state for dismiss
     const toast = useToast();
 
     // ── Deep-link support: ?view=map&focus=DEV-001 ──────────────────
@@ -373,6 +375,78 @@ export const LiveMonitoring = () => {
         };
     }, [socket]);
 
+    // Poll for active emergency buzzers
+    useEffect(() => {
+        const fetchActiveBuzzers = async () => {
+            try {
+                const response = await sensorsApi.getActiveBuzzers();
+                setActiveBuzzers(response.data.activeBuzzers || []);
+            } catch (error) {
+                // Silently fail — non-critical polling
+            }
+        };
+
+        fetchActiveBuzzers();
+        const interval = setInterval(fetchActiveBuzzers, 3000); // Poll every 3 seconds
+        return () => clearInterval(interval);
+    }, []);
+
+    // Listen for buzzer acknowledgment events (real-time updates)
+    useEffect(() => {
+        if (!socket) return;
+
+        const handleBuzzerAck = (data) => {
+            // Remove cleared devices from active buzzers
+            if (data.clearedDevices && data.clearedDevices.length > 0) {
+                setActiveBuzzers(prev => prev.filter(b => !data.clearedDevices.includes(b.deviceId)));
+            } else if (data.deviceId === 'ALL') {
+                setActiveBuzzers([]);
+            }
+        };
+
+        socket.on('emergency_buzzer_acknowledged', handleBuzzerAck);
+        return () => socket.off('emergency_buzzer_acknowledged', handleBuzzerAck);
+    }, [socket]);
+
+    // Dismiss a single buzzer group (by source) from the dashboard
+    const handleDismissBuzzer = async (deviceId, workerName) => {
+        try {
+            setDismissingBuzzer(prev => ({ ...prev, [deviceId]: true }));
+            const response = await sensorsApi.dismissBuzzer(deviceId);
+            const cleared = response.data.clearedDevices || [];
+            setActiveBuzzers(prev => prev.filter(b => !cleared.includes(b.deviceId)));
+            toast.success(`Buzzer stopped for ${workerName || deviceId} (${cleared.length} device${cleared.length > 1 ? 's' : ''} cleared)`);
+        } catch (error) {
+            console.error('Failed to dismiss buzzer:', error);
+            toast.error('Failed to stop buzzer. Please try again.');
+        } finally {
+            setDismissingBuzzer(prev => {
+                const updated = { ...prev };
+                delete updated[deviceId];
+                return updated;
+            });
+        }
+    };
+
+    // Dismiss ALL active buzzers from the dashboard
+    const handleDismissAllBuzzers = async () => {
+        try {
+            setDismissingBuzzer(prev => ({ ...prev, _all: true }));
+            const response = await sensorsApi.dismissAllBuzzers();
+            setActiveBuzzers([]);
+            toast.success(`All buzzers stopped (${response.data.cleared} device${response.data.cleared > 1 ? 's' : ''} cleared)`);
+        } catch (error) {
+            console.error('Failed to dismiss all buzzers:', error);
+            toast.error('Failed to stop all buzzers. Please try again.');
+        } finally {
+            setDismissingBuzzer(prev => {
+                const updated = { ...prev };
+                delete updated._all;
+                return updated;
+            });
+        }
+    };
+
     // Capture GPS fixes into session log per device
     useEffect(() => {
         Object.entries(sensorData).forEach(([deviceId, data]) => {
@@ -502,6 +576,82 @@ export const LiveMonitoring = () => {
                                 </div>
                             </div>
                         ))}
+                    </div>
+                </div>
+            )}
+
+            {/* Active Emergency Buzzers Panel */}
+            {activeBuzzers.length > 0 && (
+                <div className="bg-gradient-to-r from-red-50 to-orange-50 border-2 border-red-300 rounded-xl p-4 shadow-md animate-in">
+                    <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-red-500 rounded-xl flex items-center justify-center shadow-lg animate-pulse">
+                                <Volume2 size={22} className="text-white" />
+                            </div>
+                            <div>
+                                <h3 className="font-bold text-red-900 text-base">Active Emergency Buzzers</h3>
+                                <p className="text-xs text-red-600">
+                                    {activeBuzzers.length} device{activeBuzzers.length > 1 ? 's' : ''} currently buzzing — dismiss from here or via device touch sensor
+                                </p>
+                            </div>
+                        </div>
+                        <button
+                            onClick={handleDismissAllBuzzers}
+                            disabled={!!dismissingBuzzer._all}
+                            className="flex items-center gap-2 px-4 py-2.5 rounded-lg font-semibold text-sm transition-all bg-red-600 text-white hover:bg-red-700 active:scale-95 disabled:opacity-50 shadow-md"
+                        >
+                            <VolumeX size={16} />
+                            {dismissingBuzzer._all ? 'Stopping...' : 'Stop All Buzzers'}
+                        </button>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                        {/* Group buzzers by sourceDevice */}
+                        {(() => {
+                            const groups = {};
+                            activeBuzzers.forEach(b => {
+                                const key = b.sourceDevice;
+                                if (!groups[key]) {
+                                    groups[key] = { sourceDevice: b.sourceDevice, workerName: b.workerName, type: b.type, timestamp: b.timestamp, devices: [] };
+                                }
+                                groups[key].devices.push(b.deviceId);
+                            });
+                            return Object.values(groups).map(group => (
+                                <div key={group.sourceDevice} className="bg-white/80 rounded-lg p-3 border border-red-200 shadow-sm">
+                                    <div className="flex items-start justify-between mb-2">
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse" />
+                                            <span className="text-sm font-bold text-red-800">{group.workerName}</span>
+                                        </div>
+                                        <span className="text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-700 font-medium">
+                                            {group.type}
+                                        </span>
+                                    </div>
+                                    <div className="text-xs text-[#4B5563] mb-2">
+                                        <span className="font-medium">Source:</span> {group.sourceDevice}
+                                    </div>
+                                    <div className="flex flex-wrap gap-1 mb-3">
+                                        {group.devices.map(devId => (
+                                            <span key={devId} className="text-xs px-2 py-1 rounded-md bg-red-50 border border-red-200 text-red-700 font-mono">
+                                                🔔 {devId}
+                                            </span>
+                                        ))}
+                                    </div>
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-xs text-[#9CA3AF]">
+                                            Since {new Date(group.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                                        </span>
+                                        <button
+                                            onClick={() => handleDismissBuzzer(group.devices[0], group.workerName)}
+                                            disabled={group.devices.some(d => dismissingBuzzer[d])}
+                                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all bg-red-500 text-white hover:bg-red-600 active:scale-95 disabled:opacity-50"
+                                        >
+                                            <VolumeX size={13} />
+                                            {group.devices.some(d => dismissingBuzzer[d]) ? 'Stopping...' : 'Stop Buzzer'}
+                                        </button>
+                                    </div>
+                                </div>
+                            ));
+                        })()}
                     </div>
                 </div>
             )}
