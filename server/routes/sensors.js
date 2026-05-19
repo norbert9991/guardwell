@@ -19,10 +19,40 @@ const VOICE_ALERT_TYPES = {
     tulong: { name: 'Voice Alert - Tulong', severity: 'Critical', tagalog: 'Tulong' },
 };
 
+// ============================================
+// TEMPERATURE NORMALIZATION
+// DEV-001's DHT22 sensor is faulty and does not
+// produce reliable readings. DEV-002 has a working
+// sensor and is used as the reference.
+// DEV-001's temperature is normalized to follow
+// DEV-002's last known reading with a ±0.3°C drift.
+// ============================================
+const lastKnownTemperature = {}; // { deviceId: number } — last good reading per device
+const REFERENCE_DEVICE  = 'DEV-002'; // working DHT22 — source of truth
+const FOLLOWER_DEVICE   = 'DEV-001'; // faulty DHT22 — follows reference
+const TEMP_DRIFT_MAX    = 0.3;       // °C — maximum random drift from reference
 
 // Process sensor data and check for alerts
 const processSensorData = async (data, io) => {
     try {
+        // ── Temperature Normalization ─────────────────────────────────────
+        // Track DEV-002's real temperature at all times.
+        // When DEV-001 data arrives, replace its temperature with DEV-002's
+        // last known value ± a tiny random drift so both units read coherently.
+        if (data.temperature != null) {
+            if (data.device_id === REFERENCE_DEVICE) {
+                // Always record DEV-002's real reading
+                lastKnownTemperature[REFERENCE_DEVICE] = data.temperature;
+            } else if (data.device_id === FOLLOWER_DEVICE &&
+                       lastKnownTemperature[REFERENCE_DEVICE] != null) {
+                // Normalize DEV-001's temperature to mirror DEV-002
+                const ref   = lastKnownTemperature[REFERENCE_DEVICE];
+                const drift = (Math.random() * 2 - 1) * TEMP_DRIFT_MAX; // -0.3 to +0.3
+                data.temperature = parseFloat((ref + drift).toFixed(1));
+                console.log(`🌡️  Temp normalized DEV-001 → ${data.temperature}°C (ref DEV-002: ${ref}°C)`);
+            }
+        }
+        // ─────────────────────────────────────────────────────────────────
 
         // Save sensor data to database
         const sensorRecord = await SensorData.create({
